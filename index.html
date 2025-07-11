@@ -597,58 +597,6 @@
                 });
             }
             
-            // // Apply velocity damping to reduce drift
-            // wormSegments.forEach(segment => {
-            //     // More aggressive velocity damping
-            //     const velocityThreshold = 0.5;
-            //     const dampingFactor = 0.95;
-            //     
-            //     // Damp linear velocity
-            //     if (Math.abs(segment.velocity.x) < velocityThreshold && Math.abs(segment.velocity.y) < velocityThreshold) {
-            //         Body.setVelocity(segment, { 
-            //             x: segment.velocity.x * dampingFactor, 
-            //             y: segment.velocity.y * dampingFactor 
-            //         });
-            //     }
-            //     
-            //     // Extra damping when velocity is very low (to stop completely)
-            //     if (Math.abs(segment.velocity.x) < 0.05 && Math.abs(segment.velocity.y) < 0.05) {
-            //         Body.setVelocity(segment, { 
-            //             x: segment.velocity.x * 0.8, 
-            //             y: segment.velocity.y * 0.8 
-            //         });
-            //     }
-            //     
-            //     // Damp angular velocity
-            //     const angularThreshold = 0.1;
-            //     if (Math.abs(segment.angularVelocity) < angularThreshold) {
-            //         Body.setAngularVelocity(segment, segment.angularVelocity * 0.85);
-            //     }
-            //     
-            //     // Apply position-based stabilization when folded
-            //     // Check if segment is overlapping with non-adjacent segments
-            //     let isOverlapping = false;
-            //     for (let j = 0; j < wormSegments.length; j++) {
-            //         const other = wormSegments[j];
-            //         if (Math.abs(wormSegments.indexOf(segment) - j) > 2) { // Non-adjacent segments
-            //             const distance = Vector.magnitude(Vector.sub(segment.position, other.position));
-            //             if (distance < particleRadius * 3) {
-            //                 isOverlapping = true;
-            //                 break;
-            //             }
-            //         }
-            //     }
-            //     
-            //     // Apply extra damping when overlapping (folded)
-            //     if (isOverlapping && !keys[' ']) { // Don't apply during straightening
-            //         Body.setVelocity(segment, { 
-            //             x: segment.velocity.x * 0.7, 
-            //             y: segment.velocity.y * 0.7 
-            //         });
-            //         Body.setAngularVelocity(segment, segment.angularVelocity * 0.7);
-            //     }
-            // });
-            
             const numSegmentsToMove = Math.min(physicsParams.numSegmentsToMove, wormRows);
             const headSegments = wormSegments.slice(-numSegmentsToMove);
             const force = physicsParams.movementForce;
