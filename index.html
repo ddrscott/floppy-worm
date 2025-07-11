@@ -71,8 +71,8 @@
             
             // Straightening mechanics
             straightenForce: -0.01,  // Linear force strength
-            straightenDamping: 0.98,  // Angular damping to prevent spinning (closer to 1 = more damping)
-            contractionForce: 0.1  // Muscle contraction force
+            straightenDamping: 0.9,  // Angular damping to prevent spinning (closer to 1 = more damping)
+            contractionForce: 0.2  // Muscle contraction force
         };
         // Particle options for worm segments - default for body
         const particleOptions = {
@@ -566,7 +566,7 @@
                     const angleDiff = Math.atan2(cross, dot);
                     
                     // Proportional control: apply force based on angle difference
-                    const kp = 0.5; // Proportional gain (0-1, lower = less overshoot)
+                    const kp = 0.1; // Proportional gain (0-1, lower = less overshoot)
                     // Scale force based on distance from head (stronger near head, weaker at tail)
                     const distanceFromHead = (wormSegments.length - 1 - i) / wormSegments.length;
                     const forceMagnitude = physicsParams.straightenForce * Math.sin(angleDiff) * kp * (1 - distanceFromHead * 0.5);
