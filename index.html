@@ -40,6 +40,56 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
     <script>
+        const physicsParams = {
+            // Movement
+            movementForce: 0.003,
+            upwardForce: 0.002,
+            numSegmentsToMove: 3,
+            torqueAmount: 0.12,
+            
+            // Tail physics
+            tailFriction: 1,
+            tailStaticFriction: 0.95,
+            tailSegments: 3,
+            
+            // Head physics
+            headDensity: 0.005,
+            
+            // Body physics
+            bodyDensity: 0.005,
+            bodyFriction: 0.95,
+            bodyStaticFriction: 0.95,
+            bodyAirFriction: 0.0,  // Increased to reduce drift
+            
+            // Constraints
+            constraintStiffness: 0.8,  // Increased from 0.3 for stiffer joints
+            constraintDamping: 0.2,    // Slightly increased damping
+            compressStiffness: 0.95,   // Slightly higher compress stiffness
+            
+            // Mass gradient
+            massGradientMultiplier: 0.5,
+            
+            // Straightening mechanics
+            straightenForce: -0.01,  // Linear force strength
+            straightenDamping: 0.98,  // Angular damping to prevent spinning (closer to 1 = more damping)
+            contractionForce: 0.1  // Muscle contraction force
+        };
+        // Particle options for worm segments - default for body
+        const particleOptions = {
+            density: physicsParams.bodyDensity,  // Use GUI value
+            friction: physicsParams.bodyFriction,  // Use GUI value
+            frictionStatic: physicsParams.bodyStaticFriction,  // Use GUI value
+            //frictionAir: physicsParams.bodyAirFriction,  // Use GUI value
+            restitution: 0.00,  // Very low bounce to prevent energy gain
+            slop: 0.0,  // Reduce position correction slop
+            render: {
+                fillStyle: '#95e1d3',
+                strokeStyle: '#6bc5b8',
+                lineWidth: 1,
+                visible: true
+            }
+        };
+
         // Matter.js modules
         const Engine = Matter.Engine,
               Render = Matter.Render,
@@ -95,62 +145,12 @@
         const runner = Runner.create();
 
         // Physics parameters for dat.GUI
-        const physicsParams = {
-            // Movement
-            movementForce: 0.003,
-            upwardForce: 0.003,
-            numSegmentsToMove: 2,
-            torqueAmount: 0.2,
-            
-            // Tail physics
-            tailFriction: 0.9,
-            tailStaticFriction: 0.95,
-            tailSegments: 3,
-            
-            // Head physics
-            headDensity: 0.0005,
-            
-            // Body physics
-            bodyDensity: 0.003,
-            bodyFriction: 0.2,
-            bodyStaticFriction: 0.5,
-            bodyAirFriction: 0.04,  // Increased to reduce drift
-            
-            // Constraints
-            constraintStiffness: 0.8,  // Increased from 0.3 for stiffer joints
-            constraintDamping: 0.1,    // Slightly increased damping
-            compressStiffness: 0.95,   // Slightly higher compress stiffness
-            
-            // Mass gradient
-            massGradientMultiplier: 0.2,
-            
-            // Straightening mechanics
-            straightenForce: 0.005,  // Linear force strength
-            straightenDamping: 0.98,  // Angular damping to prevent spinning (closer to 1 = more damping)
-            contractionForce: 0.06  // Muscle contraction force
-        };
-
         // Worm parameters
         const wormRows = 13;     // Number of segments
         const particleRadius = 10;
         const startX = window.innerWidth / 2;
-        const startY = window.innerHeight - 350;  // Start position higher from ground
+        const startY = window.innerHeight - 450;  // Start position higher from ground
 
-        // Particle options for worm segments - default for body
-        const particleOptions = {
-            density: 0.001,  // Light body segments
-            friction: 0.01,  // Reduced friction for easier sliding
-            frictionStatic: 0.05,  // Reduced static friction
-            frictionAir: physicsParams.bodyAirFriction,  // Use GUI value
-            restitution: 0.02,  // Very low bounce to prevent energy gain
-            slop: 0.01,  // Reduce position correction slop
-            render: {
-                fillStyle: '#95e1d3',
-                strokeStyle: '#6bc5b8',
-                lineWidth: 1,
-                visible: true
-            }
-        };
 
         // Constraint options
         const baseStiffness = physicsParams.constraintStiffness;  // Use GUI value
@@ -192,10 +192,10 @@
         for (let i = 0; i < tailSegments; i++) {
             wormBodies[i].render.fillStyle = '#4ecdc4';
             wormBodies[i].render.strokeStyle = '#2ca89a';
-            wormBodies[i].friction = 0.9;  // Very high friction for grip
-            wormBodies[i].frictionStatic = 0.95;  // Very high static friction
+            wormBodies[i].friction = physicsParams.bodyFriction;  // High friction
+            wormBodies[i].frictionStatic = physicsParams.bodyStaticFriction;  // High static friction
             // Keep same density as body - no extra weight
-            Body.setDensity(wormBodies[i], physicsParams.bodyDensity);
+            Body.setDensity(wormBodies[i], physicsParams.bodyDensity * 1.1);
         }
 
         // Add worm to world
@@ -211,6 +211,8 @@
         
         const ground = Bodies.rectangle(window.innerWidth / 2, window.innerHeight - 25, window.innerWidth + wallThickness * 2, 50, {
             isStatic: true,
+            friction: 1,  // Some friction but not too much
+            restitution: 0.0,
             render: {
                 fillStyle: '#2d3436'
             }
@@ -281,24 +283,7 @@
             }
         }));
         
-        // Add visual markers (pillars) under some platforms
-        const pillar1 = Bodies.rectangle(200, window.innerHeight - 75, 10, 100, {
-            isStatic: true,
-            render: {
-                fillStyle: '#636e72',
-                opacity: 0.5
-            }
-        });
-        
-        const pillar2 = Bodies.rectangle(window.innerWidth - 200, window.innerHeight - 175, 10, 300, {
-            isStatic: true,
-            render: {
-                fillStyle: '#636e72',
-                opacity: 0.5
-            }
-        });
-
-        Composite.add(world, [ground, leftWall, rightWall, ...platforms, pillar1, pillar2]);
+        Composite.add(world, [ground, leftWall, rightWall, ...platforms]);
 
         // Mouse control
         const mouse = Mouse.create(render.canvas);
@@ -374,6 +359,7 @@
 
         // Create dat.GUI
         const gui = new dat.GUI();
+        gui.hide();
         
         // Movement folder
         const movementFolder = gui.addFolder('Movement');
@@ -424,11 +410,11 @@
                 wormSegments[i].friction = value;
             }
         });
-        bodyFolder.add(physicsParams, 'bodyAirFriction', 0, 0.1).step(0.001).onChange(value => {
-            wormSegments.forEach(segment => {
-                segment.frictionAir = value;
-            });
-        });
+        //bodyFolder.add(physicsParams, 'bodyAirFriction', 0, 0.1).step(0.001).onChange(value => {
+        //    wormSegments.forEach(segment => {
+        //        segment.frictionAir = value;
+        //    });
+        //});
         
         // Constraints folder
         const constraintsFolder = gui.addFolder('Constraints');
@@ -611,66 +597,64 @@
                 });
             }
             
-            // Apply velocity damping to reduce drift
-            wormSegments.forEach(segment => {
-                // More aggressive velocity damping
-                const velocityThreshold = 0.5;
-                const dampingFactor = 0.95;
-                
-                // Damp linear velocity
-                if (Math.abs(segment.velocity.x) < velocityThreshold && Math.abs(segment.velocity.y) < velocityThreshold) {
-                    Body.setVelocity(segment, { 
-                        x: segment.velocity.x * dampingFactor, 
-                        y: segment.velocity.y * dampingFactor 
-                    });
-                }
-                
-                // Extra damping when velocity is very low (to stop completely)
-                if (Math.abs(segment.velocity.x) < 0.05 && Math.abs(segment.velocity.y) < 0.05) {
-                    Body.setVelocity(segment, { 
-                        x: segment.velocity.x * 0.8, 
-                        y: segment.velocity.y * 0.8 
-                    });
-                }
-                
-                // Damp angular velocity
-                const angularThreshold = 0.1;
-                if (Math.abs(segment.angularVelocity) < angularThreshold) {
-                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.85);
-                }
-                
-                // Apply position-based stabilization when folded
-                // Check if segment is overlapping with non-adjacent segments
-                let isOverlapping = false;
-                for (let j = 0; j < wormSegments.length; j++) {
-                    const other = wormSegments[j];
-                    if (Math.abs(wormSegments.indexOf(segment) - j) > 2) { // Non-adjacent segments
-                        const distance = Vector.magnitude(Vector.sub(segment.position, other.position));
-                        if (distance < particleRadius * 3) {
-                            isOverlapping = true;
-                            break;
-                        }
-                    }
-                }
-                
-                // Apply extra damping when overlapping (folded)
-                if (isOverlapping && !keys[' ']) { // Don't apply during straightening
-                    Body.setVelocity(segment, { 
-                        x: segment.velocity.x * 0.7, 
-                        y: segment.velocity.y * 0.7 
-                    });
-                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.7);
-                }
-            });
+            // // Apply velocity damping to reduce drift
+            // wormSegments.forEach(segment => {
+            //     // More aggressive velocity damping
+            //     const velocityThreshold = 0.5;
+            //     const dampingFactor = 0.95;
+            //     
+            //     // Damp linear velocity
+            //     if (Math.abs(segment.velocity.x) < velocityThreshold && Math.abs(segment.velocity.y) < velocityThreshold) {
+            //         Body.setVelocity(segment, { 
+            //             x: segment.velocity.x * dampingFactor, 
+            //             y: segment.velocity.y * dampingFactor 
+            //         });
+            //     }
+            //     
+            //     // Extra damping when velocity is very low (to stop completely)
+            //     if (Math.abs(segment.velocity.x) < 0.05 && Math.abs(segment.velocity.y) < 0.05) {
+            //         Body.setVelocity(segment, { 
+            //             x: segment.velocity.x * 0.8, 
+            //             y: segment.velocity.y * 0.8 
+            //         });
+            //     }
+            //     
+            //     // Damp angular velocity
+            //     const angularThreshold = 0.1;
+            //     if (Math.abs(segment.angularVelocity) < angularThreshold) {
+            //         Body.setAngularVelocity(segment, segment.angularVelocity * 0.85);
+            //     }
+            //     
+            //     // Apply position-based stabilization when folded
+            //     // Check if segment is overlapping with non-adjacent segments
+            //     let isOverlapping = false;
+            //     for (let j = 0; j < wormSegments.length; j++) {
+            //         const other = wormSegments[j];
+            //         if (Math.abs(wormSegments.indexOf(segment) - j) > 2) { // Non-adjacent segments
+            //             const distance = Vector.magnitude(Vector.sub(segment.position, other.position));
+            //             if (distance < particleRadius * 3) {
+            //                 isOverlapping = true;
+            //                 break;
+            //             }
+            //         }
+            //     }
+            //     
+            //     // Apply extra damping when overlapping (folded)
+            //     if (isOverlapping && !keys[' ']) { // Don't apply during straightening
+            //         Body.setVelocity(segment, { 
+            //             x: segment.velocity.x * 0.7, 
+            //             y: segment.velocity.y * 0.7 
+            //         });
+            //         Body.setAngularVelocity(segment, segment.angularVelocity * 0.7);
+            //     }
+            // });
             
             const numSegmentsToMove = Math.min(physicsParams.numSegmentsToMove, wormRows);
             const headSegments = wormSegments.slice(-numSegmentsToMove);
             const force = physicsParams.movementForce;
             
-            if (keys['ArrowLeft']) {
-                // Bend the head to point left (-90 degrees from vertical)
-                const targetAngle = -Math.PI / 2; // -90 degrees (pointing left)
-                
+            // Shared function for bending worm in a direction
+            const bendWormToDirection = (targetAngle, forceVector, kp = 1) => {
                 for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
                     const segment = wormSegments[i];
                     
@@ -683,78 +667,29 @@
                     while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
                     
                     // Apply proportional torque to reach target angle
-                    const kp = 0.3; // Proportional gain
                     const torque = angleDiff * physicsParams.torqueAmount * kp;
                     
                     // Fade the effect from head to body
                     const fadeMultiplier = (wormSegments.length - i) / 4;
                     Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
                     
-                    // Small leftward force on head to help movement
-                    if (i === wormSegments.length - 1) {
-                        Body.applyForce(segment, segment.position, { x: -force * 0.5, y: 0 });
+                    // Apply directional force on head to help movement
+                    if (i === wormSegments.length - 1 && forceVector) {
+                        Body.applyForce(segment, segment.position, forceVector);
                     }
                 }
+            };
+            
+            if (keys['ArrowLeft']) {
+                bendWormToDirection(Math.PI / 2, { x: -force, y: 0 }, 1);
             }
             
             if (keys['ArrowRight']) {
-                // Bend the head to point right (90 degrees from vertical)
-                const targetAngle = Math.PI / 2; // 90 degrees (pointing right)
-                
-                for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
-                    const segment = wormSegments[i];
-                    
-                    // Calculate angle difference from target
-                    const currentAngle = segment.angle;
-                    let angleDiff = targetAngle - currentAngle;
-                    
-                    // Normalize angle difference to [-PI, PI]
-                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                    
-                    // Apply proportional torque to reach target angle
-                    const kp = 0.3; // Proportional gain
-                    const torque = angleDiff * physicsParams.torqueAmount * kp;
-                    
-                    // Fade the effect from head to body
-                    const fadeMultiplier = (wormSegments.length - i) / 4;
-                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
-                    
-                    // Small rightward force on head to help movement
-                    if (i === wormSegments.length - 1) {
-                        Body.applyForce(segment, segment.position, { x: force * 0.5, y: 0 });
-                    }
-                }
+                bendWormToDirection(-Math.PI / 2, { x: force, y: 0 }, 1);
             }
             
             if (keys['ArrowUp']) {
-                // Bend the head to point up (0 degrees from horizontal, -PI/2 from vertical)
-                const targetAngle = 0; // 0 degrees (pointing up)
-                
-                for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
-                    const segment = wormSegments[i];
-                    
-                    // Calculate angle difference from target
-                    const currentAngle = segment.angle;
-                    let angleDiff = targetAngle - currentAngle;
-                    
-                    // Normalize angle difference to [-PI, PI]
-                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-                    
-                    // Apply proportional torque to reach target angle
-                    const kp = 0.3; // Proportional gain
-                    const torque = angleDiff * physicsParams.torqueAmount * kp;
-                    
-                    // Fade the effect from head to body
-                    const fadeMultiplier = (wormSegments.length - i) / 4;
-                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
-                    
-                    // Small upward force on head to help lift
-                    if (i === wormSegments.length - 1) {
-                        Body.applyForce(segment, segment.position, { x: 0, y: -physicsParams.upwardForce * 0.5 });
-                    }
-                }
+                bendWormToDirection(Math.PI, { x: 0, y: -physicsParams.upwardForce }, 1);
             }
         });
     </script>
