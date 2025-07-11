@@ -31,8 +31,10 @@
     <div id="info">
         <h3>Worm Flop Physics</h3>
         <p>Arrow Keys: Bend worm left/right<br>
-        Spacebar: Compress (hold) / Release to jump<br>
-        Mouse: Drag worm segments</p>
+        Up Arrow: Lift head upward<br>
+        Spacebar: Hold to straighten like a stick<br>
+        Mouse: Drag worm segments<br>
+        <em>Tip: Coil up, then hold spacebar to launch!</em></p>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -53,20 +55,22 @@
               Vector = Matter.Vector,
               Common = Matter.Common;
 
-        // Soft body creation function adapted from example
-        function createSoftBody(xx, yy, columns, rows, columnGap, rowGap, crossBrace, particleRadius, particleOptions, constraintOptions) {
-            particleOptions = Common.extend({}, particleOptions);  // Removed infinite inertia
-            constraintOptions = Common.extend({ stiffness: 0.2, render: { type: 'line', anchors: false } }, constraintOptions);
+        // Worm creation function using chain structure
+        function createWormChain(xx, yy, segments, segmentRadius, particleOptions, constraintOptions) {
+            particleOptions = Common.extend({}, particleOptions);
+            constraintOptions = Common.extend({ stiffness: 0.8, render: { type: 'line', anchors: false } }, constraintOptions);
 
-            var softBody = Composites.stack(xx, yy, columns, rows, columnGap, rowGap, function(x, y) {
-                return Bodies.circle(x, y, particleRadius, particleOptions);
+            // Create a vertical stack of circles
+            var worm = Composites.stack(xx, yy, 1, segments, 0, 0, function(x, y) {
+                return Bodies.circle(x, y, segmentRadius, particleOptions);
             });
 
-            Composites.mesh(softBody, columns, rows, crossBrace, constraintOptions);
+            // Chain them together like the bridge example
+            Composites.chain(worm, 0, 0.5, 0, -0.5, constraintOptions);
 
-            softBody.label = 'Soft Body Worm';
+            worm.label = 'Worm Chain';
 
-            return softBody;
+            return worm;
         }
 
         // Create engine
@@ -94,13 +98,11 @@
         const physicsParams = {
             // Movement
             movementForce: 0.003,
-            upwardForce: 0.006,
+            upwardForce: 0.003,
             numSegmentsToMove: 2,
-            torqueAmount: 0.01,
+            torqueAmount: 0.2,
             
             // Tail physics
-            tailDensity: 0.002,
-            tailInertiaMultiplier: 10,
             tailFriction: 0.9,
             tailStaticFriction: 0.95,
             tailSegments: 3,
@@ -109,10 +111,10 @@
             headDensity: 0.0005,
             
             // Body physics
-            bodyDensity: 0.01,
-            bodyFriction: 0.1,
+            bodyDensity: 0.003,
+            bodyFriction: 0.2,
             bodyStaticFriction: 0.5,
-            bodyAirFriction: 0.02,  // Increased to reduce drift
+            bodyAirFriction: 0.04,  // Increased to reduce drift
             
             // Constraints
             constraintStiffness: 0.8,  // Increased from 0.3 for stiffer joints
@@ -120,17 +122,18 @@
             compressStiffness: 0.95,   // Slightly higher compress stiffness
             
             // Mass gradient
-            massGradientMultiplier: 0.7
+            massGradientMultiplier: 0.2,
+            
+            // Straightening mechanics
+            straightenForce: 0.005,  // Linear force strength
+            straightenDamping: 0.98,  // Angular damping to prevent spinning (closer to 1 = more damping)
+            contractionForce: 0.06  // Muscle contraction force
         };
 
         // Worm parameters
-        const wormColumns = 1;  // Width of worm (3 segments wide)
-        const wormRows = 13;     // Length of worm (7 segments long)
+        const wormRows = 13;     // Number of segments
         const particleRadius = 10;
-        const columnGap = 0;
-        const rowGap = 0;
-        const crossBrace = false;  // Add diagonal constraints for stability
-        const startX = window.innerWidth / 2 - (wormColumns * particleRadius);
+        const startX = window.innerWidth / 2;
         const startY = window.innerHeight - 350;  // Start position higher from ground
 
         // Particle options for worm segments - default for body
@@ -139,7 +142,8 @@
             friction: 0.01,  // Reduced friction for easier sliding
             frictionStatic: 0.05,  // Reduced static friction
             frictionAir: physicsParams.bodyAirFriction,  // Use GUI value
-            restitution: 0.05,  // Reduced bounce to prevent energy gain
+            restitution: 0.02,  // Very low bounce to prevent energy gain
+            slop: 0.01,  // Reduce position correction slop
             render: {
                 fillStyle: '#95e1d3',
                 strokeStyle: '#6bc5b8',
@@ -163,8 +167,8 @@
             }
         };
 
-        // Create soft body worm
-        const worm = createSoftBody(startX, startY, wormColumns, wormRows, columnGap, rowGap, crossBrace, particleRadius, particleOptions, constraintOptions);
+        // Create worm using chain structure
+        const worm = createWormChain(startX, startY, wormRows, particleRadius, particleOptions, constraintOptions);
         
         // Color the head and tail differently
         const wormBodies = worm.bodies;
@@ -172,26 +176,26 @@
         
         // Apply mass gradient - heavier at the tail
         for (let i = 0; i < numBodies; i++) {
-            const segmentRow = Math.floor(i / wormColumns);
-            const massMultiplier = 1 + (segmentRow * 0.5); // Gradually increase mass toward tail
+            const massMultiplier = 1 + (i * 0.5 / numBodies); // Gradually increase mass toward tail
             Body.setMass(wormBodies[i], wormBodies[i].mass * massMultiplier);
         }
         
-        // Color the top row (head) red - lightweight
-        for (let i = numBodies - wormColumns; i < numBodies; i++) {
-            wormBodies[i].render.fillStyle = '#ff6b6b';
-            wormBodies[i].render.strokeStyle = '#ff4444';
-            Body.setDensity(wormBodies[i], 0.0005); // Very light head
+        // Color the top segment (head) red - lightweight
+        if (numBodies > 0) {
+            wormBodies[numBodies - 1].render.fillStyle = '#ff6b6b';
+            wormBodies[numBodies - 1].render.strokeStyle = '#ff4444';
+            Body.setDensity(wormBodies[numBodies - 1], 0.0005); // Very light head
         }
         
-        // Color the bottom segments (tail) teal - extremely heavy
-        for (let i = 0; i < physicsParams.tailSegments * wormColumns; i++) {
+        // Color the bottom segments (tail) teal - high friction only
+        const tailSegments = Math.min(physicsParams.tailSegments, wormRows);
+        for (let i = 0; i < tailSegments; i++) {
             wormBodies[i].render.fillStyle = '#4ecdc4';
             wormBodies[i].render.strokeStyle = '#2ca89a';
             wormBodies[i].friction = 0.9;  // Very high friction for grip
             wormBodies[i].frictionStatic = 0.95;  // Very high static friction
-            Body.setDensity(wormBodies[i], 0.02); // EXTREMELY heavy tail - 40x heavier than head
-            Body.setInertia(wormBodies[i], wormBodies[i].inertia * 10); // High rotational inertia
+            // Keep same density as body - no extra weight
+            Body.setDensity(wormBodies[i], physicsParams.bodyDensity);
         }
 
         // Add worm to world
@@ -234,7 +238,67 @@
             }
         });
 
-        Composite.add(world, [ground, leftWall, rightWall]);
+        // Create platforms
+        const platforms = [];
+        
+        // Platform 1 - Low platform on the left
+        platforms.push(Bodies.rectangle(200, window.innerHeight - 150, 200, 20, {
+            isStatic: true,
+            render: {
+                fillStyle: '#e17055'
+            }
+        }));
+        
+        // Platform 2 - Medium height in the middle
+        platforms.push(Bodies.rectangle(window.innerWidth / 2, window.innerHeight - 650, 250, 20, {
+            isStatic: true,
+            render: {
+                fillStyle: '#74b9ff'
+            }
+        }));
+        
+        // Platform 3 - High platform on the right
+        platforms.push(Bodies.rectangle(window.innerWidth - 200, window.innerHeight - 350, 200, 20, {
+            isStatic: true,
+            render: {
+                fillStyle: '#a29bfe'
+            }
+        }));
+        
+        // Platform 4 - Floating platform in upper middle
+        platforms.push(Bodies.rectangle(window.innerWidth / 2 - 200, window.innerHeight - 450, 180, 20, {
+            isStatic: true,
+            render: {
+                fillStyle: '#fd79a8'
+            }
+        }));
+        
+        // Platform 5 - Small challenging platform
+        platforms.push(Bodies.rectangle(window.innerWidth / 2 + 250, window.innerHeight - 400, 100, 20, {
+            isStatic: true,
+            render: {
+                fillStyle: '#fdcb6e'
+            }
+        }));
+        
+        // Add visual markers (pillars) under some platforms
+        const pillar1 = Bodies.rectangle(200, window.innerHeight - 75, 10, 100, {
+            isStatic: true,
+            render: {
+                fillStyle: '#636e72',
+                opacity: 0.5
+            }
+        });
+        
+        const pillar2 = Bodies.rectangle(window.innerWidth - 200, window.innerHeight - 175, 10, 300, {
+            isStatic: true,
+            render: {
+                fillStyle: '#636e72',
+                opacity: 0.5
+            }
+        });
+
+        Composite.add(world, [ground, leftWall, rightWall, ...platforms, pillar1, pillar2]);
 
         // Mouse control
         const mouse = Mouse.create(render.canvas);
@@ -252,35 +316,21 @@
 
         // Input handling
         const keys = {};
-        let isCompressing = false;
+        let wasPressingSpace = false;
+        
+        // Store original constraint lengths
+        const originalConstraintLengths = constraints.map(c => c.length);
 
         document.addEventListener('keydown', (e) => {
             keys[e.key] = true;
-            
-            // Start compression when spacebar is pressed
-            if (e.key === ' ' && !isCompressing) {
-                isCompressing = true;
-                //console.log('Compression started');
-                // Increase stiffness for compression
-                constraints.forEach(c => {
-                    c.stiffness = compressStiffness;
-                });
+            if (e.key === ' ') {
                 e.preventDefault();
             }
         });
 
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
-            
-            // Release compression when spacebar is released
-            if (e.key === ' ' && isCompressing) {
-                isCompressing = false;
-                // console.log('Compression stopped');
-                // Increase stiffness for compression
-                // Reset compression constraints
-                constraints.forEach(c => {
-                    c.stiffness = baseStiffness;
-                });
+            if (e.key === ' ') {
                 e.preventDefault();
             }
         });
@@ -335,31 +385,15 @@
         
         // Tail folder
         const tailFolder = gui.addFolder('Tail Physics');
-        tailFolder.add(physicsParams, 'tailDensity', 0.001, 0.1).step(0.001).onChange(value => {
-            // Update tail density
-            const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = 0; i < tailSegs * wormColumns; i++) {
-                Body.setDensity(wormSegments[i], value);
-            }
-        });
-        tailFolder.add(physicsParams, 'tailInertiaMultiplier', 1, 20).step(0.5).onChange(value => {
-            // Update tail inertia
-            const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = 0; i < tailSegs * wormColumns; i++) {
-                const baseMass = wormSegments[i].mass;
-                const baseInertia = baseMass * particleRadius * particleRadius / 2;
-                Body.setInertia(wormSegments[i], baseInertia * value);
-            }
-        });
         tailFolder.add(physicsParams, 'tailFriction', 0, 1).step(0.01).onChange(value => {
             const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = 0; i < tailSegs * wormColumns; i++) {
+            for (let i = 0; i < tailSegs; i++) {
                 wormSegments[i].friction = value;
             }
         });
         tailFolder.add(physicsParams, 'tailStaticFriction', 0, 1).step(0.01).onChange(value => {
             const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = 0; i < tailSegs * wormColumns; i++) {
+            for (let i = 0; i < tailSegs; i++) {
                 wormSegments[i].frictionStatic = value;
             }
         });
@@ -369,23 +403,24 @@
         const headFolder = gui.addFolder('Head Physics');
         headFolder.add(physicsParams, 'headDensity', 0.0001, 0.01).step(0.0001).onChange(value => {
             // Update head density
-            for (let i = numBodies - wormColumns; i < numBodies; i++) {
-                Body.setDensity(wormSegments[i], value);
+            if (numBodies > 0) {
+                Body.setDensity(wormSegments[numBodies - 1], value);
             }
         });
         
         // Body folder
         const bodyFolder = gui.addFolder('Body Physics');
         bodyFolder.add(physicsParams, 'bodyDensity', 0.0001, 0.01).step(0.0001).onChange(value => {
-            // Update body density for middle segments
-            const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = tailSegs * wormColumns; i < numBodies - wormColumns; i++) {
-                Body.setDensity(wormSegments[i], value);
-            }
+            // Update body density for all segments (tail now uses same density)
+            wormSegments.forEach((segment, i) => {
+                if (i !== numBodies - 1) {  // Skip head
+                    Body.setDensity(segment, value);
+                }
+            });
         });
         bodyFolder.add(physicsParams, 'bodyFriction', 0, 1).step(0.01).onChange(value => {
             const tailSegs = Math.min(physicsParams.tailSegments, wormRows);
-            for (let i = tailSegs * wormColumns; i < numBodies - wormColumns; i++) {
+            for (let i = tailSegs; i < numBodies - 1; i++) {
                 wormSegments[i].friction = value;
             }
         });
@@ -398,11 +433,9 @@
         // Constraints folder
         const constraintsFolder = gui.addFolder('Constraints');
         constraintsFolder.add(physicsParams, 'constraintStiffness', 0.01, 1).step(0.01).onChange(value => {
-            if (!isCompressing) {
-                constraints.forEach(c => {
-                    c.stiffness = value;
-                });
-            }
+            constraints.forEach(c => {
+                c.stiffness = value;
+            });
         });
         constraintsFolder.add(physicsParams, 'constraintDamping', 0, 0.5).step(0.01).onChange(value => {
             constraints.forEach(c => {
@@ -415,10 +448,8 @@
         gui.add(physicsParams, 'massGradientMultiplier', 0, 2).step(0.1).onChange(value => {
             // Reapply mass gradient
             for (let i = 0; i < numBodies; i++) {
-                const segmentRow = Math.floor(i / wormColumns);
-                const massMultiplier = 1 + (segmentRow * value);
-                const baseDensity = i < physicsParams.tailSegments * wormColumns ? physicsParams.tailDensity :
-                                  i >= numBodies - wormColumns ? physicsParams.headDensity : physicsParams.bodyDensity;
+                const massMultiplier = 1 + (i * value / numBodies);
+                const baseDensity = i === numBodies - 1 ? physicsParams.headDensity : physicsParams.bodyDensity;
                 Body.setDensity(wormSegments[i], baseDensity * massMultiplier);
             }
         });
@@ -433,41 +464,202 @@
         };
         gui.add(exportButton, 'exportSettings').name('Export Settings to Console');
 
-        // Update compression to use GUI value
-        document.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            
-            if (e.key === ' ' && !isCompressing) {
-                isCompressing = true;
-                constraints.forEach(c => {
-                    c.stiffness = physicsParams.compressStiffness;
-                });
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            keys[e.key] = false;
-            
-            if (e.key === ' ' && isCompressing) {
-                isCompressing = false;
-                constraints.forEach(c => {
-                    c.stiffness = physicsParams.constraintStiffness;
-                });
-                e.preventDefault();
-            }
-        });
+        // Straightening mechanics folder
+        const straightenFolder = gui.addFolder('Straightening Mechanics');
+        straightenFolder.add(physicsParams, 'straightenForce', -0.5, 0.5).step(0.01).name('Straighten Force');
+        straightenFolder.add(physicsParams, 'straightenDamping', 0.9, 0.999).step(0.001).name('Angular Damping');
+        straightenFolder.add(physicsParams, 'contractionForce', 0.005, 0.1).step(0.005).name('Contraction Force');
+        straightenFolder.open();
 
         // Update the movement function to use GUI values
         Events.off(engine, 'beforeUpdate');
         Events.on(engine, 'beforeUpdate', () => {
+            // Apply straightening forces while spacebar is held
+            if (keys[' ']) {
+                // Check if this is the first frame of pressing space
+                if (!wasPressingSpace) {
+                    // Check if worm is touching any static body (ground or platforms)
+                    let isOnSurface = false;
+                    
+                    // Check collisions for each segment
+                    for (let segment of wormSegments) {
+                        // Get all pairs that this segment is part of
+                        const pairs = engine.pairs.list;
+                        
+                        for (let pair of pairs) {
+                            // Check if this segment is part of the pair
+                            if (pair.bodyA === segment || pair.bodyB === segment) {
+                                // Get the other body
+                                const otherBody = pair.bodyA === segment ? pair.bodyB : pair.bodyA;
+                                
+                                // Check if it's static and the collision is active
+                                if (otherBody.isStatic && pair.isActive) {
+                                    // Additional check: ensure contact is from below (not side collision)
+                                    const contact = pair.collision;
+                                    if (contact && contact.normal.y < -0.5) { // Normal pointing up means surface is below
+                                        isOnSurface = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (isOnSurface) break;
+                    }
+                    
+                    if (isOnSurface) {
+                        // Apply muscular contraction forces
+                        for (let i = 0; i < wormSegments.length - 1; i++) {
+                            const curr = wormSegments[i];
+                            const next = wormSegments[i + 1];
+                            
+                            // Vector from current to next segment
+                            const toNext = Vector.sub(next.position, curr.position);
+                            const distance = Vector.magnitude(toNext);
+                            const direction = Vector.normalise(toNext);
+                            
+                            // Contract by pulling segments together
+                            const contractionForce = physicsParams.contractionForce;
+                            
+                            // Apply equal and opposite forces (Newton's third law)
+                            Body.applyForce(curr, curr.position, Vector.mult(direction, contractionForce));
+                            Body.applyForce(next, next.position, Vector.mult(direction, -contractionForce));
+                            
+                            // Also apply some upward component based on segment angle
+                            const angleFromHorizontal = Math.atan2(direction.y, direction.x);
+                            const upwardComponent = Math.abs(Math.sin(angleFromHorizontal)) * contractionForce;
+                            
+                            Body.applyForce(curr, curr.position, { x: 0, y: -upwardComponent * 0.5 });
+                            Body.applyForce(next, next.position, { x: 0, y: -upwardComponent * 0.5 });
+                        }
+                    }
+                    
+                    wasPressingSpace = true;
+                }
+                
+                // Visual feedback - make worm stiffer looking
+                wormSegments.forEach((segment, i) => {
+                    if (i === wormSegments.length - 1) {
+                        // Head brightens
+                        segment.render.fillStyle = '#ff9999';
+                    } else if (i < physicsParams.tailSegments) {
+                        // Tail stays similar
+                        segment.render.fillStyle = '#6eddd6';
+                    } else {
+                        // Body brightens
+                        segment.render.fillStyle = '#b5f1e3';
+                    }
+                });
+                
+                // Apply forces to align segments into a straight line (from head to tail)
+                for (let i = wormSegments.length - 2; i >= 0; i--) {
+                    const curr = wormSegments[i];
+                    const next = wormSegments[i + 1];
+                    
+                    // Calculate vector from current to next
+                    const toNext = Vector.sub(next.position, curr.position);
+                    
+                    // Target direction: align with the head's direction
+                    let targetDir;
+                    if (i === wormSegments.length - 2) {
+                        // Head segment defines the initial direction
+                        targetDir = Vector.normalise(toNext);
+                    } else {
+                        // Subsequent segments should align with the segment above
+                        const above = wormSegments[i + 1];
+                        const aboveNext = wormSegments[i + 2];
+                        targetDir = Vector.normalise(Vector.sub(above.position, aboveNext.position));
+                    }
+                    
+                    // Current direction
+                    const currentDir = Vector.normalise(toNext);
+                    
+                    // Calculate the angle difference
+                    const cross = Vector.cross(currentDir, targetDir);
+                    const dot = Vector.dot(currentDir, targetDir);
+                    const angleDiff = Math.atan2(cross, dot);
+                    
+                    // Proportional control: apply force based on angle difference
+                    const kp = 0.5; // Proportional gain (0-1, lower = less overshoot)
+                    // Scale force based on distance from head (stronger near head, weaker at tail)
+                    const distanceFromHead = (wormSegments.length - 1 - i) / wormSegments.length;
+                    const forceMagnitude = physicsParams.straightenForce * Math.sin(angleDiff) * kp * (1 - distanceFromHead * 0.5);
+                    
+                    // Apply force perpendicular to current direction
+                    const forceDir = Vector.perp(currentDir);
+                    Body.applyForce(curr, curr.position, Vector.mult(forceDir, forceMagnitude));
+                    Body.applyForce(next, next.position, Vector.mult(forceDir, -forceMagnitude * 0.5));
+                    
+                    // Also apply angular damping to prevent spinning
+                    Body.setAngularVelocity(curr, curr.angularVelocity * physicsParams.straightenDamping);
+                    Body.setAngularVelocity(next, next.angularVelocity * physicsParams.straightenDamping);
+                }
+            } else {
+                wasPressingSpace = false;
+                // Reset colors when not straightening
+                wormSegments.forEach((segment, i) => {
+                    if (i === wormSegments.length - 1) {
+                        // Head
+                        segment.render.fillStyle = '#ff6b6b';
+                    } else if (i < physicsParams.tailSegments) {
+                        // Tail
+                        segment.render.fillStyle = '#4ecdc4';
+                    } else {
+                        // Body
+                        segment.render.fillStyle = '#95e1d3';
+                    }
+                });
+            }
+            
             // Apply velocity damping to reduce drift
             wormSegments.forEach(segment => {
-                if (Math.abs(segment.velocity.x) < 0.1 && Math.abs(segment.velocity.y) < 0.1) {
-                    Body.setVelocity(segment, { x: segment.velocity.x * 0.9, y: segment.velocity.y * 0.9 });
+                // More aggressive velocity damping
+                const velocityThreshold = 0.5;
+                const dampingFactor = 0.95;
+                
+                // Damp linear velocity
+                if (Math.abs(segment.velocity.x) < velocityThreshold && Math.abs(segment.velocity.y) < velocityThreshold) {
+                    Body.setVelocity(segment, { 
+                        x: segment.velocity.x * dampingFactor, 
+                        y: segment.velocity.y * dampingFactor 
+                    });
                 }
-                if (Math.abs(segment.angularVelocity) < 0.01) {
-                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9);
+                
+                // Extra damping when velocity is very low (to stop completely)
+                if (Math.abs(segment.velocity.x) < 0.05 && Math.abs(segment.velocity.y) < 0.05) {
+                    Body.setVelocity(segment, { 
+                        x: segment.velocity.x * 0.8, 
+                        y: segment.velocity.y * 0.8 
+                    });
+                }
+                
+                // Damp angular velocity
+                const angularThreshold = 0.1;
+                if (Math.abs(segment.angularVelocity) < angularThreshold) {
+                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.85);
+                }
+                
+                // Apply position-based stabilization when folded
+                // Check if segment is overlapping with non-adjacent segments
+                let isOverlapping = false;
+                for (let j = 0; j < wormSegments.length; j++) {
+                    const other = wormSegments[j];
+                    if (Math.abs(wormSegments.indexOf(segment) - j) > 2) { // Non-adjacent segments
+                        const distance = Vector.magnitude(Vector.sub(segment.position, other.position));
+                        if (distance < particleRadius * 3) {
+                            isOverlapping = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Apply extra damping when overlapping (folded)
+                if (isOverlapping && !keys[' ']) { // Don't apply during straightening
+                    Body.setVelocity(segment, { 
+                        x: segment.velocity.x * 0.7, 
+                        y: segment.velocity.y * 0.7 
+                    });
+                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.7);
                 }
             });
             
@@ -476,26 +668,93 @@
             const force = physicsParams.movementForce;
             
             if (keys['ArrowLeft']) {
-                headSegments.forEach((segment, i) => {
-                    const segmentForce = force * (1 - i * 0.3);
-                    Body.applyForce(segment, segment.position, { x: -segmentForce, y: 0 });
-                    Body.setAngularVelocity(segment, segment.angularVelocity - physicsParams.torqueAmount);
-                });
+                // Bend the head to point left (-90 degrees from vertical)
+                const targetAngle = -Math.PI / 2; // -90 degrees (pointing left)
+                
+                for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
+                    const segment = wormSegments[i];
+                    
+                    // Calculate angle difference from target
+                    const currentAngle = segment.angle;
+                    let angleDiff = targetAngle - currentAngle;
+                    
+                    // Normalize angle difference to [-PI, PI]
+                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    
+                    // Apply proportional torque to reach target angle
+                    const kp = 0.3; // Proportional gain
+                    const torque = angleDiff * physicsParams.torqueAmount * kp;
+                    
+                    // Fade the effect from head to body
+                    const fadeMultiplier = (wormSegments.length - i) / 4;
+                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
+                    
+                    // Small leftward force on head to help movement
+                    if (i === wormSegments.length - 1) {
+                        Body.applyForce(segment, segment.position, { x: -force * 0.5, y: 0 });
+                    }
+                }
             }
             
             if (keys['ArrowRight']) {
-                headSegments.forEach((segment, i) => {
-                    const segmentForce = force * (1 - i * 0.3);
-                    Body.applyForce(segment, segment.position, { x: segmentForce, y: 0 });
-                    Body.setAngularVelocity(segment, segment.angularVelocity + physicsParams.torqueAmount);
-                });
+                // Bend the head to point right (90 degrees from vertical)
+                const targetAngle = Math.PI / 2; // 90 degrees (pointing right)
+                
+                for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
+                    const segment = wormSegments[i];
+                    
+                    // Calculate angle difference from target
+                    const currentAngle = segment.angle;
+                    let angleDiff = targetAngle - currentAngle;
+                    
+                    // Normalize angle difference to [-PI, PI]
+                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    
+                    // Apply proportional torque to reach target angle
+                    const kp = 0.3; // Proportional gain
+                    const torque = angleDiff * physicsParams.torqueAmount * kp;
+                    
+                    // Fade the effect from head to body
+                    const fadeMultiplier = (wormSegments.length - i) / 4;
+                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
+                    
+                    // Small rightward force on head to help movement
+                    if (i === wormSegments.length - 1) {
+                        Body.applyForce(segment, segment.position, { x: force * 0.5, y: 0 });
+                    }
+                }
             }
             
             if (keys['ArrowUp']) {
-                headSegments.forEach((segment, i) => {
-                    const segmentForce = physicsParams.upwardForce * (1 - i * 0.2);
-                    Body.applyForce(segment, segment.position, { x: 0, y: -segmentForce });
-                });
+                // Bend the head to point up (0 degrees from horizontal, -PI/2 from vertical)
+                const targetAngle = 0; // 0 degrees (pointing up)
+                
+                for (let i = wormSegments.length - 1; i >= Math.max(0, wormSegments.length - 4); i--) {
+                    const segment = wormSegments[i];
+                    
+                    // Calculate angle difference from target
+                    const currentAngle = segment.angle;
+                    let angleDiff = targetAngle - currentAngle;
+                    
+                    // Normalize angle difference to [-PI, PI]
+                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    
+                    // Apply proportional torque to reach target angle
+                    const kp = 0.3; // Proportional gain
+                    const torque = angleDiff * physicsParams.torqueAmount * kp;
+                    
+                    // Fade the effect from head to body
+                    const fadeMultiplier = (wormSegments.length - i) / 4;
+                    Body.setAngularVelocity(segment, segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
+                    
+                    // Small upward force on head to help lift
+                    if (i === wormSegments.length - 1) {
+                        Body.applyForce(segment, segment.position, { x: 0, y: -physicsParams.upwardForce * 0.5 });
+                    }
+                }
             }
         });
     </script>
