@@ -1,82 +1,51 @@
 (() => {
-    // Platform level design - each character represents a 50x20 block
-    // - = platform
-    // . = empty space
-    // Each row is 100 pixels apart vertically
-    const levelData = `
-        ---.....--....---
-        .................
-        ...--............
-        .................
-        .........----....
-        .................
-        .--..............
-        .................
-        ......----.......
-        .................
-        ..............--.
-        .................
-        .................
-        .................
-        .........--......
-        .................
-        .---.............
-        .................
-        ......--.........
-        .................
-        ..--......--.....
-        .................
-        ---...........---
-    `;
-
-    // Calculate stage height based on level data
-    const levelRows = levelData.trim().split('\n').filter(row => row.trim().length > 0);
-    const calculatedHeight = levelRows.length * 150 + 1000; // 150px per row + 2000px buffer
-
     // Game configuration constants
     const config = {
         // Stage dimensions
-        stageWidth: 800,
-        stageHeight: calculatedHeight,
-        viewportHeight: 600,
+        stageWidth: 1280,
+        stageHeight: 800,
+        viewportHeight: 800,
 
         // Ball properties
         ballRadius: 10,
-        ballStartX: 400,
-        ballStartY: calculatedHeight - 1000, // Start near bottom with some space
-        ballFriction: 2,
-        ballBounce: 0.003,
-        ballDensity: 0.003,
-        ballColor: 0xff6b6b,
+        ballStartX: 640,
+        ballStartY: 100, // Start near bottom with some space
+        ballFriction: 0.95,      // Match original - very high friction
+        ballStaticFriction: 0.95, // Match original
+        ballBounce: 0.0,         // Match original - no bounce
+        ballDensity: 0.005,      // Match original density
         worm: {
             segments: 13, // total segments
-            segmentSpacing: 2, // multiplier of radius for spacing
-            constraintStiffness: 0.5,
-            constraintDamping: 0.2, // No damping for rigid sticks
+            segmentSpacing: 2.1, // multiplier of radius for spacing
+            constraintStiffness: 0.8,  // Match original
+            constraintDamping: 0.7,    // Match original
             head: {
                 segments: 3,  // front of the array
-                densityMultiplier: 1.9
+                densityMultiplier: 0.1  // Very light head like original (0.0005/0.005)
             },
             body: {
             },
             tail: {
                 segments: 3,  // back of the array
-                frictionMultiplier: 10, // relative to ballFriction
-                densityMultiplier: 1.5 // Make tail heavier for better propulsion
+                frictionMultiplier: 1.0, // Same friction as original
+                densityMultiplier: 1.1 // Very slight weight increase like original
             }
         },
 
         // Movement parameters
         movement: {
-            torqueAmount: 1.2,
-            angularDamping: 0.9,
-            bendSegments: 8
+            torqueAmount: 0.1,      // Very strong torque for lifting
+            angularDamping: 0.85,   // Slightly less damping
+            maxLiftRatio: 0.002,    // Force as percentage of body weight (0.2%)
+            forceDecayRate: 0.5,    // Exponential decay rate for force distribution
+            horizontalForceMultiplier: 0.3  // Further reduce horizontal force to prevent sliding
         },
 
         // Straightening parameters
         straightening: {
-            torqueMultiplier: 2, // Multiplier for torque when straightening
-            damping: 0.005 // Higher damping when straightening
+            torqueMultiplier: 1.5, // Multiplier for torque when straightening
+            damping: 0.5, // Higher damping when straightening
+            contractionForce: 0.2 // Contraction force for spacebar
         },
         // Ground properties
         groundHeight: 50,
@@ -95,490 +64,469 @@
         cameraDeadzonePercent: 0.12,
 
         // Physics
-        gravityY: 1,
-        airFriction: 0.001, // Low air friction for more realistic falling
+        gravityY: 1,  // Normal gravity
+        airFriction: 0.01, // Normal air resistance
 
         // Platform properties
         platformWidth: 50, // Width of each platform block
         platformHeight: 20, // Height of each platform (doubled for better collision)
-        platformStartY: calculatedHeight - 100, // Starting Y position for platforms (much lower)
         platformVerticalSpacing: 75, // Vertical space between platform rows
         platformColors: [0xff6b6b, 0x4ecdc4, 0x95e1d3, 0xfeca57, 0xa29bfe] // Different colors
     };
 
-    class GameScene extends Phaser.Scene {
+    class WormVariantsScene extends Phaser.Scene {
         constructor() {
-            super({ key: 'GameScene' });
-            this.ball = null;
-            this.worm = null;
-            this.wormSegments = [];
-            this.wormConstraints = [];
-            this.keys = {};
-            this.isStiffening = false;
-            this.wasStiffening = false;
-            this.stiffeningDuration = 0;
+            super({ key: 'WormVariantsScene' });
+            this.wormVariants = [];
+            this.wormLabels = [];
+        }
+
+        createBaseWorm(x, y, options = {}) {
+            // Default options
+            const defaults = {
+                segmentCount: 11,
+                headRadius: 8,
+                neckRadius: 10,
+                tailRadius: 4,
+                segmentSpacing: 18,
+                friction: 0.95,
+                frictionStatic: 0.95,
+                frictionAir: 0.01,
+                density: 0.005,
+                restitution: 0,
+                slop: 0.01,
+                inertia: Infinity,
+                color: 0xFF6B6B,
+                constraintStiffness: 0.8,
+                constraintDamping: 0.1,
+                constraintLengthMultiplier: 1.0,
+                densityOverride: null, // Function to override density per segment
+                constraintStiffnessOverride: null, // Function to override stiffness per constraint
+                additionalSegmentOptions: {} // Additional options per segment
+            };
+            
+            const opts = { ...defaults, ...options };
+            const segments = [];
+            const constraints = [];
+            
+            // Create segments
+            let currentY = y;
+            let currentX = x;
+            for (let i = 0; i < opts.segmentCount; i++) {
+                let radius;
+                if (i === 0) {
+                    radius = opts.headRadius;
+                } else if (i === 1 || i === 2) {
+                    radius = opts.neckRadius;
+                } else {
+                    const bodyProgress = (i - 2) / (opts.segmentCount - 3);
+                    radius = opts.neckRadius - (bodyProgress * (opts.neckRadius - opts.tailRadius));
+                }
+                
+                // Position segments with slight angle to prevent vertical start
+                if (i > 0) {
+                    const prevRadius = segments[i - 1].radius;
+                    const gap = prevRadius + radius + 5;
+                    // Add slight horizontal offset to create initial angle
+                    currentX += gap * 0.15; // 15% horizontal offset
+                    currentY += gap * 0.98; // 98% vertical offset
+                }
+                
+                const segY = currentY;
+                const segX = currentX;
+                
+                // Allow density override
+                let density = opts.density;
+                if (opts.densityOverride) {
+                    density = opts.densityOverride(i, opts.segmentCount);
+                }
+                
+                const segmentOptions = {
+                    friction: opts.friction,
+                    frictionStatic: opts.frictionStatic,
+                    frictionAir: opts.frictionAir,
+                    density: density,
+                    restitution: opts.restitution,
+                    slop: opts.slop,
+                    inertia: opts.inertia,
+                    ...opts.additionalSegmentOptions
+                };
+                
+                const segment = this.matter.add.circle(segX, segY, radius, segmentOptions);
+                
+                // Visual
+                const graphics = this.add.graphics();
+                graphics.fillStyle(opts.color);
+                graphics.lineStyle(1, 0x000000);
+                graphics.fillCircle(0, 0, radius);
+                graphics.strokeCircle(0, 0, radius);
+                graphics.setPosition(segX, segY);
+                
+                segment.graphics = graphics;
+                segment.radius = radius;
+                segments.push(segment);
+            }
+            
+            // Connect with constraints at tangent points
+            for (let i = 0; i < segments.length - 1; i++) {
+                const segA = segments[i];
+                const segB = segments[i + 1];
+                
+                let stiffness = opts.constraintStiffness;
+                if (opts.constraintStiffnessOverride) {
+                    stiffness = opts.constraintStiffnessOverride(i, segments.length - 1);
+                }
+                
+                // Calculate tangent points
+                // Since segments are created vertically (along Y axis), we connect:
+                // Point A is at the bottom of segA (positive Y in local coords)
+                // Point B is at the top of segB (negative Y in local coords)
+                const pointA = { x: 0, y: segA.radius };  // Bottom edge of segA
+                const pointB = { x: 0, y: -segB.radius }; // Top edge of segB
+                
+                // We positioned segments with a 5 pixel gap between edges
+                const tangentDistance = 5;
+                
+                // Create constraint using Matter.Constraint directly
+                const Matter = Phaser.Physics.Matter.Matter;
+                const constraint = Matter.Constraint.create({
+                    bodyA: segA,
+                    bodyB: segB,
+                    pointA: pointA,
+                    pointB: pointB,
+                    length: tangentDistance * opts.constraintLengthMultiplier,
+                    stiffness: stiffness,
+                    damping: opts.constraintDamping
+                });
+                
+                // Add to world
+                Matter.World.add(this.matter.world.localWorld, constraint);
+                constraints.push(constraint);
+            }
+            
+            return { segments, constraints };
         }
 
         create() {
-            // Set world bounds for the tall stage
-            this.matter.world.setBounds(0, 0, config.stageWidth, config.stageHeight);
+            // Set world bounds - increase height for more ceiling space
+            this.matter.world.setBounds(0, 0, config.stageWidth, config.viewportHeight + 400);
 
             // Create grid background
             this.createGridBackground();
 
-            // Create ground at the bottom
-            const groundY = config.stageHeight - config.groundHeight / 2;
-            const groundBody = this.matter.add.rectangle(config.stageWidth / 2, groundY, config.stageWidth, config.groundHeight, {
-                isStatic: true,
-                collisionFilter: {
-                    category: 0x0002, // Same as platforms
-                    mask: 0xFFFFFFFF // Collide with everything
-                }
-            });
+            // Create test platforms
+            this.createTestPlatforms();
 
-            // Add visual representation for ground
-            const groundGraphics = this.add.rectangle(config.stageWidth / 2, groundY, config.stageWidth, config.groundHeight, config.groundColor);
+            // Create different worm variants
+            this.createWormVariants();
 
-            // Create platforms from level data
-            this.createPlatforms();
+            // Add info text
+            this.add.text(20, 20, 'Worm Variants Test - Same Controls', {
+                fontSize: '12px',
+                color: '#FFFFFF',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: { x: 10, y: 10 }
+            }).setScrollFactor(0);
 
-            // Create worm instead of single ball
-            this.createWorm();
+            this.add.text(20, 50, 'Arrow Keys: Move All | WASD: Camera | Mouse Wheel: Scroll', {
+                fontSize: '10px',
+                color: '#FFFFFF',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: { x: 10, y: 10 }
+            }).setScrollFactor(0);
 
-            // Create a camera target that follows the head segment
-            this.cameraTarget = this.add.rectangle(0, 0, 1, 1, 0x000000, 0);
-
-            // Setup camera to follow the camera target
-            this.cameras.main.setBounds(0, 0, config.stageWidth, config.stageHeight);
-            // Use high lerp values for responsive following
-            this.cameras.main.startFollow(this.cameraTarget, true, config.cameraLerp, config.cameraLerp);
-            // Set deadzone to 20% of viewport
-            const deadzoneWidth = config.stageWidth * config.cameraDeadzonePercent;
-            const deadzoneHeight = config.viewportHeight * config.cameraDeadzonePercent;
-            this.cameras.main.setDeadzone(deadzoneWidth, deadzoneHeight);
-            this.cameras.main.setZoom(1);
-
-            // Debug: Log initial position
-            console.log('Worm created with', this.wormSegments.length, 'segments');
-
-            // Set up keyboard input
+            // Keyboard controls
             this.cursors = this.input.keyboard.createCursorKeys();
-            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            
+            // Scene switching
+            this.input.keyboard.on('keydown-T', () => {
+                this.scene.start('TestWormScene');
+            });
+            
+
+            // Set camera without zoom and start at bottom where platforms are
+            this.cameras.main.setZoom(1.0);
+            this.cameras.main.setBounds(0, 0, config.stageWidth, config.viewportHeight + 400);
+            this.cameras.main.scrollY = config.viewportHeight + 400 - config.viewportHeight; // Start at bottom
+            
+            // Camera scrolling with WASD keys 
+            this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+            
+            // Mouse wheel scrolling
+            this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+                this.cameras.main.scrollY += deltaY * 0.5;
+            });
         }
 
-        createGridBackground() {
-            // Create a graphics object for the grid
-            const graphics = this.add.graphics();
-            graphics.lineStyle(1, config.gridColor, config.gridAlpha);
+        createTestPlatforms() {
+            const platformY = 650;
+            const centerX = config.stageWidth / 2;
 
-            // Draw vertical lines
-            for (let x = 0; x < config.stageWidth; x += config.gridVerticalSpacing) {
-                graphics.lineBetween(x, 0, x, config.stageHeight);
+            // Create one centered platform
+            const platform = this.matter.add.rectangle(
+                centerX,
+                platformY,
+                400,
+                20,
+                {
+                    isStatic: true,
+                    friction: 0.8,
+                    frictionStatic: 1.0,
+                    restitution: 0.0
+                }
+            );
+
+            const visual = this.add.rectangle(centerX, platformY, 400, 20, 0x4ecdc4);
+        }
+
+        createWormVariants() {
+            const startY = 150;
+            const centerX = config.stageWidth / 2; // Center of screen
+            
+            // Just one worm: Original Torque-Spring Hybrid
+            this.wormVariants.push({
+                name: "Torque-Spring Hybrid",
+                worm: this.createTorqueSpringHybridWorm(centerX, startY),
+                color: 0xFF6B6B
+            });
+
+            // Add label for the worm
+            this.wormVariants.forEach((variant, index) => {
+                const label = this.add.text(0, 0, variant.name, {
+                    fontSize: '16px',
+                    color: '#FFFFFF',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 6, y: 4 }
+                });
+                label.setOrigin(0.5, 1); // Center horizontally, bottom vertically
+                this.wormLabels.push(label);
+            });
+        }
+
+        createTorqueSpringHybridWorm(x, y) {
+            const worm = this.createBaseWorm(x, y, {
+                frictionAir: 0.008,
+                slop: 0.005,
+                color: 0xFF6B6B,
+                constraintDamping: 0.15,  // Higher damping for more natural movement
+                constraintStiffnessOverride: (i, total) => {
+                    // Looser at head for torque control, tighter at body for spring response
+                    return i < 2 ? 0.3 : 0.5;  // Lower stiffness overall
+                }
+            });
+            
+            return { ...worm, forceDistribution: 'torque-spring-hybrid' };
+        }
+
+
+
+        update() {
+            // // Camera scrolling with WASD
+            // const scrollSpeed = 5;
+            // if (this.wasd.W.isDown) {
+            //     this.cameras.main.scrollY -= scrollSpeed;
+            // }
+            // if (this.wasd.S.isDown) {
+            //     this.cameras.main.scrollY += scrollSpeed;
+            // }
+            // if (this.wasd.A.isDown) {
+            //     this.cameras.main.scrollX -= scrollSpeed;
+            // }
+            // if (this.wasd.D.isDown) {
+            //     this.cameras.main.scrollX += scrollSpeed;
+            // }
+            // 
+            // // Update all worm graphics and labels
+            // this.wormVariants.forEach((variant, index) => {
+            //     variant.worm.segments.forEach((segment, segIndex) => {
+            //         if (segment.graphics) {
+            //             segment.graphics.setPosition(segment.position.x, segment.position.y);
+            //             segment.graphics.setRotation(segment.angle);
+            //             
+            //             // Visual feedback for ground contact
+            //             if (variant.worm.groundContacts && variant.worm.groundContacts[segIndex]) {
+            //                 segment.graphics.setAlpha(1.0);
+            //             } else {
+            //                 segment.graphics.setAlpha(0.7);
+            //             }
+            //         }
+            //     });
+            //     
+            //     // Update label position to follow the head (first segment)
+            //     const head = variant.worm.segments[0];
+            //     if (head && this.wormLabels[index]) {
+            //         this.wormLabels[index].setPosition(head.position.x, head.position.y - 40);
+            //     }
+            // });
+
+            // // Apply controls to all worms
+            // const left = this.cursors.left.isDown;
+            // const right = this.cursors.right.isDown;
+            // const up = this.cursors.up.isDown;
+
+            // this.wormVariants.forEach(variant => {
+            //     this.applyMovement(variant.worm, left, right, up);
+            // });
+        }
+
+        applyMovement(worm, left, right, up) {
+            const { segments, constraints, forceDistribution } = worm;
+            
+            // Initialize ground contact tracking if not present
+            if (!worm.groundContacts) {
+                worm.groundContacts = new Array(segments.length).fill(false);
             }
+            
+            // Check which segments are touching the ground
+            const pairs = this.matter.world.engine.pairs.list;
+            worm.groundContacts.fill(false);
+            
+            for (let pair of pairs) {
+                segments.forEach((segment, index) => {
+                    if ((pair.bodyA === segment || pair.bodyB === segment)) {
+                        const otherBody = pair.bodyA === segment ? pair.bodyB : pair.bodyA;
+                        if (otherBody.isStatic && pair.isActive) {
+                            // Check if contact is from below
+                            if (pair.collision && pair.collision.normal.y < -0.5) {
+                                worm.groundContacts[index] = true;
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Find the pivot point (lowest grounded segment)
+            let pivotIndex = -1;
+            for (let i = 0; i < worm.groundContacts.length; i++) {
+                if (worm.groundContacts[i]) {
+                    pivotIndex = i;
+                    break;
+                }
+            }
+            
+            // Helper function for muscle-like contractions between segments
+            const applyMuscleContraction = (indexA, indexB, contractionForce) => {
+                if (indexA < 0 || indexB < 0 || indexA >= segments.length || indexB >= segments.length) return;
+                
+                const segA = segments[indexA];
+                const segB = segments[indexB];
+                
+                // Calculate vector from A to B
+                const dx = segB.position.x - segA.position.x;
+                const dy = segB.position.y - segA.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    // Normalize direction
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    
+                    // Apply forces
+                    const forceX = dirX * contractionForce;
+                    const forceY = dirY * contractionForce;
+                    
+                    this.matter.body.applyForce(segA, segA.position, { x: forceX, y: forceY });
+                    this.matter.body.applyForce(segB, segB.position, { x: -forceX, y: -forceY });
+                }
+            };
 
-            // Draw horizontal lines
-            for (let y = 0; y < config.stageHeight; y += config.gridHorizontalSpacing) {
-                graphics.lineBetween(0, y, config.stageWidth, y);
-
-                // Add height markers
-                if (y % config.gridMarkerInterval === 0 && y > 0) {
-                    this.add.text(20, y - 10, `${y}m`, {
-                        fontSize: '14px',
-                        color: config.gridMarkerColor
+            if (forceDistribution === 'torque-spring-hybrid') {
+                // Original TSH: Torque-based movement without external forces
+                if (left || right) {
+                    // Apply torque to head segments for turning
+                    const headCount = 4;
+                    for (let i = segments.length - headCount; i < segments.length; i++) {
+                        if (i >= 0) {
+                            const segment = segments[i];
+                            const targetAngle = left ? Math.PI / 2 : -Math.PI / 2; // 90° left or right
+                            const currentAngle = segment.angle;
+                            
+                            let angleDiff = targetAngle - currentAngle;
+                            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                            
+                            // Proportional torque
+                            const torque = angleDiff * 0.15 * (1 - (i - segments.length + headCount) / headCount * 0.5);
+                            this.matter.body.setAngularVelocity(segment, 
+                                segment.angularVelocity * 0.9 + torque);
+                        }
+                    }
+                    
+                    // Wave motion through constraints
+                    if (!worm.waveTime) worm.waveTime = 0;
+                    worm.waveTime += 0.1;
+                    
+                    // Store original lengths if not already stored
+                    if (!worm.originalLengths) {
+                        worm.originalLengths = constraints.map(c => c.length);
+                    }
+                    
+                    constraints.forEach((constraint, i) => {
+                        const wave = Math.sin(worm.waveTime - i * 0.7) * 0.15;
+                        const baseLength = worm.originalLengths[i];
+                        const target = baseLength * (1 + wave);
+                        constraint.length = constraint.length * 0.9 + target * 0.1;
+                    });
+                }
+                if (up) {
+                    // Torque-based upward movement
+                    segments.forEach((segment, i) => {
+                        const progress = i / (segments.length - 1);
+                        // Create J-shape: horizontal at tail, vertical at head
+                        let targetAngle;
+                        if (progress < 0.3) {
+                            targetAngle = 0; // Horizontal
+                        } else {
+                            const curveProgress = (progress - 0.3) / 0.7;
+                            targetAngle = -Math.PI / 2 * curveProgress; // Curve to vertical
+                        }
+                        
+                        const currentAngle = segment.angle;
+                        let angleDiff = targetAngle - currentAngle;
+                        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                        
+                        const torque = angleDiff * 0.12;
+                        this.matter.body.setAngularVelocity(segment, 
+                            segment.angularVelocity * 0.85 + torque);
+                    });
+                    
+                    // Contract constraints for rigidity
+                    if (!worm.originalLengths) {
+                        worm.originalLengths = constraints.map(c => c.length);
+                    }
+                    
+                    constraints.forEach((constraint, i) => {
+                        const progress = i / constraints.length;
+                        const baseLength = worm.originalLengths[i];
+                        const contractionFactor = progress < 0.5 ? 0.6 : 0.8; // Tighter in middle
+                        const targetLength = baseLength * contractionFactor;
+                        constraint.length = constraint.length * 0.9 + targetLength * 0.1;
                     });
                 }
             }
-        }
 
-        createPlatforms() {
-            // Parse the level data
-            const rows = levelData.trim().split('\n').filter(row => row.trim().length > 0);
-
-            // Reverse the rows so bottom of string is bottom of level
-            rows.reverse();
-
-            rows.forEach((row, rowIndex) => {
-                const trimmedRow = row.trim();
-                let currentPlatformStart = -1;
-
-                // Calculate Y position for this row
-                const y = config.platformStartY - (rowIndex * config.platformVerticalSpacing);
-
-                // Process each character in the row
-                for (let colIndex = 0; colIndex < trimmedRow.length; colIndex++) {
-                    const char = trimmedRow[colIndex];
-
-                    if (char === '-') {
-                        // Start of platform
-                        if (currentPlatformStart === -1) {
-                            currentPlatformStart = colIndex;
-                        }
-                    } else {
-                        // End of platform or empty space
-                        if (currentPlatformStart !== -1) {
-                            // Create platform from currentPlatformStart to colIndex-1
-                            const platformLength = colIndex - currentPlatformStart;
-                            const centerX = (currentPlatformStart + platformLength / 2) * config.platformWidth;
-                            const width = platformLength * config.platformWidth;
-
-                            // Create the platform
-                            const platform = this.matter.add.rectangle(
-                                centerX,
-                                y,
-                                width,
-                                config.platformHeight,
-                                {
-                                    isStatic: true,
-                                    friction: 4,
-                                    collisionFilter: {
-                                        category: 0x0002, // Platform category
-                                        mask: 0xFFFFFFFF // Collide with everything
-                                    }
-                                }
-                            );
-
-                            // Add visual
-                            const color = config.platformColors[rowIndex % config.platformColors.length];
-                            this.add.rectangle(centerX, y, width, config.platformHeight, color);
-
-                            currentPlatformStart = -1;
-                        }
-                    }
-                }
-
-                // Handle platform that extends to end of row
-                if (currentPlatformStart !== -1) {
-                    const platformLength = trimmedRow.length - currentPlatformStart;
-                    const centerX = (currentPlatformStart + platformLength / 2) * config.platformWidth;
-                    const width = platformLength * config.platformWidth;
-
-                    // Create the platform
-                    this.matter.add.rectangle(
-                        centerX,
-                        y,
-                        width,
-                        config.platformHeight,
-                        {
-                            isStatic: true,
-                            friction: 4,
-                            collisionFilter: {
-                                category: 0x0002, // Platform category
-                                mask: 0xFFFFFFFF // Collide with everything
-                            }
-                        }
-                    );
-
-                    // Add visual
-                    const color = config.platformColors[rowIndex % config.platformColors.length];
-                    this.add.rectangle(centerX, y, width, config.platformHeight, color);
-                }
+            // Gentle restoration to natural length
+            if (!worm.originalLengths) {
+                worm.originalLengths = constraints.map(c => c.length);
+            }
+            
+            constraints.forEach((c, i) => {
+                const naturalLength = worm.originalLengths[i];
+                c.length = c.length * 0.99 + naturalLength * 0.01;
             });
         }
 
-        createWorm() {
-            const startX = config.ballStartX;
-            const startY = config.ballStartY;
-            const radius = config.ballRadius;
-            const Bodies = Phaser.Physics.Matter.Matter.Bodies;
-            const Constraint = Phaser.Physics.Matter.Matter.Constraint;
-            const Common = Phaser.Physics.Matter.Matter.Common;
-
-            const segmentLength = radius * config.worm.segmentSpacing;
-            const segmentWidth = radius * 2;
-
-            const segmentHeight = segmentLength * 2; // Height of each pill
-
-            // Create collision categories for each segment
-            const categories = [];
-            for (let i = 0; i < config.worm.segments; i++) {
-                categories.push(0x0001 << (i + 4)); // Each segment gets a unique category bit, starting from bit 4
-            }
-
-            // Create segments from head to tail
-            for (let i = 0; i < config.worm.segments; i++) {
-                // Position each segment so they're touching end-to-end
-                const y = startY + (i * segmentHeight);
-
-                // Determine segment properties
-                let fillColor, density, friction;
-                if (i === 0) {
-                    // Only the very first segment (head)
-                    fillColor = '#AA3939';  // Light pink
-                    density = config.ballDensity * config.worm.head.densityMultiplier;
-                    friction = config.ballFriction;
-                } else if (i >= config.worm.segments - config.worm.tail.segments) {
-                    // Tail segments
-                    fillColor = '#FFD169';  // Dark red/pink
-                    density = config.ballDensity * config.worm.tail.densityMultiplier;
-                    friction = config.ballFriction * config.worm.tail.frictionMultiplier;
-                } else {
-                    // All other segments including rest of head
-                    fillColor = '#FFD169';  // Dark red/pink
-                    density = config.ballDensity;
-                    friction = config.ballFriction;
-                }
-
-                // Create segment options
-                const segmentOptions = {
-                    friction: friction,
-                    frictionAir: config.airFriction,
-                    restitution: config.ballBounce,
-                    density: density,
-                    chamfer: {
-                        radius: radius
-                    },
-                    collisionFilter: {
-                        category: categories[i],
-                        mask: this.createCollisionMask(categories, i)
-                    },
-                    render: {
-                        fillStyle: fillColor,
-                        visible: false  // Hide Matter.js rendering, use our custom graphics
-                    },
-                    // Enable continuous collision detection
-                    isSensor: false,
-                    slop: 0.1  // Reduce position correction tolerance
-                };
-
-                // Create pill-shaped segment (chamfered rectangle)
-                // Width is the diameter, height is the full segment length
-                const segmentBody = this.matter.add.rectangle(
-                    startX,
-                    y,
-                    segmentWidth,  // Width = diameter
-                    segmentLength * 2,  // Height = longer for pill shape
-                    segmentOptions
-                );
-
-                // Create visual representation
-                const graphics = this.add.graphics();
-                graphics.fillStyle(parseInt(fillColor.replace('#', '0x')));
-                // Add dark stroke for better definition
-                graphics.lineStyle(3, 0x333333);  // Dark gray stroke
-                graphics.fillRoundedRect(
-                    -segmentWidth/2,
-                    -segmentLength,
-                    segmentWidth,
-                    segmentLength * 2,
-                    radius * 0.9
-                );
-                graphics.strokeRoundedRect(
-                    -segmentWidth/2,
-                    -segmentLength,
-                    segmentWidth,
-                    segmentLength * 2,
-                    radius * 0.9
-                );
-                graphics.setPosition(startX, y);
-
-                // Store graphics reference on body for updating position/rotation
-                segmentBody.graphics = graphics;
-
-                // Ensure graphics are rendered on top
-                graphics.setDepth(10);
-
-                this.wormSegments.push(segmentBody);
-            }
-
-            // Create constraints between segments (like ragdoll joints)
-            for (let i = 0; i < this.wormSegments.length - 1; i++) {
-                const segmentA = this.wormSegments[i];
-                const segmentB = this.wormSegments[i + 1];
-
-                // Connect bottom of segmentA to top of segmentB
-                // Since segments are rectangles of height segmentHeight, half is segmentHeight/2
-                const halfHeight = segmentHeight / 2;
-                // Use Phaser's Matter.js constraint directly
-                const Constraint = Phaser.Physics.Matter.Matter.Constraint;
-                const constraint = Constraint.create({
-                    bodyA: segmentA,
-                    bodyB: segmentB,
-                    pointA: { x: 0, y: halfHeight - radius }, // Bottom of segment A
-                    pointB: { x: 0, y: -halfHeight + radius }, // Top of segment B
-                    length: 0,
-                    stiffness: config.worm.constraintStiffness,
-                    damping: config.worm.constraintDamping,
-                    render: {
-                        visible: true
-                    }
-                });
-                this.matter.world.add(constraint);
-                this.wormConstraints.push(constraint);
-            }
-
-            // Store reference to head for backward compatibility
-            this.ball = this.wormSegments[0];
-        }
-
-        createCollisionMask(categories, currentIndex) {
-            // Start with platform category and default category
-            let mask = 0x0002 | 0x0001; // Platforms and default
-
-            // Include all segment categories
-            for (let i = 0; i < categories.length; i++) {
-                mask |= categories[i];
-            }
-
-            // Exclude adjacent segments (neighbors)
-            if (currentIndex > 0) {
-                mask &= ~categories[currentIndex - 1]; // Don't collide with previous segment
-            }
-            if (currentIndex < categories.length - 1) {
-                mask &= ~categories[currentIndex + 1]; // Don't collide with next segment
-            }
-
-            return mask;
-        }
-
-        createSegmentTexture(name, color, radius) {
+        createGridBackground() {
             const graphics = this.add.graphics();
-            graphics.fillStyle(color);
-            graphics.fillCircle(0, 0, radius);
-            graphics.generateTexture(name, radius * 2, radius * 2);
-            graphics.destroy();
-            return name;
-        }
+            graphics.lineStyle(1, config.gridColor, config.gridAlpha);
 
-        update() {
-            if (!this.wormSegments.length) return;
-
-            // Update camera target to follow head segment
-            if (this.cameraTarget && this.wormSegments[0]) {
-                this.cameraTarget.setPosition(this.wormSegments[0].position.x, this.wormSegments[0].position.y);
+            for (let x = 0; x < config.stageWidth; x += config.gridVerticalSpacing) {
+                graphics.lineBetween(x, 0, x, config.viewportHeight + 400);
             }
 
-            // Track spacebar state changes
-            this.wasStiffening = this.isStiffening;
-            this.isStiffening = this.spaceKey.isDown;
-
-            // Track how long we've been stiffening
-            if (this.isStiffening) {
-                this.stiffeningDuration++;
-            } else if (this.wasStiffening && !this.isStiffening) {
-                this.stiffeningDuration = 0;
-            }
-
-            // Apply angular damping to all segments and update visuals
-            const dampingFactor = this.isStiffening ? config.straightening.damping : config.movement.angularDamping;
-            this.wormSegments.forEach(segment => {
-                // Apply damping by reducing angular velocity
-                const angularVel = segment.angularVelocity * dampingFactor;
-                this.matter.body.setAngularVelocity(segment, angularVel);
-
-                // Update visual position and rotation
-                if (segment.graphics) {
-                    segment.graphics.setPosition(segment.position.x, segment.position.y);
-                    segment.graphics.setRotation(segment.angle);
-                }
-            });
-
-            if (this.isStiffening) {
-                // Straighten the worm
-                this.straightenWorm();
-            } else {
-                // Handle normal movement
-                const left = this.cursors.left.isDown;
-                const right = this.cursors.right.isDown;
-                const up = this.cursors.up.isDown;
-
-                if (up && left) {
-                    this.bendWormToAngle(-Math.PI / 4, { x: -1, y: -1 }); // -45 degrees (up-left diagonal)
-                } else if (up && right) {
-                    this.bendWormToAngle(Math.PI / 4, { x: 1, y: -1 }); // 45 degrees (up-right diagonal)
-                } else if (left) {
-                    this.bendWormToAngle(-Math.PI / 2, { x: -1, y: 0 }); // -90 degrees (left)
-                } else if (right) {
-                    this.bendWormToAngle(Math.PI / 2, { x: 1, y: 0 }); // 90 degrees (right)
-                } else if (up) {
-                    this.bendWormToAngle(0, { x: 0, y: -1 }); // 0 degrees (straight up)
-                }
-            }
-        }
-
-        bendWormToAngle(targetAngle, forceDirection = null) {
-            const torqueAmount = config.movement.torqueAmount;
-            const bendSegments = Math.min(config.movement.bendSegments, this.wormSegments.length);
-
-            for (let i = 0; i < bendSegments; i++) {
-                const segment = this.wormSegments[i];
-
-                // Calculate angle difference
-                let angleDiff = targetAngle - segment.angle;
-
-                // Normalize angle difference to [-PI, PI]
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-                // Apply proportional torque with fade effect
-                const fadeMultiplier = 1 - (i / bendSegments); // Stronger at head, weaker towards body
-                const torque = angleDiff * torqueAmount * fadeMultiplier;
-
-                // Apply torque directly to the body
-                segment.torque = torque;
-            }
-
-            // Apply a small force to the head for better movement
-            if (forceDirection && this.wormSegments.length > 0) {
-                const head = this.wormSegments[0];
-                const forceMagnitude = 0.002; // Small force
-                this.matter.body.applyForce(head, head.position, {
-                    x: forceDirection.x * forceMagnitude,
-                    y: forceDirection.y * forceMagnitude
-                });
-            }
-        }
-
-        straightenWorm() {
-            // Apply forces to stretch the worm and reduce bending
-            const stretchForce = 0.03 * config.straightening.torqueMultiplier;  // Reduced from 0.1
-            const torqueStrength = config.movement.torqueAmount * config.straightening.torqueMultiplier;
-
-            // Each segment tries to be straight (180°) relative to the one in front
-            for (let i = 1; i < this.wormSegments.length; i++) {
-                const segment = this.wormSegments[i];
-                const prevSegment = this.wormSegments[i - 1];
-
-                // We want the angle between segments to be 0 (straight line)
-                // Calculate current bend angle between segments
-                const dx = segment.position.x - prevSegment.position.x;
-                const dy = segment.position.y - prevSegment.position.y;
-                const connectionAngle = Math.atan2(dy, dx);
-
-                // The ideal angle for this segment would be the same as the connection angle
-                const targetAngle = connectionAngle - Math.PI / 2; // Adjust for segment orientation
-
-                // Calculate how far off we are from being straight
-                let angleDiff = targetAngle - segment.angle;
-                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-                // Apply torque to straighten
-                const fadeMultiplier = 1 - (i / this.wormSegments.length);
-                segment.torque = angleDiff * torqueStrength * 0.5 * fadeMultiplier;
-            }
-
-            // Then apply stretching forces
-            for (let i = 0; i < this.wormSegments.length - 1; i++) {
-                const segmentA = this.wormSegments[i];
-                const segmentB = this.wormSegments[i + 1];
-
-                // Calculate vector from A to B
-                const dx = segmentB.position.x - segmentA.position.x;
-                const dy = segmentB.position.y - segmentA.position.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance > 0) {
-                    // Normalize the vector
-                    const nx = dx / distance;
-                    const ny = dy / distance;
-
-                    // Apply stretching forces along the connection axis
-                    const force = stretchForce * (5 - i / this.wormSegments.length); // Stronger at head
-
-                    // Apply forces in opposite directions
-                    this.matter.body.applyForce(segmentA, segmentA.position, { x: -nx * force, y: -ny * force });
-                    this.matter.body.applyForce(segmentB, segmentB.position, { x: nx * force, y: ny * force });
-                }
+            for (let y = 0; y < config.viewportHeight + 400; y += config.gridHorizontalSpacing) {
+                graphics.lineBetween(0, y, config.stageWidth, y);
             }
         }
     }
@@ -594,19 +542,38 @@
             default: 'matter',
             matter: {
                 gravity: { y: config.gravityY },
-                debug: false,
-                enableSleeping: false,
                 debug: true,
+                enableSleeping: false,
                 showDebug: true,
                 showVelocity: true,
                 showAngleIndicator: true,
                 showSleeping: false,
-                constraintIterations: 4,  // Increase for better constraint solving
-                positionIterations: 8,    // Increase for better collision detection
-                velocityIterations: 6,    // Increase for better velocity resolution
+                showIds: true,
+                showBroadphase: false,
+                showBounds: false,
+                showAxes: true,
+                showPositions: true,
+                showAngleIndicator: true,
+                showCollisions: true,
+                showSeparations: true,
+                showBody: true,
+                showStaticBody: true,
+                showInternalEdges: true,
+                debugWireframes: true,
+                debugShowBody: true,
+                debugShowStaticBody: true,
+                debugBodyColor: 0xff0000,
+                debugBodyFillColor: 0xff0000,
+                debugStaticBodyColor: 0x0000ff,
+                debugShowJoint: true,
+                debugJointColor: 0x00ff00,
+                debugShowInternalEdges: true,
+                //constraintIterations: 8,  // Higher for better constraint solving
+                positionIterations: 12,   // Higher for better collision detection
+                //velocityIterations: 0,    // Higher for better velocity resolution
             }
         },
-        scene: GameScene
+        scene: [WormVariantsScene]
     };
 
     // Create game
