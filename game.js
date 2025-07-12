@@ -346,13 +346,21 @@
                     segmentLength * 2,  // Height = longer for pill shape
                     segmentOptions
                 );
-
-                // Create sprite and attach the body
-                // const segment = this.matter.add.sprite(startX, y, null);
-                // segment.setExistingBody(segmentBody);
-                //
-                // // Set initial rotation to point upward
-                // segment.setRotation(-Math.PI / 2);
+                
+                // Create visual representation
+                const graphics = this.add.graphics();
+                graphics.fillStyle(parseInt(fillColor.replace('#', '0x')));
+                graphics.fillRoundedRect(
+                    -segmentWidth/2, 
+                    -segmentLength, 
+                    segmentWidth, 
+                    segmentLength * 2, 
+                    radius * 0.9
+                );
+                graphics.setPosition(startX, y);
+                
+                // Store graphics reference on body for updating position/rotation
+                segmentBody.graphics = graphics;
 
                 this.wormSegments.push(segmentBody);
             }
@@ -376,7 +384,7 @@
                     stiffness: config.worm.constraintStiffness,
                     damping: config.worm.constraintDamping,
                     render: {
-                        visible: true
+                        visible: false
                     }
                 });
                 this.matter.world.add(constraint);
@@ -427,12 +435,18 @@
             // Check if spacebar is held
             this.isStiffening = this.spaceKey.isDown;
 
-            // Apply angular damping to all segments
+            // Apply angular damping to all segments and update visuals
             const dampingFactor = this.isStiffening ? config.straightening.damping : config.movement.angularDamping;
             this.wormSegments.forEach(segment => {
                 // Apply damping by reducing angular velocity
                 const angularVel = segment.angularVelocity * dampingFactor;
                 this.matter.body.setAngularVelocity(segment, angularVel);
+                
+                // Update visual position and rotation
+                if (segment.graphics) {
+                    segment.graphics.setPosition(segment.position.x, segment.position.y);
+                    segment.graphics.setRotation(segment.angle);
+                }
             });
 
             if (this.isStiffening) {
@@ -549,7 +563,7 @@
             default: 'matter',
             matter: {
                 gravity: { y: config.gravityY },
-                debug: true,
+                debug: false,
                 enableSleeping: false,
             }
         },
