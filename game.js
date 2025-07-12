@@ -44,41 +44,39 @@
         ballRadius: 10,
         ballStartX: 400,
         ballStartY: calculatedHeight - 1000, // Start near bottom with some space
-        ballFriction: 0.8,
+        ballFriction: 2,
         ballBounce: 0.003,
-        ballDensity: 0.008,
+        ballDensity: 0.003,
         ballColor: 0xff6b6b,
         worm: {
             segments: 13, // total segments
             segmentSpacing: 2, // multiplier of radius for spacing
-            constraintStiffness: 0.9,
-            constraintDamping: 0, // No damping for rigid sticks
+            constraintStiffness: 0.5,
+            constraintDamping: 0.2, // No damping for rigid sticks
             head: {
                 segments: 3,  // front of the array
-                color: 0xff6b6b,
-                densityMultiplier: 0.9
+                densityMultiplier: 1.9
             },
             body: {
-                color: 0x95e1d3
             },
             tail: {
                 segments: 3,  // back of the array
-                color: 0x4ecdc4,
-                frictionMultiplier: 2 // relative to ballFriction
+                frictionMultiplier: 10, // relative to ballFriction
+                densityMultiplier: 1.5 // Make tail heavier for better propulsion
             }
         },
 
         // Movement parameters
         movement: {
-            torqueAmount: 1,
-            angularDamping: 0.8,
-            bendSegments: 6
+            torqueAmount: 1.2,
+            angularDamping: 0.9,
+            bendSegments: 8
         },
 
         // Straightening parameters
         straightening: {
-            torqueMultiplier: 4, // Multiplier for torque when straightening
-            damping: 0.5 // Higher damping when straightening
+            torqueMultiplier: 2, // Multiplier for torque when straightening
+            damping: 0.005 // Higher damping when straightening
         },
         // Ground properties
         groundHeight: 50,
@@ -117,6 +115,8 @@
             this.wormConstraints = [];
             this.keys = {};
             this.isStiffening = false;
+            this.wasStiffening = false;
+            this.stiffeningDuration = 0;
         }
 
         create() {
@@ -229,7 +229,7 @@
                                 config.platformHeight,
                                 {
                                     isStatic: true,
-                                    friction: 2,
+                                    friction: 4,
                                     collisionFilter: {
                                         category: 0x0002, // Platform category
                                         mask: 0xFFFFFFFF // Collide with everything
@@ -253,14 +253,14 @@
                     const width = platformLength * config.platformWidth;
 
                     // Create the platform
-                    const platform = this.matter.add.rectangle(
+                    this.matter.add.rectangle(
                         centerX,
                         y,
                         width,
                         config.platformHeight,
                         {
                             isStatic: true,
-                            friction: 0.8,
+                            friction: 4,
                             collisionFilter: {
                                 category: 0x0002, // Platform category
                                 mask: 0xFFFFFFFF // Collide with everything
@@ -301,19 +301,19 @@
 
                 // Determine segment properties
                 let fillColor, density, friction;
-                if (i < config.worm.head.segments) {
-                    // Head segments
-                    fillColor = '#ff6b6b';
+                if (i === 0) {
+                    // Only the very first segment (head)
+                    fillColor = '#AA3939';  // Light pink
                     density = config.ballDensity * config.worm.head.densityMultiplier;
                     friction = config.ballFriction;
                 } else if (i >= config.worm.segments - config.worm.tail.segments) {
                     // Tail segments
-                    fillColor = '#4ecdc4';
-                    density = config.ballDensity;
+                    fillColor = '#FFD169';  // Dark red/pink
+                    density = config.ballDensity * config.worm.tail.densityMultiplier;
                     friction = config.ballFriction * config.worm.tail.frictionMultiplier;
                 } else {
-                    // Body segments
-                    fillColor = '#95e1d3';
+                    // All other segments including rest of head
+                    fillColor = '#FFD169';  // Dark red/pink
                     density = config.ballDensity;
                     friction = config.ballFriction;
                 }
@@ -325,7 +325,7 @@
                     restitution: config.ballBounce,
                     density: density,
                     chamfer: {
-                        radius: radius * 0.9  // Almost fully rounded ends
+                        radius: radius
                     },
                     collisionFilter: {
                         category: categories[i],
@@ -333,8 +333,11 @@
                     },
                     render: {
                         fillStyle: fillColor,
-                        visible: true
-                    }
+                        visible: false  // Hide Matter.js rendering, use our custom graphics
+                    },
+                    // Enable continuous collision detection
+                    isSensor: false,
+                    slop: 0.1  // Reduce position correction tolerance
                 };
 
                 // Create pill-shaped segment (chamfered rectangle)
@@ -346,21 +349,33 @@
                     segmentLength * 2,  // Height = longer for pill shape
                     segmentOptions
                 );
-                
+
                 // Create visual representation
                 const graphics = this.add.graphics();
                 graphics.fillStyle(parseInt(fillColor.replace('#', '0x')));
+                // Add dark stroke for better definition
+                graphics.lineStyle(3, 0x333333);  // Dark gray stroke
                 graphics.fillRoundedRect(
-                    -segmentWidth/2, 
-                    -segmentLength, 
-                    segmentWidth, 
-                    segmentLength * 2, 
+                    -segmentWidth/2,
+                    -segmentLength,
+                    segmentWidth,
+                    segmentLength * 2,
+                    radius * 0.9
+                );
+                graphics.strokeRoundedRect(
+                    -segmentWidth/2,
+                    -segmentLength,
+                    segmentWidth,
+                    segmentLength * 2,
                     radius * 0.9
                 );
                 graphics.setPosition(startX, y);
-                
+
                 // Store graphics reference on body for updating position/rotation
                 segmentBody.graphics = graphics;
+
+                // Ensure graphics are rendered on top
+                graphics.setDepth(10);
 
                 this.wormSegments.push(segmentBody);
             }
@@ -384,7 +399,7 @@
                     stiffness: config.worm.constraintStiffness,
                     damping: config.worm.constraintDamping,
                     render: {
-                        visible: false
+                        visible: true
                     }
                 });
                 this.matter.world.add(constraint);
@@ -432,8 +447,16 @@
                 this.cameraTarget.setPosition(this.wormSegments[0].position.x, this.wormSegments[0].position.y);
             }
 
-            // Check if spacebar is held
+            // Track spacebar state changes
+            this.wasStiffening = this.isStiffening;
             this.isStiffening = this.spaceKey.isDown;
+
+            // Track how long we've been stiffening
+            if (this.isStiffening) {
+                this.stiffeningDuration++;
+            } else if (this.wasStiffening && !this.isStiffening) {
+                this.stiffeningDuration = 0;
+            }
 
             // Apply angular damping to all segments and update visuals
             const dampingFactor = this.isStiffening ? config.straightening.damping : config.movement.angularDamping;
@@ -441,7 +464,7 @@
                 // Apply damping by reducing angular velocity
                 const angularVel = segment.angularVelocity * dampingFactor;
                 this.matter.body.setAngularVelocity(segment, angularVel);
-                
+
                 // Update visual position and rotation
                 if (segment.graphics) {
                     segment.graphics.setPosition(segment.position.x, segment.position.y);
@@ -497,7 +520,7 @@
             // Apply a small force to the head for better movement
             if (forceDirection && this.wormSegments.length > 0) {
                 const head = this.wormSegments[0];
-                const forceMagnitude = 0.004; // Small force
+                const forceMagnitude = 0.002; // Small force
                 this.matter.body.applyForce(head, head.position, {
                     x: forceDirection.x * forceMagnitude,
                     y: forceDirection.y * forceMagnitude
@@ -507,23 +530,31 @@
 
         straightenWorm() {
             // Apply forces to stretch the worm and reduce bending
-            const stretchForce = 0.1 * config.straightening.torqueMultiplier;
+            const stretchForce = 0.03 * config.straightening.torqueMultiplier;  // Reduced from 0.1
             const torqueStrength = config.movement.torqueAmount * config.straightening.torqueMultiplier;
 
-            // First, apply torque to align segments with the head
-            const headAngle = this.wormSegments[0].angle;
-
+            // Each segment tries to be straight (180°) relative to the one in front
             for (let i = 1; i < this.wormSegments.length; i++) {
                 const segment = this.wormSegments[i];
+                const prevSegment = this.wormSegments[i - 1];
 
-                // Calculate angle difference from head
-                let angleDiff = headAngle - segment.angle;
+                // We want the angle between segments to be 0 (straight line)
+                // Calculate current bend angle between segments
+                const dx = segment.position.x - prevSegment.position.x;
+                const dy = segment.position.y - prevSegment.position.y;
+                const connectionAngle = Math.atan2(dy, dx);
+
+                // The ideal angle for this segment would be the same as the connection angle
+                const targetAngle = connectionAngle - Math.PI / 2; // Adjust for segment orientation
+
+                // Calculate how far off we are from being straight
+                let angleDiff = targetAngle - segment.angle;
                 while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
                 while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
 
-                // Apply torque to align with head, stronger at head
-                const torqueMultiplier = 2 - i / this.wormSegments.length;
-                segment.torque = angleDiff * torqueStrength * 0.3 * torqueMultiplier;
+                // Apply torque to straighten
+                const fadeMultiplier = 1 - (i / this.wormSegments.length);
+                segment.torque = angleDiff * torqueStrength * 0.5 * fadeMultiplier;
             }
 
             // Then apply stretching forces
@@ -565,6 +596,14 @@
                 gravity: { y: config.gravityY },
                 debug: false,
                 enableSleeping: false,
+                debug: true,
+                showDebug: true,
+                showVelocity: true,
+                showAngleIndicator: true,
+                showSleeping: false,
+                constraintIterations: 4,  // Increase for better constraint solving
+                positionIterations: 8,    // Increase for better collision detection
+                velocityIterations: 6,    // Increase for better velocity resolution
             }
         },
         scene: GameScene
