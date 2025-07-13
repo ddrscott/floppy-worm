@@ -10,6 +10,7 @@
             
             // Create dat.GUI
             this.gui = new dat.GUI();
+            
 
             // Create room (floor and walls)
             const wallThickness = 20;
@@ -35,6 +36,13 @@
                 restitution: 0.2
             });
 
+            // Target platform on left side
+            this.platform = this.matter.add.rectangle(150, 300, 120, 20, {
+                isStatic: true,
+                friction: 15,
+                restitution: 0.1
+            });
+
             // Create worm with default config
             this.worm = this.createWorm(400, 100, 
                 {
@@ -48,6 +56,7 @@
             
             // Controls
             this.cursors = this.input.keyboard.createCursorKeys();
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             
             // Setup GUI controls
             this.setupGUI();
@@ -76,6 +85,14 @@
             const physicsFolder = this.gui.addFolder('Physics');
             physicsFolder.add(movement, 'contractionStrength', 0, 0.3).name('Contraction');
             physicsFolder.add(movement, 'damping', 0.8, 0.99).name('Damping');
+            
+            // Jump folder
+            const jumpFolder = this.gui.addFolder('Jump');
+            jumpFolder.add(movement, 'jumpStrategy', ['spiral', 'catapult', 'coil', 'wave']).name('Jump Strategy');
+            jumpFolder.add(movement, 'jumpTorque', 10, 200).name('Jump Torque');
+            jumpFolder.add(movement, 'spiralSpeed', 1, 10).name('Spiral Speed');
+            jumpFolder.add(movement, 'coilTightness', 0.3, 1.5).name('Coil Tightness');
+            jumpFolder.open();
             
             // Debug
             const debugFolder = this.gui.addFolder('Debug');
@@ -107,9 +124,9 @@
                 
                 // Create body
                 const segment = this.matter.add.circle(x, currentY, radius, {
-                    friction: 8,
+                    friction: 18,
                     frictionStatic: 0.8,
-                    density: 0.15,
+                    density: 0.1,
                     restitution: 0.01
                 });
                 
@@ -157,11 +174,14 @@
                 waveFrequency: 4,       // Number of waves along the body
                 direction: 0,           // Current movement direction (-1, 0, 1)
                 upPressed: false,       // Whether up key is being pressed
+                jumpPressed: false,     // Whether spacebar is being pressed
                 contractionPhase: 0,    // For length modulation
                 baseConstraintLengths: constraints.map(c => c.length),
                 baseStiffness: constraints.map(c => c.stiffness),
                 constraintAngles: new Array(constraints.length).fill(0),
                 baseRadius: baseRadius, // Store base radius for amplitude calculation
+                // Jump tracking
+                lastJumpPressed: false, // Track spacebar state
                 // Adjustable parameters
                 torqueMultiplier: 2,
                 frictionHigh: 20,
@@ -169,7 +189,12 @@
                 contractionStrength: 0.3,
                 damping: 0.85,
                 velocityBoost: 2,
-                weightLeanStrength: 1
+                weightLeanStrength: 1,
+                jumpStrength: 10,       // Not used anymore - kept for compatibility
+                jumpTorque: 50,         // Torque strength for jumping
+                jumpStrategy: 'spiral', // Jump strategy to use
+                spiralSpeed: 3,         // Speed of spiral rotation
+                coilTightness: 0.8      // How tight to coil for coil jump
             };
             
             return { segments, constraints, radii: segmentRadii, movement };
@@ -179,14 +204,31 @@
             // Clear graphics
             this.graphics.clear();
             
+            // Draw platform
+            this.graphics.fillStyle(0x8B4513); // Brown platform
+            this.graphics.fillRect(90, 290, 120, 20);
+            this.graphics.lineStyle(2, 0x654321);
+            this.graphics.strokeRect(90, 290, 120, 20);
+            
+            
             // Draw worm
             this.worm.segments.forEach((segment, i) => {
                 const radius = this.worm.radii[i];
                 
-                // Body color gradient
+                // Body color gradient - flash on jump
+                let baseColor1 = { r: 255, g: 100, b: 100 };
+                let baseColor2 = { r: 100, g: 255, b: 100 };
+                
+                // Flash yellow when jumping
+                if (this.worm.movement.jumpPressed) {
+                    baseColor1 = { r: 255, g: 255, b: 100 };
+                    baseColor2 = { r: 255, g: 200, b: 50 };
+                }
+                
+                
                 const color = Phaser.Display.Color.Interpolate.ColorWithColor(
-                    { r: 255, g: 100, b: 100 },
-                    { r: 100, g: 255, b: 100 },
+                    baseColor1,
+                    baseColor2,
                     this.worm.segments.length,
                     i
                 );
@@ -213,30 +255,35 @@
             // Track if up is pressed for upward movement
             this.worm.movement.upPressed = this.cursors.up.isDown;
             
+            // Track spacebar for jumping
+            this.worm.movement.jumpPressed = this.spaceKey.isDown;
+            
             // Update worm movement
             this.updateWormMovement();
+            
+            // TEST: Continuously straighten to verify algorithm
+            // this.straightenWorm(this.worm.movement, Phaser.Physics.Matter.Matter);
         }
         
         updateWormMovement() {
             const movement = this.worm.movement;
             const Matter = Phaser.Physics.Matter.Matter;
             
-            // Update time only when moving
+            // Handle jumping - simple spacebar press detection
+            if (movement.jumpPressed && !movement.lastJumpPressed) {
+                this.executeJump(movement, Matter);
+            }
+            movement.lastJumpPressed = movement.jumpPressed;
+            
+            
+            // Update time only when moving (old system)
             if (Math.abs(movement.direction) > 0.01) {
                 movement.time += 0.016 * movement.waveSpeed;
             }
             
             // Apply segment physics with head-first wave propagation
             this.worm.segments.forEach((segment, i) => {
-                // Velocity limiting to prevent explosions
-                const velocity = segment.velocity;
-                const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-                if (speed > 10) {
-                    Matter.Body.setVelocity(segment, {
-                        x: (velocity.x / speed) * 10,
-                        y: (velocity.y / speed) * 10
-                    });
-                }
+                // No velocity manipulation - pure torque only!
                 
                 // Angular velocity damping
                 Matter.Body.setAngularVelocity(segment, segment.angularVelocity * movement.damping);
@@ -267,22 +314,7 @@
                         segment.friction = movement.frictionHigh;
                         segment.frictionStatic = movement.frictionHigh * 1.5;
                         
-                        // Small forward push based on direction only
-                        if (movement.velocityBoost > 0 && Math.abs(movement.direction) > 0.1) {
-                            const currentVel = segment.velocity;
-                            const pushForce = movement.velocityBoost * movement.direction * 0.3; // Gentle push
-                            let newY = currentVel.y;
-                            
-                            // Only allow upward movement if up is pressed
-                            if (!movement.upPressed) {
-                                newY = Math.max(currentVel.y, 0);
-                            }
-                            
-                            Matter.Body.setVelocity(segment, {
-                                x: currentVel.x + pushForce * 0.05,
-                                y: newY
-                            });
-                        }
+                        // Pure torque - no velocity manipulation!
                     } else if (i < 3) { // Neck segments (1-2)
                         // Base lean angle - throw weight in movement direction
                         const weightLean = movement.direction * movement.weightLeanStrength * (1 - i * 0.1);
@@ -295,16 +327,7 @@
                         const torqueStrength = movement.torqueMultiplier * (2 - i * 0.3);
                         segment.torque = (targetAngle - segment.angle) * torqueStrength;
                         
-                        // Handle vertical movement based on up key
-                        if (!movement.upPressed) {
-                            // Force neck to stay grounded during lateral movement
-                            if (segment.position.y < 530) {
-                                Matter.Body.setVelocity(segment, {
-                                    x: segment.velocity.x,
-                                    y: Math.max(segment.velocity.y + 0.6, 2)
-                                });
-                            }
-                        }
+                        // No velocity manipulation - use torque to influence movement
                         
                         // Friction based on weight commitment
                         const leanAmount = Math.abs(segment.angle);
@@ -316,21 +339,7 @@
                             segment.friction = movement.frictionHigh * (1 + leanAmount);
                             segment.frictionStatic = movement.frictionHigh * (1.5 + leanAmount);
                             
-                            if (movement.velocityBoost > 0) {
-                                const currentVel = segment.velocity;
-                                const pushIntensity = leanAmount * 1.5;
-                                const pushForce = movement.velocityBoost * movement.direction * pushIntensity;
-                                let newY = currentVel.y;
-                                
-                                if (!movement.upPressed) {
-                                    newY = Math.max(currentVel.y, 0);
-                                }
-                                
-                                Matter.Body.setVelocity(segment, {
-                                    x: currentVel.x + pushForce * 0.08,
-                                    y: newY
-                                });
-                            }
+                            // High friction when committed to movement provides forward motion
                         } else {
                             segment.friction = movement.frictionLow;
                             segment.frictionStatic = movement.frictionLow * 1.2;
@@ -348,26 +357,7 @@
                         const torqueStrength = movement.torqueMultiplier * (1 - segmentRatio * 0.5);
                         segment.torque = (targetAngle - segment.angle) * torqueStrength;
                         
-                        // Handle vertical movement for body segments
-                        if (!movement.upPressed) {
-                            // Keep body grounded during lateral movement
-                            if (segment.position.y < 540) { // If above ground level
-                                // Apply downward velocity
-                                Matter.Body.setVelocity(segment, {
-                                    x: segment.velocity.x,
-                                    y: Math.max(segment.velocity.y + 0.5, 2) // Downward pull
-                                });
-                                
-                                // Add weight when body is leaning
-                                if (Math.abs(segment.angle) > 0.05) {
-                                    const downwardForce = Math.abs(segment.angle) * 0.01;
-                                    Matter.Body.applyForce(segment, segment.position, {
-                                        x: 0,
-                                        y: downwardForce
-                                    });
-                                }
-                            }
-                        }
+                        // Pure torque approach - no forces or velocity changes
                         
                         // Friction based on body weight commitment
                         const bodyLeanAmount = Math.abs(segment.angle);
@@ -437,6 +427,277 @@
             } else if (Math.abs(head.angle) > 0.5) {
                 // Stabilize when idle
                 head.torque += -head.angle * 0.05;
+            }
+        }
+        
+        executeJump(movement, Matter) {
+            // Try different jump strategies
+            const strategy = movement.jumpStrategy || 'spiral';
+            
+            switch(strategy) {
+                case 'spiral':
+                    this.spiralJump(movement, Matter);
+                    break;
+                case 'catapult':
+                    this.catapultJump(movement, Matter);
+                    break;
+                case 'coil':
+                    this.coilJump(movement, Matter);
+                    break;
+                case 'wave':
+                    this.compressionWaveJump(movement, Matter);
+                    break;
+                default:
+                    this.spiralJump(movement, Matter);
+            }
+        }
+        
+        pushJump(movement, Matter) {
+            // Simple physics: rotate all segments to "push" against the ground
+            this.worm.segments.forEach((segment, i) => {
+                // All segments rotate to push downward-backward
+                const pushAngle = movement.direction * -0.3 - 0.5; // Angled down and back
+                
+                // Immediate strong rotation
+                Matter.Body.setAngularVelocity(segment, pushAngle * movement.jumpTorque * 0.2);
+                segment.torque = pushAngle * movement.jumpTorque;
+                
+                // Maximum ground friction for push-off
+                segment.friction = 50;
+                segment.frictionStatic = 50;
+            });
+            
+            // After a brief moment, reduce friction to allow flight
+            setTimeout(() => {
+                this.worm.segments.forEach(segment => {
+                    segment.friction = 8;
+                    segment.frictionStatic = 0.9;
+                });
+            }, 100);
+        }
+        
+        spiralJump(movement, Matter) {
+            // Create a spiral motion that naturally lifts the worm
+            this.worm.segments.forEach((segment, i) => {
+                const segmentRatio = i / this.worm.segments.length;
+                const phase = segmentRatio * Math.PI * 2;
+                
+                // Spiral rotation that progresses along the body
+                const spiralAngle = Math.sin(phase) * movement.direction;
+                const rotationSpeed = movement.spiralSpeed * (1 - segmentRatio * 0.5);
+                
+                // Apply torque in a spiral pattern
+                segment.torque = spiralAngle * movement.jumpTorque * 0.5;
+                Matter.Body.setAngularVelocity(segment, 
+                    Math.cos(phase) * rotationSpeed * movement.jumpTorque * 0.01
+                );
+                
+                // Alternating friction for grip
+                if (i % 2 === 0) {
+                    segment.friction = movement.frictionHigh * 2;
+                    segment.frictionStatic = movement.frictionHigh * 3;
+                } else {
+                    segment.friction = movement.frictionLow;
+                    segment.frictionStatic = movement.frictionLow;
+                }
+            });
+        }
+        
+        catapultJump(movement, Matter) {
+            // Use tail as counterweight, head launches up
+            const midPoint = Math.floor(this.worm.segments.length / 2);
+            
+            this.worm.segments.forEach((segment, i) => {
+                if (i < midPoint) {
+                    // Front half: rotate upward
+                    const frontRatio = i / midPoint;
+                    const upwardAngle = -Math.PI/4 + (movement.direction * 0.2);
+                    segment.torque = (upwardAngle - segment.angle) * movement.jumpTorque * (1 - frontRatio * 0.3);
+                    
+                    // Low friction for launch
+                    segment.friction = movement.frictionLow;
+                    segment.frictionStatic = movement.frictionLow;
+                } else {
+                    // Back half: slam down as counterweight
+                    const backRatio = (i - midPoint) / (this.worm.segments.length - midPoint);
+                    const downAngle = Math.PI/4;
+                    segment.torque = (downAngle - segment.angle) * movement.jumpTorque * 1.5;
+                    Matter.Body.setAngularVelocity(segment, downAngle * 2);
+                    
+                    // High friction for anchoring
+                    segment.friction = movement.frictionHigh * 3;
+                    segment.frictionStatic = movement.frictionHigh * 4;
+                }
+            });
+        }
+        
+        coilJump(movement, Matter) {
+            // Coil into a spring, then release
+            const coilCenter = Math.floor(this.worm.segments.length * 0.3);
+            
+            this.worm.segments.forEach((segment, i) => {
+                const distFromCenter = Math.abs(i - coilCenter);
+                const coilPhase = i * movement.coilTightness;
+                
+                // Create coiling motion
+                const targetAngle = Math.sin(coilPhase) * (1 - distFromCenter / this.worm.segments.length);
+                segment.torque = (targetAngle - segment.angle) * movement.jumpTorque;
+                
+                // Oscillating angular velocity for spring effect
+                const springVelocity = Math.cos(coilPhase * 2) * movement.jumpTorque * 0.02;
+                Matter.Body.setAngularVelocity(segment, springVelocity);
+                
+                // Variable friction based on coil position
+                if (Math.abs(targetAngle) > 0.5) {
+                    segment.friction = movement.frictionHigh * 2;
+                    segment.frictionStatic = movement.frictionHigh * 2.5;
+                } else {
+                    segment.friction = movement.frictionLow;
+                    segment.frictionStatic = movement.frictionLow * 1.2;
+                }
+            });
+            
+            // Stiffen constraints for spring effect
+            this.worm.constraints.forEach(constraint => {
+                constraint.stiffness = 0.95;
+            });
+            
+            // Restore after brief moment
+            setTimeout(() => {
+                this.worm.constraints.forEach((constraint, i) => {
+                    constraint.stiffness = movement.baseStiffness[i];
+                });
+            }, 150);
+        }
+        
+        compressionWaveJump(movement, Matter) {
+            // Send a compression wave from tail to head
+            const wavePosition = (Date.now() % 500) / 500; // 0 to 1 over 500ms
+            
+            this.worm.segments.forEach((segment, i) => {
+                const segmentRatio = i / this.worm.segments.length;
+                const waveDistance = Math.abs(segmentRatio - wavePosition);
+                
+                if (waveDistance < 0.3) {
+                    // Segment is in the wave
+                    const waveIntensity = 1 - (waveDistance / 0.3);
+                    
+                    // Compress by rotating perpendicular to body axis
+                    const compressionAngle = (i % 2 === 0 ? 1 : -1) * waveIntensity;
+                    segment.torque = compressionAngle * movement.jumpTorque;
+                    
+                    // High friction at wave point
+                    segment.friction = movement.frictionHigh * (1 + waveIntensity * 2);
+                    segment.frictionStatic = movement.frictionHigh * (1 + waveIntensity * 3);
+                } else {
+                    // Normal friction outside wave
+                    segment.friction = movement.frictionLow;
+                    segment.frictionStatic = movement.frictionLow * 1.5;
+                }
+            });
+            
+            // When wave reaches head, apply upward torque
+            if (wavePosition > 0.8) {
+                const head = this.worm.segments[0];
+                head.torque = (-Math.PI/3 - head.angle) * movement.jumpTorque * 2;
+            }
+        }
+        
+        
+        whipCrackJump(movement, Matter) {
+            // Apply sequential angular impulses from tail to head
+            // This creates a whip-like motion that propels the worm upward
+            
+            this.worm.segments.forEach((segment, i) => {
+                const segmentRatio = i / this.worm.segments.length;
+                
+                // Timing: tail moves first, head moves last
+                const delay = (1 - segmentRatio) * 0.1;
+                const isActive = movement.jumpTimer < delay + 0.1;
+                
+                if (isActive) {
+                    // Rotate segments in alternating directions for maximum effect
+                    const rotationDirection = i % 2 === 0 ? 1 : -1;
+                    const rotationStrength = movement.jumpTorque * (1 - segmentRatio * 0.5);
+                    
+                    // Set angular velocity directly for immediate response
+                    Matter.Body.setAngularVelocity(segment, rotationDirection * rotationStrength * 0.3);
+                    
+                    // Also apply torque for continued motion
+                    segment.torque = rotationDirection * rotationStrength * 0.5;
+                    
+                    // Maximum friction to convert rotation into upward motion
+                    segment.friction = movement.frictionHigh * 5;
+                    segment.frictionStatic = movement.frictionHigh * 5;
+                }
+            });
+            
+            // Stiffen constraints during jump for better energy transfer
+            if (movement.jumpTimer < 0.2) {
+                this.worm.constraints.forEach(constraint => {
+                    constraint.stiffness = 0.95;
+                });
+            } else {
+                // Restore normal stiffness
+                this.worm.constraints.forEach((constraint, i) => {
+                    constraint.stiffness = movement.baseStiffness[i];
+                });
+            }
+            
+            // Track jump progress
+            movement.jumpTimer += 0.016;
+            if (movement.jumpTimer > 0.3) {
+                movement.jumpTimer = 0;
+            }
+        }
+        
+        straightenWorm(movement, Matter, torqueMultiplier = 1) {
+            // Apply straightening torque to each segment
+            for (let i = 1; i < this.worm.segments.length; i++) {
+                const currentSegment = this.worm.segments[i];
+                const previousSegment = this.worm.segments[i - 1];
+                
+                // Simple approach: each segment should match the angle of the previous segment
+                const targetAngle = previousSegment.angle;
+                
+                // Calculate shortest angular distance
+                let angleDiff = targetAngle - currentSegment.angle;
+                // Normalize to [-PI, PI]
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                // Apply torque proportional to angle difference
+                const segmentRatio = i / this.worm.segments.length;
+                const torqueStrength = torqueMultiplier * (1 - segmentRatio * 0.5); // Less strong at tail
+                currentSegment.torque = angleDiff * torqueStrength;
+                
+                // Add damping to prevent oscillation
+                currentSegment.angularVelocity *= 0.9;
+                
+                // For jumping, also set angular velocity
+                if (torqueMultiplier > 10) {
+                    const angularImpulse = angleDiff * 2 * (1 + segmentRatio);
+                    Matter.Body.setAngularVelocity(currentSegment, angularImpulse);
+                    
+                    // High friction for jumping
+                    currentSegment.friction = movement.frictionHigh * 3;
+                    currentSegment.frictionStatic = movement.frictionHigh * 4;
+                }
+            }
+            
+            // Handle head segment
+            const head = this.worm.segments[0];
+            if (torqueMultiplier > 10) {
+                // For jumping: point upward with slight direction
+                const jumpAngle = -Math.PI/2 + (movement.direction * 0.3);
+                const headAngleDiff = jumpAngle - head.angle;
+                // Normalize
+                const normalizedHeadDiff = Math.atan2(Math.sin(headAngleDiff), Math.cos(headAngleDiff));
+                head.torque = normalizedHeadDiff * torqueMultiplier * 2;
+                Matter.Body.setAngularVelocity(head, normalizedHeadDiff * 3);
+            } else {
+                // For testing: just keep head level
+                head.torque = -head.angle * torqueMultiplier * 0.5;
             }
         }
     }
