@@ -79,38 +79,11 @@
         }
 
         create() {
-            // Set world bounds
-            this.matter.world.setBounds(0, 0, 800, 600);
+            // Set world bounds with walls
+            this.matter.world.setBounds(0, 0, 800, 600, 32, true, true, true, true);
             
             // Create dat.GUI
             this.gui = new dat.GUI();
-            
-            // Create room (floor and walls)
-            const wallThickness = 20;
-            
-            // Floor
-            this.matter.add.rectangle(400, 575, 800, wallThickness, { 
-                isStatic: true,
-                friction: 10,
-                restitution: 0,
-                render: { fillColor: 0x2d3436 }
-            });
-            
-            // Left wall
-            this.matter.add.rectangle(25, 300, wallThickness, 600, { 
-                isStatic: true,
-                friction: 10,
-                restitution: 0.2,
-                render: { fillColor: 0x2d3436 }
-            });
-            
-            // Right wall
-            this.matter.add.rectangle(775, 300, wallThickness, 600, { 
-                isStatic: true,
-                friction: 10,
-                restitution: 0.2,
-                render: { fillColor: 0x2d3436 }
-            });
 
             // Target platform on left side
             this.platform = this.matter.add.rectangle(150, 300, 120, 20, {
@@ -121,13 +94,11 @@
             });
 
             // Create worm with simple config
-            this.worm = this.createWorm(400, 100, {
+            this.worm = this.createWorm(30, 300, {
                 baseRadius: 10,
                 segmentSizes: [0.85, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
             });
 
-            // Simple graphics for rendering
-            this.graphics = this.add.graphics();
             
             // Add mouse constraint for interaction
             this.matter.add.mouseSpring({
@@ -251,7 +222,7 @@
                 showRightLateral: true,
                 
                 // Motor parameters
-                motorEnabled: true,
+                motorEnabled: false,
                 motorSpeed: 3, // rotations per second
                 motorArmStiffness: 1,
                 motorArmDamping: 0.1,
@@ -260,7 +231,6 @@
                 // Debug
                 showDebug: true,
                 pinTail: true,
-                showAngleIndicators: true,
                 
                 // Camera
                 cameraFollowTail: true,
@@ -416,7 +386,6 @@
                     this.worm.tailConstraint.render.visible = value;
                 }
             });
-            debugFolder.add(this.physicsParams, 'showAngleIndicators').name('Show Angles');
             
             // Camera folder
             const cameraFolder = this.gui.addFolder('Camera');
@@ -481,13 +450,10 @@
 
             // Create draggable tail anchor
             const tail = segments[segments.length - 1];
-            const tailAnchor = this.matter.add.circle(155, 505, 15, {
+            const tailAnchor = this.matter.add.circle(30, 560, 15, {
                 isStatic: true,  // Keep it static
+                isSensor: true,
                 render: {
-                    fillColor: 0xff00ff,
-                    strokeColor: 0xff00ff,
-                    lineWidth: 2,
-                    visible: true
                 }
             });
             
@@ -497,21 +463,15 @@
                 bodyB: tail,
                 length: 0,
                 stiffness: 1,
-                damping: 0,
-                isSensor: true,
-                render: {
-                    visible: true,
-                    lineColor: 0xff00ff,
-                    lineWidth: 2
-                }
+                damping: 0.1,
             });
             Matter.World.add(this.matter.world.localWorld, tailPin);
             
             // Create segment body
-            const motor = this.matter.add.circle(x, motorY, baseRadius * 5, {
+            const motor = this.matter.add.circle(x, motorY, baseRadius * 6, {
                 name: 'motor',
                 isSensor: true,
-                density: 0.02,
+                density: 0.002,
                 render: {
                     fillColor: 0xff6b6b, // Red color for motor
                     visible: true,
@@ -526,8 +486,6 @@
                 length: 0,
                 stiffness: 1,
                 damping: 0.1,
-                render: {
-                }
             });
             Matter.World.add(this.matter.world.localWorld, motorAxel);
             constraints.push(motorAxel);
@@ -537,10 +495,10 @@
             const motorArm = Matter.Constraint.create({
                 bodyA: motor,
                 bodyB: segments[1],
-                pointA: { x: 0, y: baseRadius * 4 },
+                pointA: { x: 0, y: baseRadius * 1 },
                 pointB: { x: 0, y: 0 }, // axel
                 length: baseRadius * 8,
-                stiffness: 0.4, // Softer spring
+                stiffness: 0.1, // Softer spring
                 damping: 0.1,
                 render: {
                     visible: true,
@@ -577,30 +535,30 @@
                 constraints.push(constraint);
             }
 
-            const shoulderSegment = segments[1];
-            const torsoIndex = Math.floor(segments.length * 0.35);
-            const torsoSegment = segments[torsoIndex];
-            const lateralLength = baseRadius * 3; // Default length for lateral constraints
+            // const shoulderSegment = segments[1];
+            // const torsoIndex = Math.floor(segments.length * 0.35);
+            // const torsoSegment = segments[torsoIndex];
+            // const lateralLength = baseRadius * 3; // Default length for lateral constraints
 
-            const lateralConstraint1 = Matter.Constraint.create({
-                bodyA: shoulderSegment,
-                bodyB: torsoSegment,
-                pointA: { x: -segmentRadii[1], y: 0 }, // Left side of shoulder
-                pointB: { x: -segmentRadii[torsoIndex], y: 0 }, // Left side of torso
-                length: lateralLength,
-                stiffness: 0.003, // Softer spring
-                damping: 0.1,
-            });
-
-            const lateralConstraint2 = Matter.Constraint.create({
-                bodyA: shoulderSegment,
-                bodyB: torsoSegment,
-                pointA: { x: segmentRadii[1], y: 0 }, // Right side of shoulder
-                pointB: { x: segmentRadii[torsoIndex], y: 0 }, // Right side of torso
-                length: lateralLength,
-                stiffness: 0.003, // Softer spring
-                damping: 0.1,
-            });
+            // const lateralConstraint1 = Matter.Constraint.create({
+            //     bodyA: shoulderSegment,
+            //     bodyB: torsoSegment,
+            //     pointA: { x: -segmentRadii[1], y: 0 }, // Left side of shoulder
+            //     pointB: { x: -segmentRadii[torsoIndex], y: 0 }, // Left side of torso
+            //     length: lateralLength,
+            //     stiffness: 0.003, // Softer spring
+            //     damping: 0.1,
+            // });
+            //
+            // const lateralConstraint2 = Matter.Constraint.create({
+            //     bodyA: shoulderSegment,
+            //     bodyB: torsoSegment,
+            //     pointA: { x: segmentRadii[1], y: 0 }, // Right side of shoulder
+            //     pointB: { x: segmentRadii[torsoIndex], y: 0 }, // Right side of torso
+            //     length: lateralLength,
+            //     stiffness: 0.003, // Softer spring
+            //     damping: 0.1,
+            // });
 
             // Disable for now, I don't think it helps.
             // Matter.World.add(this.matter.world.localWorld, lateralConstraint1);
@@ -630,8 +588,6 @@
         }
         
         update(time, delta) {
-            // Clear graphics
-            this.graphics.clear();
             
             // Rotate motor based on GUI settings
             if (this.worm.motor && this.physicsParams.motorEnabled) {
@@ -668,10 +624,12 @@
                 gravity: { y: 1 },  // Start with gravity off
                 debug: {
                     showBody: true,
+                    showConstraint: true,
                     showStaticBody: true,
                     showAngleIndicator: true,
+                    showVelocity: true,
                     wireframes: true,
-                    showAxes: true,
+                    showAxes: false,
                 },
                 positionIterations: 12,   // Higher for better collision detection
             }
