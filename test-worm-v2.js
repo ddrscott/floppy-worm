@@ -84,11 +84,14 @@
             
             // Create dat.GUI
             this.gui = new dat.GUI();
+            
+            // Create grid background
+            this.createGrid();
 
             // Target platform on left side
-            this.platform = this.matter.add.rectangle(150, 300, 120, 20, {
+            this.platform = this.matter.add.rectangle(150, 400, 220, 20, {
                 isStatic: true,
-                friction: 15,
+                friction: 1,
                 restitution: 0.1,
                 render: { fillColor: 0xe17055 }
             });
@@ -117,7 +120,7 @@
             this.setupGUI();
             
             // Add coordinate display tool
-            this.coordDisplay = new CoordinateDisplay(this, 10, 10, {
+            this.coordDisplay = new CoordinateDisplay(this, 10, 300, {
                 backgroundColor: 0x2d3436,
                 backgroundAlpha: 0.9,
                 textColor: '#4ecdc4',
@@ -147,6 +150,43 @@
             
             // Set up drag handling for static bodies
             this.setupStaticBodyDragging();
+            
+            // Set up keyboard controls
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.motorDirection = 0; // -1 for left, 0 for idle, 1 for right
+            
+            // Camera smoothing
+            this.cameraTarget = { x: 400, y: 300 };
+            this.cameraLerpFactor = 0.1; // How quickly camera follows (0.1 = 10% per frame)
+        }
+        
+        createGrid() {
+            const gridSize = 50; // Size of each grid cell
+            const graphics = this.add.graphics();
+            
+            // Set grid line style
+            graphics.lineStyle(1, 0x3a3a4a, 0.3); // Dark gray with low opacity
+            
+            // Draw vertical lines
+            for (let x = 0; x <= 800; x += gridSize) {
+                graphics.moveTo(x, 0);
+                graphics.lineTo(x, 600);
+            }
+            
+            // Draw horizontal lines
+            for (let y = 0; y <= 600; y += gridSize) {
+                graphics.moveTo(0, y);
+                graphics.lineTo(800, y);
+            }
+            
+            // Draw the grid
+            graphics.strokePath();
+            
+            // Set depth to be behind everything
+            graphics.setDepth(-100);
+            
+            // Store reference for potential updates
+            this.gridGraphics = graphics;
         }
         
         setupStaticBodyDragging() {
@@ -222,19 +262,20 @@
                 showRightLateral: true,
                 
                 // Motor parameters
-                motorEnabled: false,
-                motorSpeed: 3, // rotations per second
-                motorArmStiffness: 1,
-                motorArmDamping: 0.1,
-                motorArmLength: 40,
+                motorSpeed: 7, // rotations per second
+                motorArmStiffness: 0.25,
+                motorArmDamping: 0.2,
+                motorArmLength: 60,
                 
                 // Debug
                 showDebug: true,
                 pinTail: true,
+                showGrid: true,
                 
                 // Camera
                 cameraFollowTail: true,
-                cameraZoom: 2
+                cameraZoom: 2,
+                cameraSmoothing: 0.1
             };
             
             // World physics folder
@@ -353,8 +394,7 @@
             
             // Motor folder
             const motorFolder = this.gui.addFolder('Motor');
-            motorFolder.add(this.physicsParams, 'motorEnabled').name('Enable Motor');
-            motorFolder.add(this.physicsParams, 'motorSpeed', -5, 5).name('Speed (rot/sec)').step(0.1);
+            motorFolder.add(this.physicsParams, 'motorSpeed', 0, 5).name('Speed (rot/sec)').step(0.1);
             motorFolder.add(this.physicsParams, 'motorArmStiffness', 0.01, 1.0).name('Arm Stiffness').step(0.01).onChange(value => {
                 if (this.worm.motorArm) {
                     this.worm.motorArm.stiffness = value;
@@ -386,12 +426,20 @@
                     this.worm.tailConstraint.render.visible = value;
                 }
             });
+            debugFolder.add(this.physicsParams, 'showGrid').name('Show Grid').onChange(value => {
+                if (this.gridGraphics) {
+                    this.gridGraphics.setVisible(value);
+                }
+            });
             
             // Camera folder
             const cameraFolder = this.gui.addFolder('Camera');
             cameraFolder.add(this.physicsParams, 'cameraFollowTail').name('Follow Tail');
             cameraFolder.add(this.physicsParams, 'cameraZoom', 0.5, 3).name('Zoom').step(0.1).onChange(value => {
                 this.cameras.main.setZoom(value);
+            });
+            cameraFolder.add(this.physicsParams, 'cameraSmoothing', 0.01, 0.5).name('Smoothing').step(0.01).onChange(value => {
+                this.cameraLerpFactor = value;
             });
             cameraFolder.open();
         }
@@ -422,11 +470,17 @@
                 const radius = baseRadius * segmentSizes[i];
                 segmentRadii.push(radius);
                 
+                let density = 0.03; // Default density
+
+                // if (i < 3) {
+                //     density = 0.04; // Lighter for head and neck segments
+                // }
+
                 // Create segment body
                 const segment = this.matter.add.circle(x, currentY, radius, {
                     friction: 100,
                     frictionStatic: 0.25,
-                    density: 0.03,
+                    density: density,
                     restitution: 0.00,
                     collisionFilter: {
                     },
@@ -451,7 +505,8 @@
             // Create draggable tail anchor
             const tail = segments[segments.length - 1];
             const tailAnchor = this.matter.add.circle(30, 560, 15, {
-                isStatic: true,  // Keep it static
+                // isStatic: true,  // Keep it static
+                density: 0.00000001, // Light density
                 isSensor: true,
                 render: {
                 }
@@ -467,46 +522,53 @@
             });
             Matter.World.add(this.matter.world.localWorld, tailPin);
             
-            // Create segment body
-            const motor = this.matter.add.circle(x, motorY, baseRadius * 6, {
+            // Create motor attached to the worm
+            const motor = this.matter.add.circle(x, motorY, baseRadius * 4, {
                 name: 'motor',
+                density: 0.01,  // Give it some mass
                 isSensor: true,
-                density: 0.002,
                 render: {
-                    fillColor: 0xff6b6b, // Red color for motor
+                    fillColor: 0xff6b6b,
                     visible: true,
                     lineWidth: 2,
                     strokeStyle: '#ff6b6b'
                 }
             });
 
-            const motorAxel = Matter.Constraint.create({
+            // Attach motor to segment with a bearing (allows rotation)
+            const motorMount = Matter.Constraint.create({
                 bodyA: segments[motorIndex],
                 bodyB: motor,
+                pointA: { x: 0, y: 0 },
+                pointB: { x: 0, y: 0 },
                 length: 0,
-                stiffness: 1,
+                stiffness: 0.09,  // Slightly soft to allow rotation
                 damping: 0.1,
             });
-            Matter.World.add(this.matter.world.localWorld, motorAxel);
-            constraints.push(motorAxel);
-
-
-            // attach motor to 2nd segment
+            Matter.World.add(this.matter.world.localWorld, motorMount);
+            
+            // Create pusher arms with very specific geometry
+            const crankRadius = baseRadius * 2; // Distance from motor center
+            
+            // Single arm design - simpler is better for getting it working
             const motorArm = Matter.Constraint.create({
                 bodyA: motor,
-                bodyB: segments[1],
-                pointA: { x: 0, y: baseRadius * 1 },
-                pointB: { x: 0, y: 0 }, // axel
-                length: baseRadius * 8,
-                stiffness: 0.1, // Softer spring
-                damping: 0.1,
+                bodyB: segments[1], // Push the front
+                pointA: { x: crankRadius, y: 0 }, // Attachment on motor edge
+                pointB: { x: 0, y: -segmentRadii[1] }, // Top of segment
+                length: baseRadius * 4, // Longer, flexible connection
+                stiffness: 0.2,  // Very soft spring
+                damping: 0.3,
                 render: {
                     visible: true,
                     strokeStyle: '#ff6b6b',
-                    lineWidth: 2
+                    lineWidth: 3
                 }
             });
             Matter.World.add(this.matter.world.localWorld, motorArm);
+            
+            // Try a simpler approach - just one arm for now
+            // We can add more once we get basic rotation working
             constraints.push(motorArm);
 
 
@@ -570,7 +632,7 @@
                 segments: segments,
                 constraints: constraints,
                 motor: motor,
-                motorConstraint: motorAxel,
+                motorMount: motorMount,
                 motorArm: motorArm,
                 tailAnchor: tailAnchor,
                 tailConstraint: tailPin
@@ -589,24 +651,60 @@
         
         update(time, delta) {
             
-            // Rotate motor based on GUI settings
-            if (this.worm.motor && this.physicsParams.motorEnabled) {
-                const rotationSpeed = Math.PI * 2 * this.physicsParams.motorSpeed; // radians per second
-                const rotationDelta = (rotationSpeed * delta) / 1000; // radians per frame
-                const currentAngle = this.worm.motor.angle;
-                this.matter.body.setAngle(this.worm.motor, currentAngle + rotationDelta);
+            // Update motor direction based on keyboard input
+            if (this.cursors.left.isDown) {
+                this.motorDirection = -1;
+            } else if (this.cursors.right.isDown) {
+                this.motorDirection = 1;
+            } else {
+                this.motorDirection = 0;
             }
             
-            // Camera follow tail or anchor
+            // Rotate motor based on direction and speed
+            if (this.worm.motor && this.motorDirection !== 0) {
+                const rotationSpeed = Math.PI * 2 * this.physicsParams.motorSpeed * this.motorDirection; // radians per second
+                const rotationDelta = (rotationSpeed * delta) / 1000; // radians per frame
+                const currentAngle = this.worm.motor.angle;
+                
+                // Force rotation by setting angle directly
+                this.matter.body.setAngle(this.worm.motor, currentAngle + rotationDelta);
+                
+                // Also apply torque to help overcome resistance
+                this.matter.body.setAngularVelocity(this.worm.motor, rotationSpeed);
+            } else if (this.worm.motor && this.motorDirection === 0) {
+                // Stop motor when no key is pressed
+                this.matter.body.setAngularVelocity(this.worm.motor, 0);
+            }
+            
+            // Camera follow tail or anchor with smoothing
             if (this.physicsParams.cameraFollowTail) {
+                let targetX, targetY;
+                
                 if (this.worm.tailAnchor && this.physicsParams.pinTail) {
                     // Follow the anchor when it's visible
-                    this.cameras.main.centerOn(this.worm.tailAnchor.position.x, this.worm.tailAnchor.position.y);
+                    targetX = this.worm.tailAnchor.position.x;
+                    targetY = this.worm.tailAnchor.position.y;
                 } else if (this.worm.segments.length > 0) {
                     // Otherwise follow the tail
                     const tail = this.worm.segments[this.worm.segments.length - 1];
-                    this.cameras.main.centerOn(tail.position.x, tail.position.y);
+                    targetX = tail.position.x;
+                    targetY = tail.position.y;
                 }
+                
+                // Update camera target with smoothing
+                this.cameraTarget.x = targetX;
+                this.cameraTarget.y = targetY;
+                
+                // Get current camera center
+                const currentX = this.cameras.main.scrollX + this.cameras.main.width / 2;
+                const currentY = this.cameras.main.scrollY + this.cameras.main.height / 2;
+                
+                // Lerp to new position
+                const newX = currentX + (this.cameraTarget.x - currentX) * this.cameraLerpFactor;
+                const newY = currentY + (this.cameraTarget.y - currentY) * this.cameraLerpFactor;
+                
+                // Apply smoothed position
+                this.cameras.main.centerOn(newX, newY);
             }
         }
     }
@@ -623,12 +721,13 @@
             matter: {
                 gravity: { y: 1 },  // Start with gravity off
                 debug: {
+                    wireframes: true,
                     showBody: true,
                     showConstraint: true,
                     showStaticBody: true,
                     showAngleIndicator: true,
-                    showVelocity: true,
-                    wireframes: true,
+                    showVelocity: false,
+                    showCollisions: false,
                     showAxes: false,
                 },
                 positionIterations: 12,   // Higher for better collision detection
