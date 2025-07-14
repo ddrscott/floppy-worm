@@ -60,26 +60,47 @@
             
             // Setup GUI controls
             this.setupGUI();
+            
+            // Store original colors for visual feedback
+            this.originalColors = this.worm.segments.map((seg, i) => {
+                if (i === 0) {
+                    return { fill: '#ff6b6b', stroke: '#ff4444' }; // Head (red)
+                } else if (i < 3) {
+                    return { fill: '#4ecdc4', stroke: '#2ca89a' }; // Neck (teal)
+                } else {
+                    return { fill: '#95e1d3', stroke: '#6bc5b8' }; // Body (light green)
+                }
+            });
         }
         
         setupGUI() {
             const movement = this.worm.movement;
             
-            // Movement folder
-            const movementFolder = this.gui.addFolder('Movement');
-            movementFolder.add(movement, 'waveSpeed', 0.5, 10).name('Wave Speed');
-            movementFolder.add(movement, 'waveAmplitude', 0, 1).name('Wave Amplitude (%)').step(0.05);
-            movementFolder.add(movement, 'waveFrequency', 0.5, 4).name('Wave Frequency');
-            movementFolder.add(movement, 'torqueMultiplier', 0.01, 2).name('Torque Strength');
-            movementFolder.add(movement, 'velocityBoost', 0, 2).name('Velocity Boost');
-            movementFolder.add(movement, 'weightLeanStrength', 0, 1).name('Weight Lean').step(0.05);
-            movementFolder.open();
+            // Physics mode toggle
+            this.gui.add(movement, 'useSimplePhysics').name('Use Simple Physics');
+            
+            // Simple physics folder
+            const simpleFolder = this.gui.addFolder('Simple Physics');
+            simpleFolder.add(movement, 'movementForce', 0.0001, 0.01).name('Movement Force').step(0.0001);
+            simpleFolder.add(movement, 'upwardForce', 0.0001, 0.01).name('Upward Force').step(0.0001);
+            simpleFolder.add(movement, 'bendTorque', 0, 0.5).name('Bend Torque').step(0.01);
+            simpleFolder.add(movement, 'contractionForce', 0.01, 0.5).name('Contraction Force').step(0.01);
+            simpleFolder.add(movement, 'straightenDamping', 0.8, 0.999).name('Straighten Damping').step(0.001);
+            simpleFolder.open();
+            
+            // Complex physics folder
+            const complexFolder = this.gui.addFolder('Complex Physics');
+            complexFolder.add(movement, 'waveSpeed', 0.5, 10).name('Wave Speed');
+            complexFolder.add(movement, 'waveAmplitude', 0, 1).name('Wave Amplitude (%)').step(0.05);
+            complexFolder.add(movement, 'waveFrequency', 0.5, 4).name('Wave Frequency');
+            complexFolder.add(movement, 'torqueMultiplier', 0.01, 2).name('Torque Strength');
+            complexFolder.add(movement, 'velocityBoost', 0, 2).name('Velocity Boost');
+            complexFolder.add(movement, 'weightLeanStrength', 0, 1).name('Weight Lean').step(0.05);
             
             // Friction folder
             const frictionFolder = this.gui.addFolder('Friction');
             frictionFolder.add(movement, 'frictionHigh', 1, 50).name('High Friction');
             frictionFolder.add(movement, 'frictionLow', 0.01, 5).name('Low Friction');
-            frictionFolder.open();
             
             // Physics folder
             const physicsFolder = this.gui.addFolder('Physics');
@@ -88,11 +109,10 @@
             
             // Jump folder
             const jumpFolder = this.gui.addFolder('Jump');
-            jumpFolder.add(movement, 'jumpStrategy', ['spiral', 'catapult', 'coil', 'wave']).name('Jump Strategy');
+            jumpFolder.add(movement, 'jumpStrategy', ['spiral', 'catapult', 'coil', 'wave', 'contraction']).name('Jump Strategy');
             jumpFolder.add(movement, 'jumpTorque', 10, 200).name('Jump Torque');
             jumpFolder.add(movement, 'spiralSpeed', 1, 10).name('Spiral Speed');
             jumpFolder.add(movement, 'coilTightness', 0.3, 1.5).name('Coil Tightness');
-            jumpFolder.open();
             
             // Debug
             const debugFolder = this.gui.addFolder('Debug');
@@ -194,7 +214,14 @@
                 jumpTorque: 50,         // Torque strength for jumping
                 jumpStrategy: 'spiral', // Jump strategy to use
                 spiralSpeed: 3,         // Speed of spiral rotation
-                coilTightness: 0.8      // How tight to coil for coil jump
+                coilTightness: 0.8,     // How tight to coil for coil jump
+                // New simplified movement parameters
+                movementForce: 0.015,   // Direct force strength (5x index.html's 0.003)
+                upwardForce: 0.01,      // Upward force strength (5x index.html's 0.002)
+                bendTorque: 0.6,        // Torque for bending (5x index.html's 0.12)
+                contractionForce: 0.2,  // Muscular contraction force
+                straightenDamping: 0.9, // Angular damping when straightening
+                useSimplePhysics: true  // Toggle between simple and complex physics
             };
             
             return { segments, constraints, radii: segmentRadii, movement };
@@ -259,7 +286,11 @@
             this.worm.movement.jumpPressed = this.spaceKey.isDown;
             
             // Update worm movement
-            this.updateWormMovement();
+            if (this.worm.movement.useSimplePhysics) {
+                this.updateSimpleMovement();
+            } else {
+                this.updateWormMovement();
+            }
             
             // TEST: Continuously straighten to verify algorithm
             // this.straightenWorm(this.worm.movement, Phaser.Physics.Matter.Matter);
@@ -446,6 +477,12 @@
                     break;
                 case 'wave':
                     this.compressionWaveJump(movement, Matter);
+                    break;
+                case 'contraction':
+                    // Use the simple contraction mechanism
+                    if (this.checkGroundContact()) {
+                        this.applyContractionForces();
+                    }
                     break;
                 default:
                     this.spiralJump(movement, Matter);
@@ -649,6 +686,161 @@
             if (movement.jumpTimer > 0.3) {
                 movement.jumpTimer = 0;
             }
+        }
+        
+        updateSimpleMovement() {
+            const movement = this.worm.movement;
+            const Matter = Phaser.Physics.Matter.Matter;
+            
+            // Handle spacebar contraction
+            if (movement.jumpPressed) {
+                // Check if worm is on ground
+                const isOnGround = this.checkGroundContact();
+                
+                if (isOnGround && !movement.lastJumpPressed) {
+                    // Apply muscular contraction forces
+                    this.applyContractionForces();
+                }
+                
+                // Visual feedback - brighten colors
+                this.worm.segments.forEach((segment, i) => {
+                    if (i === 0) {
+                        segment.render.fillStyle = '#ff9999'; // Bright red
+                    } else if (i < 3) {
+                        segment.render.fillStyle = '#6eddd6'; // Bright teal
+                    } else {
+                        segment.render.fillStyle = '#b5f1e3'; // Bright green
+                    }
+                });
+            } else {
+                // Reset colors
+                this.worm.segments.forEach((segment, i) => {
+                    const colors = this.originalColors[i];
+                    segment.render.fillStyle = colors.fill;
+                });
+            }
+            
+            movement.lastJumpPressed = movement.jumpPressed;
+            
+            // Bend worm function (similar to index.html)
+            const bendWormToDirection = (targetAngle, forceVector, kp = 1) => {
+                // Apply to top 4 segments
+                for (let i = 0; i < Math.min(4, this.worm.segments.length); i++) {
+                    const segment = this.worm.segments[i];
+                    
+                    // Calculate angle difference
+                    const currentAngle = segment.angle;
+                    let angleDiff = targetAngle - currentAngle;
+                    
+                    // Normalize angle
+                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    
+                    // Apply torque (matching index.html exactly)
+                    const torque = angleDiff * movement.bendTorque * kp;
+                    
+                    // Fade the effect from head to body (head=0, so give it priority)
+                    const fadeMultiplier = (4 - i) / 4; // Higher for head (i=0)
+                    Matter.Body.setAngularVelocity(segment, 
+                        segment.angularVelocity * 0.9 + torque * (1 - fadeMultiplier * 0.7));
+                    
+                    // Apply force to head
+                    if (i === 0 && forceVector) {
+                        Matter.Body.applyForce(segment, segment.position, forceVector);
+                    }
+                }
+            };
+            
+            // Handle directional input
+            if (movement.direction < -0.1) {
+                // Left - bend to face left and move left
+                bendWormToDirection(-Math.PI / 2, { x: -movement.movementForce, y: 0 });
+            } else if (movement.direction > 0.1) {
+                // Right - bend to face right and move right
+                bendWormToDirection(Math.PI / 2, { x: movement.movementForce, y: 0 });
+            }
+            
+            if (movement.upPressed) {
+                // Up - bend upward
+                bendWormToDirection(Math.PI, { x: 0, y: -movement.upwardForce });
+            }
+            
+            // Basic angular damping for all segments
+            this.worm.segments.forEach(segment => {
+                Matter.Body.setAngularVelocity(segment, 
+                    segment.angularVelocity * movement.damping);
+            });
+        }
+        
+        checkGroundContact() {
+            // Simple ground contact detection - check if any segment is near the ground
+            const groundY = 565; // Approximate ground level based on game setup
+            const tolerance = 15; // Distance tolerance
+            
+            for (let segment of this.worm.segments) {
+                if (segment.position.y >= (groundY - tolerance)) {
+                    return true;
+                }
+            }
+            
+            // Also check if near platform
+            const platformY = 300;
+            const platformX1 = 90;
+            const platformX2 = 210;
+            
+            for (let segment of this.worm.segments) {
+                if (segment.position.y >= (platformY - tolerance) && 
+                    segment.position.y <= (platformY + tolerance) &&
+                    segment.position.x >= platformX1 && 
+                    segment.position.x <= platformX2) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        applyContractionForces() {
+            const movement = this.worm.movement;
+            const Matter = Phaser.Physics.Matter.Matter;
+            
+            // Apply contraction forces between adjacent segments
+            for (let i = 0; i < this.worm.segments.length - 1; i++) {
+                const curr = this.worm.segments[i];
+                const next = this.worm.segments[i + 1];
+                
+                // Vector from current to next
+                const toNext = Matter.Vector.sub(next.position, curr.position);
+                const direction = Matter.Vector.normalise(toNext);
+                
+                // Contract by pulling segments together
+                const force = movement.contractionForce;
+                
+                // Equal and opposite forces
+                Matter.Body.applyForce(curr, curr.position, 
+                    Matter.Vector.mult(direction, force));
+                Matter.Body.applyForce(next, next.position, 
+                    Matter.Vector.mult(direction, -force));
+                
+                // Add upward component based on angle
+                const angleFromHorizontal = Math.atan2(direction.y, direction.x);
+                const upwardComponent = Math.abs(Math.sin(angleFromHorizontal)) * force;
+                
+                Matter.Body.applyForce(curr, curr.position, { x: 0, y: -upwardComponent * 0.5 });
+                Matter.Body.applyForce(next, next.position, { x: 0, y: -upwardComponent * 0.5 });
+            }
+            
+            // Also stiffen constraints temporarily
+            this.worm.constraints.forEach(constraint => {
+                constraint.stiffness = 0.95;
+            });
+            
+            // Reset stiffness after a moment
+            setTimeout(() => {
+                this.worm.constraints.forEach((constraint, i) => {
+                    constraint.stiffness = movement.baseStiffness[i];
+                });
+            }, 150);
         }
         
         straightenWorm(movement, Matter, torqueMultiplier = 1) {
