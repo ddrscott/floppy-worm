@@ -1,4 +1,78 @@
 (() => {
+    // Coordinate display tool class
+    class CoordinateDisplay extends Phaser.GameObjects.Container {
+        constructor(scene, x, y, config = {}) {
+            super(scene, x, y);
+            
+            // Default configuration
+            const defaultConfig = {
+                backgroundColor: 0x000000,
+                backgroundAlpha: 0.7,
+                textColor: '#ffffff',
+                fontSize: '14px',
+                padding: 10,
+                updateFrequency: 100 // milliseconds
+            };
+            
+            this.config = { ...defaultConfig, ...config };
+            
+            // Create background
+            this.background = scene.add.rectangle(0, 0, 100, 30, this.config.backgroundColor);
+            this.background.setAlpha(this.config.backgroundAlpha);
+            this.background.setOrigin(0, 0);
+            this.add(this.background);
+            
+            // Create text
+            this.coordText = scene.add.text(this.config.padding, this.config.padding, '(0, 0)', {
+                fontSize: this.config.fontSize,
+                color: this.config.textColor,
+                fontFamily: 'monospace'
+            });
+            this.coordText.setOrigin(0, 0);
+            this.add(this.coordText);
+            
+            // Add to scene
+            scene.add.existing(this);
+            
+            // Make draggable
+            this.setInteractive(new Phaser.Geom.Rectangle(0, 0, 100, 30), Phaser.Geom.Rectangle.Contains);
+            scene.input.setDraggable(this);
+            
+            // Update timer
+            this.lastUpdate = 0;
+            
+            // Enable drag
+            this.on('drag', (pointer, dragX, dragY) => {
+                this.x = dragX;
+                this.y = dragY;
+            });
+            
+            // Initial update
+            this.updateCoordinates();
+        }
+        
+        updateCoordinates() {
+            const worldX = Math.round(this.x);
+            const worldY = Math.round(this.y);
+            this.coordText.setText(`(${worldX}, ${worldY})`);
+            
+            // Adjust background size to fit text
+            const textBounds = this.coordText.getBounds();
+            this.background.setSize(
+                textBounds.width + this.config.padding * 2,
+                textBounds.height + this.config.padding * 2
+            );
+        }
+        
+        preUpdate(time, delta) {
+            // Update coordinates at specified frequency
+            if (time - this.lastUpdate > this.config.updateFrequency) {
+                this.updateCoordinates();
+                this.lastUpdate = time;
+            }
+        }
+    }
+    
     class TestWormV2Scene extends Phaser.Scene {
         constructor() {
             super({ key: 'TestWormV2Scene' });
@@ -70,6 +144,80 @@
             
             // Setup GUI controls
             this.setupGUI();
+            
+            // Add coordinate display tool
+            this.coordDisplay = new CoordinateDisplay(this, 10, 10, {
+                backgroundColor: 0x2d3436,
+                backgroundAlpha: 0.9,
+                textColor: '#4ecdc4',
+                fontSize: '16px'
+            });
+            
+            // Set depth to ensure it's on top
+            this.coordDisplay.setDepth(1000);
+            
+            // Set up tail pinning if enabled
+            if (this.physicsParams.pinTail) {
+                this.tailPinPosition = { x: 135, y: 555 };
+            }
+            
+            // Set up camera
+            this.cameras.main.setZoom(2);
+            this.cameras.main.setBounds(0, 0, 800, 600);
+            
+            // Camera zoom controls
+            this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+                const camera = this.cameras.main;
+                const zoomDelta = deltaY > 0 ? -0.1 : 0.1;
+                const newZoom = Phaser.Math.Clamp(camera.zoom + zoomDelta, 0.5, 3);
+                camera.setZoom(newZoom);
+                this.physicsParams.cameraZoom = newZoom;
+            });
+            
+            // Set up drag handling for static bodies
+            this.setupStaticBodyDragging();
+        }
+        
+        setupStaticBodyDragging() {
+            let draggedBody = null;
+            let dragOffset = { x: 0, y: 0 };
+            
+            // Listen for pointer down
+            this.input.on('pointerdown', (pointer) => {
+                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                const bodies = this.matter.world.getAllBodies();
+                
+                // Check if we clicked on the tail anchor
+                if (this.worm && this.worm.tailAnchor) {
+                    const anchor = this.worm.tailAnchor;
+                    const distance = Phaser.Math.Distance.Between(
+                        worldPoint.x, worldPoint.y,
+                        anchor.position.x, anchor.position.y
+                    );
+                    
+                    if (distance <= anchor.circleRadius) {
+                        draggedBody = anchor;
+                        dragOffset.x = anchor.position.x - worldPoint.x;
+                        dragOffset.y = anchor.position.y - worldPoint.y;
+                    }
+                }
+            });
+            
+            // Listen for pointer move
+            this.input.on('pointermove', (pointer) => {
+                if (draggedBody && draggedBody.isStatic) {
+                    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                    this.matter.body.setPosition(draggedBody, {
+                        x: worldPoint.x + dragOffset.x,
+                        y: worldPoint.y + dragOffset.y
+                    });
+                }
+            });
+            
+            // Listen for pointer up
+            this.input.on('pointerup', () => {
+                draggedBody = null;
+            });
         }
         
         setupGUI() {
@@ -87,8 +235,8 @@
                 
                 // Main constraint parameters
                 constraintStiffness: 1,
-                constraintDamping: 0.5,
-                constraintLength: 1,
+                constraintDamping: 0.0,
+                constraintLength: 0,
                 
                 // Left lateral constraint parameters
                 leftLateralStiffness: 0.03,
@@ -104,13 +252,19 @@
                 
                 // Motor parameters
                 motorEnabled: true,
-                motorSpeed: 1, // rotations per second
+                motorSpeed: 3, // rotations per second
                 motorArmStiffness: 1,
                 motorArmDamping: 0.1,
                 motorArmLength: 40,
                 
                 // Debug
-                showDebug: true
+                showDebug: true,
+                pinTail: true,
+                showAngleIndicators: true,
+                
+                // Camera
+                cameraFollowTail: true,
+                cameraZoom: 2
             };
             
             // World physics folder
@@ -254,6 +408,23 @@
                 this.matter.world.drawDebug = value;
                 this.matter.world.debugGraphic.visible = value;
             });
+            debugFolder.add(this.physicsParams, 'pinTail').name('Show Tail Anchor').onChange(value => {
+                if (this.worm && this.worm.tailAnchor) {
+                    this.worm.tailAnchor.render.visible = value;
+                }
+                if (this.worm && this.worm.tailConstraint) {
+                    this.worm.tailConstraint.render.visible = value;
+                }
+            });
+            debugFolder.add(this.physicsParams, 'showAngleIndicators').name('Show Angles');
+            
+            // Camera folder
+            const cameraFolder = this.gui.addFolder('Camera');
+            cameraFolder.add(this.physicsParams, 'cameraFollowTail').name('Follow Tail');
+            cameraFolder.add(this.physicsParams, 'cameraZoom', 0.5, 3).name('Zoom').step(0.1).onChange(value => {
+                this.cameras.main.setZoom(value);
+            });
+            cameraFolder.open();
         }
         
         createWorm(x, y, config = {}) {
@@ -308,8 +479,34 @@
                 }
             }
 
-
-
+            // Create draggable tail anchor
+            const tail = segments[segments.length - 1];
+            const tailAnchor = this.matter.add.circle(155, 505, 15, {
+                isStatic: true,  // Keep it static
+                render: {
+                    fillColor: 0xff00ff,
+                    strokeColor: 0xff00ff,
+                    lineWidth: 2,
+                    visible: true
+                }
+            });
+            
+            // Create constraint between tail and anchor
+            const tailPin = Matter.Constraint.create({
+                bodyA: tailAnchor,
+                bodyB: tail,
+                length: 0,
+                stiffness: 1,
+                damping: 0,
+                isSensor: true,
+                render: {
+                    visible: true,
+                    lineColor: 0xff00ff,
+                    lineWidth: 2
+                }
+            });
+            Matter.World.add(this.matter.world.localWorld, tailPin);
+            
             // Create segment body
             const motor = this.matter.add.circle(x, motorY, baseRadius * 5, {
                 name: 'motor',
@@ -393,11 +590,6 @@
                 length: lateralLength,
                 stiffness: 0.003, // Softer spring
                 damping: 0.1,
-                render: {
-                    visible: true,
-                    strokeStyle: '#ff6b6b',
-                    lineWidth: 2
-                }
             });
 
             const lateralConstraint2 = Matter.Constraint.create({
@@ -408,24 +600,22 @@
                 length: lateralLength,
                 stiffness: 0.003, // Softer spring
                 damping: 0.1,
-                render: {
-                    visible: true,
-                    strokeStyle: '#ff6b6b',
-                    lineWidth: 2
-                }
             });
 
+            // Disable for now, I don't think it helps.
             // Matter.World.add(this.matter.world.localWorld, lateralConstraint1);
             // Matter.World.add(this.matter.world.localWorld, lateralConstraint2);
-            constraints.push(lateralConstraint1);
-            constraints.push(lateralConstraint2);
+            // constraints.push(lateralConstraint1);
+            // constraints.push(lateralConstraint2);
             
             return {
                 segments: segments,
                 constraints: constraints,
                 motor: motor,
                 motorConstraint: motorAxel,
-                motorArm: motorArm
+                motorArm: motorArm,
+                tailAnchor: tailAnchor,
+                tailConstraint: tailPin
             };
         }
         
@@ -451,18 +641,17 @@
                 this.matter.body.setAngle(this.worm.motor, currentAngle + rotationDelta);
             }
             
-            // // Simple visual update - draw segment connections
-            // this.graphics.lineStyle(1, 0x556b8d, 0.8);
-            
-            // for (let i = 0; i < this.worm.segments.length - 1; i++) {
-            //     const current = this.worm.segments[i];
-            //     const next = this.worm.segments[i + 1];
-            //
-            //     this.graphics.lineBetween(
-            //         current.position.x, current.position.y,
-            //         next.position.x, next.position.y
-            //     );
-            // }
+            // Camera follow tail or anchor
+            if (this.physicsParams.cameraFollowTail) {
+                if (this.worm.tailAnchor && this.physicsParams.pinTail) {
+                    // Follow the anchor when it's visible
+                    this.cameras.main.centerOn(this.worm.tailAnchor.position.x, this.worm.tailAnchor.position.y);
+                } else if (this.worm.segments.length > 0) {
+                    // Otherwise follow the tail
+                    const tail = this.worm.segments[this.worm.segments.length - 1];
+                    this.cameras.main.centerOn(tail.position.x, tail.position.y);
+                }
+            }
         }
     }
 
@@ -477,8 +666,13 @@
             default: 'matter',
             matter: {
                 gravity: { y: 1 },  // Start with gravity off
-                debug: true,
-                showAngleIndicator: true,
+                debug: {
+                    showBody: true,
+                    showStaticBody: true,
+                    showAngleIndicator: true,
+                    wireframes: true,
+                    showAxes: true,
+                },
                 positionIterations: 12,   // Higher for better collision detection
             }
         },
