@@ -1,5 +1,48 @@
-// Example 1: Multiple worms in the same scene
+import Phaser from 'phaser';
+import Worm from './entities/Worm';
+
+// Example 1: Basic Worm Usage
+class BasicWormScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'BasicWormScene' });
+    }
+
+    create() {
+        // Set world bounds
+        this.matter.world.setBounds(0, 0, 800, 600);
+        
+        // Create a simple worm with default settings
+        this.worm = new Worm(this, 400, 100);
+        
+        // Set up keyboard controls
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    }
+    
+    update(time, delta) {
+        // Handle input
+        if (this.cursors.left.isDown) {
+            this.worm.setMotorDirection(-1);
+        } else if (this.cursors.right.isDown) {
+            this.worm.setMotorDirection(1);
+        } else {
+            this.worm.setMotorDirection(0);
+        }
+        
+        this.worm.setFlatten(this.cursors.down.isDown);
+        this.worm.setJump(this.spaceKey.isDown);
+        
+        // Update the worm
+        this.worm.update(delta);
+    }
+}
+
+// Example 2: Multiple worms in the same scene
 class MultiWormScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MultiWormScene' });
+    }
+
     create() {
         this.matter.world.setBounds(0, 0, 1200, 800);
         
@@ -178,3 +221,32 @@ class WormPlaygroundScene extends Phaser.Scene {
         this.worm.update(delta);
     }
 }
+
+// Export example scenes
+export {
+    BasicWormScene,
+    MultiWormScene,
+    CustomControlWormScene,
+    AIWormScene,
+    WormPlaygroundScene
+};
+
+// Example game configuration
+export const exampleGameConfig = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    backgroundColor: '#1a1a2e',
+    physics: {
+        default: 'matter',
+        matter: {
+            gravity: { y: 1 },
+            debug: false
+        }
+    },
+    scene: [BasicWormScene, MultiWormScene, CustomControlWormScene, AIWormScene, WormPlaygroundScene]
+};
+
+// Usage:
+// import { exampleGameConfig } from './worm-examples';
+// const game = new Phaser.Game(exampleGameConfig);
