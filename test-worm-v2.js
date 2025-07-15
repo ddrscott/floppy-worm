@@ -87,12 +87,12 @@
                 segmentFriction: 1,
                 segmentFrictionStatic: 0.8,
                 segmentDensity: 0.03,
-                segmentRestitution: 0.001,
+                segmentRestitution: 0.0001,
                 
                 // Main constraint parameters
                 constraintStiffness: 1,
-                constraintDamping: 0.05,
-                constraintLength: 1.5, // Small gap to prevent overlap
+                constraintDamping: 0.08,
+                constraintLength: 1.8, // Small gap to prevent overlap
                 
                 // Motor parameters
                 motorSpeed: 5, // rotations per second
