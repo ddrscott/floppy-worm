@@ -76,11 +76,49 @@
     class TestWormV2Scene extends Phaser.Scene {
         constructor() {
             super({ key: 'TestWormV2Scene' });
+            
+            // Physics parameters - moved to top for consistency
+            this.physicsParams = {
+                // World physics
+                gravityEnabled: true,
+                gravityY: 1,
+                
+                // Segment physics
+                segmentFriction: 1,
+                segmentFrictionStatic: 0.8,
+                segmentDensity: 0.03,
+                segmentRestitution: 0.01,
+                
+                // Main constraint parameters
+                constraintStiffness: 1,
+                constraintDamping: 0.1,
+                constraintLength: 0,
+                
+                // Motor parameters
+                motorSpeed: 4, // rotations per second
+                motorArmStiffness: 0.25,
+                motorArmDamping: 0.12,
+                motorArmLength: 50,
+                motorAxelOffset: 35,
+                
+                // Debug
+                showDebug: true,
+                pinTail: true,
+                showGrid: true,
+                
+                // Camera
+                cameraFollowTail: true,
+                cameraZoom: 2,
+                cameraSmoothing: 0.1
+            };
         }
 
         create() {
-            // Set world bounds with walls
-            this.matter.world.setBounds(0, 0, 800, 600, 32, true, true, true, true);
+            // Set world bounds without default walls
+            this.matter.world.setBounds(0, 0, 800, 600, 32, false, false, false, false);
+            
+            // Create custom colored boundary walls
+            this.createBoundaryWalls();
             
             // Create dat.GUI
             this.gui = new dat.GUI();
@@ -95,12 +133,24 @@
                 restitution: 0.1,
                 render: { fillColor: 0xe17055 }
             });
+            
+            // Add visual platform using Phaser graphics
+            const platformGraphics = this.add.graphics();
+            platformGraphics.fillStyle(0xe17055, 1); // Orange/coral color
+            platformGraphics.lineStyle(3, 0xd63031, 1); // Darker red outline
+            platformGraphics.fillRect(-110, -10, 220, 20);
+            platformGraphics.strokeRect(-110, -10, 220, 20);
+            platformGraphics.x = 150;
+            platformGraphics.y = 400;
 
             // Create worm with simple config
             this.worm = this.createWorm(30, 300, {
                 baseRadius: 10,
                 segmentSizes: [0.85, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
             });
+            
+            // Create camera target - a Phaser object that follows the motor
+            this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0); // Invisible rectangle
 
             
             // Add mouse constraint for interaction
@@ -119,6 +169,12 @@
             // Setup GUI controls
             this.setupGUI();
             
+            // Set up camera following after GUI is initialized
+            this.cameras.main.setDeadzone(150, 150);
+            if (this.physicsParams.cameraFollowTail) {
+                this.cameras.main.startFollow(this.cameraTarget, true);
+            }
+            
             // Add coordinate display tool
             this.coordDisplay = new CoordinateDisplay(this, 10, 300, {
                 backgroundColor: 0x2d3436,
@@ -135,10 +191,10 @@
                 this.tailPinPosition = { x: 135, y: 555 };
             }
             
-            // Set up camera
+            // Set up camera basic settings
             this.cameras.main.setZoom(2);
             this.cameras.main.setBounds(0, 0, 800, 600);
-            
+
             // Camera zoom controls
             this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
                 const camera = this.cameras.main;
@@ -148,16 +204,65 @@
                 this.physicsParams.cameraZoom = newZoom;
             });
             
-            // Set up drag handling for static bodies
-            this.setupStaticBodyDragging();
-            
             // Set up keyboard controls
             this.cursors = this.input.keyboard.createCursorKeys();
             this.motorDirection = 0; // -1 for left, 0 for idle, 1 for right
+            this.motorReturning = false; // Flag for returning to neutral
+            this.motorNeutralAngle = -Math.PI/2; // Crank pointing up (12 o'clock, closest to head)
             
-            // Camera smoothing
-            this.cameraTarget = { x: 400, y: 300 };
             this.cameraLerpFactor = 0.1; // How quickly camera follows (0.1 = 10% per frame)
+        }
+        
+        createBoundaryWalls() {
+            const wallThickness = 50;
+            const wallColor = 0x2c3e50;
+            
+            // Create visual boundary with Phaser graphics
+            const graphics = this.add.graphics();
+            
+            // Draw colored boundary walls
+            graphics.fillStyle(wallColor, 0.8);
+            graphics.lineStyle(3, 0x34495e, 1);
+            
+            // Top wall
+            graphics.fillRect(0, -wallThickness, 800, wallThickness);
+            graphics.strokeRect(0, -wallThickness, 800, wallThickness);
+            
+            // Bottom wall
+            graphics.fillRect(0, 600, 800, wallThickness);
+            graphics.strokeRect(0, 600, 800, wallThickness);
+            
+            // Left wall
+            graphics.fillRect(-wallThickness, 0, wallThickness, 600);
+            graphics.strokeRect(-wallThickness, 0, wallThickness, 600);
+            
+            // Right wall
+            graphics.fillRect(800, 0, wallThickness, 600);
+            graphics.strokeRect(800, 0, wallThickness, 600);
+            
+            // Add red boundary line
+            graphics.lineStyle(4, 0xe74c3c, 0.8);
+            graphics.strokeRect(0, 0, 800, 600);
+            
+            // Create physics walls
+            const walls = [
+                // Top wall
+                this.matter.add.rectangle(400, -wallThickness/2, 800, wallThickness, {
+                    isStatic: true
+                }),
+                // Bottom wall
+                this.matter.add.rectangle(400, 600 + wallThickness/2, 800, wallThickness, {
+                    isStatic: true
+                }),
+                // Left wall
+                this.matter.add.rectangle(-wallThickness/2, 300, wallThickness, 600, {
+                    isStatic: true
+                }),
+                // Right wall
+                this.matter.add.rectangle(800 + wallThickness/2, 300, wallThickness, 600, {
+                    isStatic: true
+                })
+            ];
         }
         
         createGrid() {
@@ -189,94 +294,7 @@
             this.gridGraphics = graphics;
         }
         
-        setupStaticBodyDragging() {
-            let draggedBody = null;
-            let dragOffset = { x: 0, y: 0 };
-            
-            // Listen for pointer down
-            this.input.on('pointerdown', (pointer) => {
-                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                const bodies = this.matter.world.getAllBodies();
-                
-                // Check if we clicked on the tail anchor
-                if (this.worm && this.worm.tailAnchor) {
-                    const anchor = this.worm.tailAnchor;
-                    const distance = Phaser.Math.Distance.Between(
-                        worldPoint.x, worldPoint.y,
-                        anchor.position.x, anchor.position.y
-                    );
-                    
-                    if (distance <= anchor.circleRadius) {
-                        draggedBody = anchor;
-                        dragOffset.x = anchor.position.x - worldPoint.x;
-                        dragOffset.y = anchor.position.y - worldPoint.y;
-                    }
-                }
-            });
-            
-            // Listen for pointer move
-            this.input.on('pointermove', (pointer) => {
-                if (draggedBody && draggedBody.isStatic) {
-                    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                    this.matter.body.setPosition(draggedBody, {
-                        x: worldPoint.x + dragOffset.x,
-                        y: worldPoint.y + dragOffset.y
-                    });
-                }
-            });
-            
-            // Listen for pointer up
-            this.input.on('pointerup', () => {
-                draggedBody = null;
-            });
-        }
-        
         setupGUI() {
-            // Physics parameters
-            this.physicsParams = {
-                // World physics
-                gravityEnabled: true,
-                gravityY: 1,
-                
-                // Segment physics
-                segmentFriction: 1,
-                segmentFrictionStatic: 5,
-                segmentDensity: 0.03,
-                segmentRestitution: 0.01,
-                
-                // Main constraint parameters
-                constraintStiffness: 1,
-                constraintDamping: 0.0,
-                constraintLength: 0,
-                
-                // Left lateral constraint parameters
-                leftLateralStiffness: 0.03,
-                leftLateralDamping: 0.1,
-                leftLateralLength: 70,
-                showLeftLateral: true,
-                
-                // Right lateral constraint parameters
-                rightLateralStiffness: 0.03,
-                rightLateralDamping: 0.1,
-                rightLateralLength: 70,
-                showRightLateral: true,
-                
-                // Motor parameters
-                motorSpeed: 7, // rotations per second
-                motorArmStiffness: 0.25,
-                motorArmDamping: 0.2,
-                motorArmLength: 60,
-                
-                // Debug
-                showDebug: true,
-                pinTail: true,
-                showGrid: true,
-                
-                // Camera
-                cameraFollowTail: true,
-                cameraZoom: 2,
-                cameraSmoothing: 0.1
-            };
             
             // World physics folder
             const worldFolder = this.gui.addFolder('World Physics');
@@ -334,64 +352,6 @@
             });
             constraintFolder.open();
             
-            // Left lateral constraint folder
-            const leftLateralFolder = this.gui.addFolder('Left Lateral Spring');
-            leftLateralFolder.add(this.physicsParams, 'leftLateralStiffness', 0.001, 0.1).name('Stiffness').onChange(value => {
-                // Update the left lateral constraint (first lateral constraint)
-                const leftLateralIndex = this.worm.segments.length - 1;
-                if (this.worm.constraints[leftLateralIndex]) {
-                    this.worm.constraints[leftLateralIndex].stiffness = value;
-                }
-            });
-            leftLateralFolder.add(this.physicsParams, 'leftLateralDamping', 0, 1).name('Damping').onChange(value => {
-                const leftLateralIndex = this.worm.segments.length - 1;
-                if (this.worm.constraints[leftLateralIndex]) {
-                    this.worm.constraints[leftLateralIndex].damping = value;
-                }
-            });
-            leftLateralFolder.add(this.physicsParams, 'leftLateralLength', 50, 300).name('Length').onChange(value => {
-                const leftLateralIndex = this.worm.segments.length - 1;
-                if (this.worm.constraints[leftLateralIndex]) {
-                    this.worm.constraints[leftLateralIndex].length = value;
-                }
-            });
-            leftLateralFolder.add(this.physicsParams, 'showLeftLateral').name('Show').onChange(value => {
-                const leftLateralIndex = this.worm.segments.length - 1;
-                if (this.worm.constraints[leftLateralIndex]) {
-                    this.worm.constraints[leftLateralIndex].render.visible = value;
-                }
-            });
-            leftLateralFolder.open();
-            
-            // Right lateral constraint folder
-            const rightLateralFolder = this.gui.addFolder('Right Lateral Spring');
-            rightLateralFolder.add(this.physicsParams, 'rightLateralStiffness', 0.001, 0.1).name('Stiffness').onChange(value => {
-                // Update the right lateral constraint (second lateral constraint)
-                const rightLateralIndex = this.worm.segments.length;
-                if (this.worm.constraints[rightLateralIndex]) {
-                    this.worm.constraints[rightLateralIndex].stiffness = value;
-                }
-            });
-            rightLateralFolder.add(this.physicsParams, 'rightLateralDamping', 0, 1).name('Damping').onChange(value => {
-                const rightLateralIndex = this.worm.segments.length;
-                if (this.worm.constraints[rightLateralIndex]) {
-                    this.worm.constraints[rightLateralIndex].damping = value;
-                }
-            });
-            rightLateralFolder.add(this.physicsParams, 'rightLateralLength', 50, 300).name('Length').onChange(value => {
-                const rightLateralIndex = this.worm.segments.length;
-                if (this.worm.constraints[rightLateralIndex]) {
-                    this.worm.constraints[rightLateralIndex].length = value;
-                }
-            });
-            rightLateralFolder.add(this.physicsParams, 'showRightLateral').name('Show').onChange(value => {
-                const rightLateralIndex = this.worm.segments.length;
-                if (this.worm.constraints[rightLateralIndex]) {
-                    this.worm.constraints[rightLateralIndex].render.visible = value;
-                }
-            });
-            rightLateralFolder.open();
-            
             // Motor folder
             const motorFolder = this.gui.addFolder('Motor');
             motorFolder.add(this.physicsParams, 'motorSpeed', 0, 5).name('Speed (rot/sec)').step(0.1);
@@ -418,14 +378,6 @@
                 this.matter.world.drawDebug = value;
                 this.matter.world.debugGraphic.visible = value;
             });
-            debugFolder.add(this.physicsParams, 'pinTail').name('Show Tail Anchor').onChange(value => {
-                if (this.worm && this.worm.tailAnchor) {
-                    this.worm.tailAnchor.render.visible = value;
-                }
-                if (this.worm && this.worm.tailConstraint) {
-                    this.worm.tailConstraint.render.visible = value;
-                }
-            });
             debugFolder.add(this.physicsParams, 'showGrid').name('Show Grid').onChange(value => {
                 if (this.gridGraphics) {
                     this.gridGraphics.setVisible(value);
@@ -434,12 +386,15 @@
             
             // Camera folder
             const cameraFolder = this.gui.addFolder('Camera');
-            cameraFolder.add(this.physicsParams, 'cameraFollowTail').name('Follow Tail');
+            cameraFolder.add(this.physicsParams, 'cameraFollowTail').name('Follow Tail').onChange(value => {
+                if (value && this.cameraTarget) {
+                    this.cameras.main.startFollow(this.cameraTarget, true);
+                } else {
+                    this.cameras.main.stopFollow();
+                }
+            });
             cameraFolder.add(this.physicsParams, 'cameraZoom', 0.5, 3).name('Zoom').step(0.1).onChange(value => {
                 this.cameras.main.setZoom(value);
-            });
-            cameraFolder.add(this.physicsParams, 'cameraSmoothing', 0.01, 0.5).name('Smoothing').step(0.01).onChange(value => {
-                this.cameraLerpFactor = value;
             });
             cameraFolder.open();
         }
@@ -448,6 +403,10 @@
             const segments = [];
             const constraints = [];
             const segmentRadii = [];
+            
+            // Initialize friction arrays for this worm
+            this.originalFriction = [];
+            this.originalFrictionStatic = [];
             
             // Default configuration
             const defaultConfig = {
@@ -459,41 +418,62 @@
             const { baseRadius, segmentSizes } = { ...defaultConfig, ...config };
             
             const Matter = Phaser.Physics.Matter.Matter;
-            const group2 = this.matter.world.nextGroup(true);
 
             // Create segments with variable sizes
             let currentY = y;
             let motorY;
-            let motorIndex = 3;
+            let motorIndex = 2;
             for (let i = 0; i < segmentSizes.length; i++) {
                 // Calculate radius based on percentage
                 const radius = baseRadius * segmentSizes[i];
                 segmentRadii.push(radius);
                 
-                let density = 0.03; // Default density
+                let density = this.physicsParams.segmentDensity;
+                let friction = this.physicsParams.segmentFriction;
+                let frictionStatic = this.physicsParams.segmentFrictionStatic;
 
-                // if (i < 3) {
-                //     density = 0.04; // Lighter for head and neck segments
-                // }
+                // Special properties for head segment
+                if (i === 0) {
+                    // density = 0.01; // Much heavier head for better dragging
+                    // friction = 150;  // Higher friction for better grip
+                    // frictionStatic = 0.5; // Higher static friction
+                }
 
                 // Create segment body
                 const segment = this.matter.add.circle(x, currentY, radius, {
-                    friction: 100,
-                    frictionStatic: 0.25,
+                    friction: friction,
+                    frictionStatic: frictionStatic,
                     density: density,
-                    restitution: 0.00,
-                    collisionFilter: {
-                    },
+                    restitution: this.physicsParams.segmentRestitution,
+                    slop: 0.01, // Very tight collision tolerance
                     render: {
-                        fillColor: this.getSegmentColor(i, segmentSizes.length)
+                        fillStyle: '#' + this.getSegmentColor(i, segmentSizes.length).toString(16).padStart(6, '0'),
+                        strokeStyle: '#' + this.getDarkerColor(this.getSegmentColor(i, segmentSizes.length)).toString(16).padStart(6, '0'),
+                        lineWidth: 2,
+                        visible: true,
                     },
                 });
+                
+                // Add visual circle using Phaser graphics
+                const segmentGraphics = this.add.graphics();
+                segmentGraphics.fillStyle(this.getSegmentColor(i, segmentSizes.length), 1);
+                segmentGraphics.strokeStyle = this.getDarkerColor(this.getSegmentColor(i, segmentSizes.length));
+                segmentGraphics.lineWidth = 2;
+                segmentGraphics.fillCircle(0, 0, radius);
+                segmentGraphics.strokeCircle(0, 0, radius);
+                
+                // Store graphics reference
+                segment.graphics = segmentGraphics;
                 
                 if (i === motorIndex) {
                     motorY = currentY; // Store Y position for motor
                 }
 
                 segments.push(segment);
+                
+                // Store original friction values for dynamic control
+                this.originalFriction[i] = friction;
+                this.originalFrictionStatic[i] = frictionStatic;
                 
                 // Position next segment
                 if (i < segmentSizes.length - 1) {
@@ -502,70 +482,45 @@
                 }
             }
 
-            // Create draggable tail anchor
-            const tail = segments[segments.length - 1];
-            const tailAnchor = this.matter.add.circle(30, 560, 15, {
-                // isStatic: true,  // Keep it static
-                density: 0.00000001, // Light density
-                isSensor: true,
-                render: {
-                }
-            });
-            
-            // Create constraint between tail and anchor
-            const tailPin = Matter.Constraint.create({
-                bodyA: tailAnchor,
-                bodyB: tail,
-                length: 0,
-                stiffness: 1,
-                damping: 0.1,
-            });
-            Matter.World.add(this.matter.world.localWorld, tailPin);
-            
             // Create motor attached to the worm
             const motor = this.matter.add.circle(x, motorY, baseRadius * 4, {
                 name: 'motor',
-                density: 0.01,  // Give it some mass
+                density: 0.0001,  // Start with no density
                 isSensor: true,
                 render: {
-                    fillColor: 0xff6b6b,
-                    visible: true,
-                    lineWidth: 2,
-                    strokeStyle: '#ff6b6b'
+                    visible: false,
                 }
             });
 
             // Attach motor to segment with a bearing (allows rotation)
             const motorMount = Matter.Constraint.create({
-                bodyA: segments[motorIndex],
+                bodyA: segments[1],
                 bodyB: motor,
-                pointA: { x: 0, y: 0 },
-                pointB: { x: 0, y: 0 },
+                pointB: { x: 0, y: this.physicsParams.motorAxelOffset },
                 length: 0,
-                stiffness: 0.09,  // Slightly soft to allow rotation
+                stiffness: 0.9,
                 damping: 0.1,
             });
             Matter.World.add(this.matter.world.localWorld, motorMount);
             
             // Create pusher arms with very specific geometry
-            const crankRadius = baseRadius * 2; // Distance from motor center
+            const crankRadius = baseRadius * 1.5; // Distance from motor center
             
             // Single arm design - simpler is better for getting it working
             const motorArm = Matter.Constraint.create({
                 bodyA: motor,
-                bodyB: segments[1], // Push the front
-                pointA: { x: crankRadius, y: 0 }, // Attachment on motor edge
+                bodyB: segments[7], // Push the front
+                pointA: { x: 0, y: crankRadius }, // Attachment on motor edge
                 pointB: { x: 0, y: -segmentRadii[1] }, // Top of segment
-                length: baseRadius * 4, // Longer, flexible connection
-                stiffness: 0.2,  // Very soft spring
-                damping: 0.3,
+                length: baseRadius * 5 * 2,
+                stiffness: this.physicsParams.motorArmStiffness,
+                damping: this.physicsParams.motorArmDamping,
                 render: {
-                    visible: true,
-                    strokeStyle: '#ff6b6b',
-                    lineWidth: 3
+                    visible: false,
                 }
             });
-            Matter.World.add(this.matter.world.localWorld, motorArm);
+            // Omit for now
+            // Matter.World.add(this.matter.world.localWorld, motorArm);
             
             // Try a simpler approach - just one arm for now
             // We can add more once we get basic rotation working
@@ -588,76 +543,77 @@
                     bodyB: segB,
                     pointA: pointA,
                     pointB: pointB,
-                    length: 0, // Small gap between segments
-                    stiffness: 1,
-                    damping: 0.5
+                    length: this.physicsParams.constraintLength,
+                    stiffness: this.physicsParams.constraintStiffness,
+                    damping: this.physicsParams.constraintDamping,
+                    render: {
+                        visible: false,
+                    }
                 });
                 
                 Matter.World.add(this.matter.world.localWorld, constraint);
                 constraints.push(constraint);
             }
 
-            // const shoulderSegment = segments[1];
-            // const torsoIndex = Math.floor(segments.length * 0.35);
-            // const torsoSegment = segments[torsoIndex];
-            // const lateralLength = baseRadius * 3; // Default length for lateral constraints
-
-            // const lateralConstraint1 = Matter.Constraint.create({
-            //     bodyA: shoulderSegment,
-            //     bodyB: torsoSegment,
-            //     pointA: { x: -segmentRadii[1], y: 0 }, // Left side of shoulder
-            //     pointB: { x: -segmentRadii[torsoIndex], y: 0 }, // Left side of torso
-            //     length: lateralLength,
-            //     stiffness: 0.003, // Softer spring
-            //     damping: 0.1,
-            // });
-            //
-            // const lateralConstraint2 = Matter.Constraint.create({
-            //     bodyA: shoulderSegment,
-            //     bodyB: torsoSegment,
-            //     pointA: { x: segmentRadii[1], y: 0 }, // Right side of shoulder
-            //     pointB: { x: segmentRadii[torsoIndex], y: 0 }, // Right side of torso
-            //     length: lateralLength,
-            //     stiffness: 0.003, // Softer spring
-            //     damping: 0.1,
-            // });
-
-            // Disable for now, I don't think it helps.
-            // Matter.World.add(this.matter.world.localWorld, lateralConstraint1);
-            // Matter.World.add(this.matter.world.localWorld, lateralConstraint2);
-            // constraints.push(lateralConstraint1);
-            // constraints.push(lateralConstraint2);
-            
             return {
                 segments: segments,
                 constraints: constraints,
                 motor: motor,
                 motorMount: motorMount,
                 motorArm: motorArm,
-                tailAnchor: tailAnchor,
-                tailConstraint: tailPin
             };
         }
         
         getSegmentColor(index, total) {
+            // Create a gradient from head to tail
             if (index === 0) {
-                return 0xff6b6b; // Head (red)
-            } else if (index < 3) {
-                return 0x4ecdc4; // Neck (teal)
+                return 0xff6b6b; // Head (coral red)
+            } else if (index === 1) {
+                return 0xffa502; // Shoulder (orange)
+            } else if (index === 2) {
+                return 0xffd93d; // Upper body (yellow)
+            } else if (index < 5) {
+                return 0x6bcf7f; // Mid body (green)
+            } else if (index < 8) {
+                return 0x4ecdc4; // Lower body (teal)
+            } else if (index < 11) {
+                return 0x74b9ff; // Near tail (light blue)
             } else {
-                return 0x95e1d3; // Body (light green)
+                return 0xa29bfe; // Tail (purple)
             }
+        }
+        
+        getDarkerColor(color) {
+            // Make color 20% darker for outline
+            const r = (color >> 16) & 0xff;
+            const g = (color >> 8) & 0xff;
+            const b = color & 0xff;
+            
+            return ((r * 0.8) << 16) | ((g * 0.8) << 8) | (b * 0.8);
         }
         
         update(time, delta) {
             
             // Update motor direction based on keyboard input
+            const wasPressed = this.motorDirection !== 0;
+            
             if (this.cursors.left.isDown) {
                 this.motorDirection = -1;
             } else if (this.cursors.right.isDown) {
                 this.motorDirection = 1;
             } else {
                 this.motorDirection = 0;
+            }
+            
+            // Update motor density based on movement
+            if (this.worm.motor) {
+                if (this.motorDirection !== 0) {
+                    // Give motor mass when moving
+                    this.matter.body.setDensity(this.worm.motor, 0.01);
+                } else {
+                    // Remove motor mass when idle
+                    this.matter.body.setDensity(this.worm.motor, 0.0001);
+                }
             }
             
             // Rotate motor based on direction and speed
@@ -671,40 +627,50 @@
                 
                 // Also apply torque to help overcome resistance
                 this.matter.body.setAngularVelocity(this.worm.motor, rotationSpeed);
-            } else if (this.worm.motor && this.motorDirection === 0) {
-                // Stop motor when no key is pressed
+            } else if (this.worm.motor && wasPressed) {
+                // Snap to neutral position immediately when keys are released
+                // this.matter.body.setAngle(this.worm.motor, this.motorNeutralAngle);
                 this.matter.body.setAngularVelocity(this.worm.motor, 0);
             }
             
-            // Camera follow tail or anchor with smoothing
-            if (this.physicsParams.cameraFollowTail) {
-                let targetX, targetY;
+            // Dynamic friction control for better locomotion
+            if (this.worm.segments && this.originalFriction.length > 0) {
+                const motorIndex = 3; // Motor is at segment 3
                 
-                if (this.worm.tailAnchor && this.physicsParams.pinTail) {
-                    // Follow the anchor when it's visible
-                    targetX = this.worm.tailAnchor.position.x;
-                    targetY = this.worm.tailAnchor.position.y;
-                } else if (this.worm.segments.length > 0) {
-                    // Otherwise follow the tail
-                    const tail = this.worm.segments[this.worm.segments.length - 1];
-                    targetX = tail.position.x;
-                    targetY = tail.position.y;
+                if (this.motorDirection !== 0) {
+                    // Reduce friction on segments below the motor when moving
+                    for (let i = motorIndex + 1; i < this.worm.segments.length; i++) {
+                        this.worm.segments[i].friction = this.originalFriction[i] * 0.3; // 30% of original
+                        this.worm.segments[i].frictionStatic = this.originalFrictionStatic[i] * 0.3;
+                    }
+                } else {
+                    // Restore normal friction when stopped
+                    for (let i = motorIndex + 1; i < this.worm.segments.length; i++) {
+                        this.worm.segments[i].friction = this.originalFriction[i];
+                        this.worm.segments[i].frictionStatic = this.originalFrictionStatic[i];
+                    }
                 }
-                
-                // Update camera target with smoothing
-                this.cameraTarget.x = targetX;
-                this.cameraTarget.y = targetY;
-                
-                // Get current camera center
-                const currentX = this.cameras.main.scrollX + this.cameras.main.width / 2;
-                const currentY = this.cameras.main.scrollY + this.cameras.main.height / 2;
-                
-                // Lerp to new position
-                const newX = currentX + (this.cameraTarget.x - currentX) * this.cameraLerpFactor;
-                const newY = currentY + (this.cameraTarget.y - currentY) * this.cameraLerpFactor;
-                
-                // Apply smoothed position
-                this.cameras.main.centerOn(newX, newY);
+            }
+            
+            // Debug: Draw motor crank position
+            if (this.worm.motor && this.physicsParams.showDebug) {
+            }
+            
+            // Update camera target to follow motor position
+            if (this.cameraTarget && this.worm.motor) {
+                this.cameraTarget.x = this.worm.motor.position.x;
+                this.cameraTarget.y = this.worm.motor.position.y;
+            }
+            
+            // Update segment graphics positions
+            if (this.worm && this.worm.segments) {
+                this.worm.segments.forEach((segment) => {
+                    if (segment.graphics) {
+                        segment.graphics.x = segment.position.x;
+                        segment.graphics.y = segment.position.y;
+                        segment.graphics.rotation = segment.angle;
+                    }
+                });
             }
         }
     }
@@ -721,16 +687,18 @@
             matter: {
                 gravity: { y: 1 },  // Start with gravity off
                 debug: {
-                    wireframes: true,
+                    wireframes: false,
                     showBody: true,
                     showConstraint: true,
                     showStaticBody: true,
                     showAngleIndicator: true,
-                    showVelocity: false,
-                    showCollisions: false,
-                    showAxes: false,
+                    //showVelocity: true,
+                    //showCollisions: true,
+                    //showAxes: false,
                 },
-                positionIterations: 12,   // Higher for better collision detection
+                positionIterations: 10,   // Even higher for better collision resolution
+                velocityIterations: 10,
+                constraintIterations: 4,
             }
         },
         scene: TestWormV2Scene
