@@ -87,15 +87,15 @@
                 segmentFriction: 1,
                 segmentFrictionStatic: 0.8,
                 segmentDensity: 0.03,
-                segmentRestitution: 0.01,
+                segmentRestitution: 0.001,
                 
                 // Main constraint parameters
                 constraintStiffness: 1,
-                constraintDamping: 0.1,
-                constraintLength: 0,
+                constraintDamping: 0.05,
+                constraintLength: 1.5, // Small gap to prevent overlap
                 
                 // Motor parameters
-                motorSpeed: 4, // rotations per second
+                motorSpeed: 5, // rotations per second
                 motorArmStiffness: 0.25,
                 motorArmDamping: 0.12,
                 motorArmLength: 50,
@@ -547,12 +547,39 @@
                     stiffness: this.physicsParams.constraintStiffness,
                     damping: this.physicsParams.constraintDamping,
                     render: {
-                        visible: false,
+                        visible: true,
                     }
                 });
                 
                 Matter.World.add(this.matter.world.localWorld, constraint);
                 constraints.push(constraint);
+            }
+            
+            // Add minimum distance constraints between non-adjacent segments to prevent compression
+            // This helps prevent the motor weight from forcing segments through each other
+            for (let i = 0; i < segments.length - 2; i++) {
+                const segA = segments[i];
+                const segB = segments[i + 2]; // Skip one segment
+                const minDistance = segmentRadii[i] + segmentRadii[i + 2] + 5; // Minimum separation
+                
+                const spacingConstraint = Matter.Constraint.create({
+                    bodyA: segA,
+                    bodyB: segB,
+                    pointA: { x: 0, y: 0 },
+                    pointB: { x: 0, y: 0 },
+                    length: minDistance,
+                    stiffness: 0.005, // Very soft, only activates when too close
+                    damping: 0.1,
+                    render: {
+                        visible: false,
+                        anchors: false,
+                        showVelocity: false
+                    }
+                });
+                
+                // Only add constraint if it helps maintain structure
+                Matter.World.add(this.matter.world.localWorld, spacingConstraint);
+                constraints.push(spacingConstraint);
             }
 
             return {
