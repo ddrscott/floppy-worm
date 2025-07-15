@@ -1,18 +1,16 @@
 {
   "name": "floppy-worm",
+  "source": "src/index.html",
   "version": "1.0.0",
   "description": "Physics-based worm game using Phaser and Matter.js",
-  "main": "index.js",
   "scripts": {
-    "build": "esbuild src/app.js --bundle --outfile=dist/app.bundle.js ",
-    "watch": "npm run build -- --watch"
+    "start": "parcel",
+    "build": "parcel build"
   },
   "keywords": ["game", "physics", "phaser", "matter.js"],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.19.0",
-    "live-server": "^1.2.2",
-    "concurrently": "^8.2.0"
+      "parcel": "latest"
   }
 }
