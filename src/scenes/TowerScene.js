@@ -117,14 +117,40 @@ export default class TowerScene extends Phaser.Scene {
             graphics.lineTo(x, height);
         }
         
-        // Horizontal lines
-        for (let y = 0; y <= height; y += this.CHAR_WIDTH) {
+        // Horizontal lines - draw from bottom to top to match marker numbering
+        for (let gridLine = 0; gridLine * this.CHAR_WIDTH <= height; gridLine++) {
+            const y = height - (gridLine * this.CHAR_WIDTH);
             graphics.moveTo(0, y);
             graphics.lineTo(this.LEVEL_WIDTH, y);
         }
         
         graphics.strokePath();
         graphics.setDepth(-100);
+        
+        // Add height markers every 5 grid lines (counting from bottom = 0)
+        // Count grid lines from bottom to top, aligning with the actual horizontal grid lines
+        for (let y = 0; y <= height; y += this.CHAR_WIDTH) {
+            const gridLineNumber = Math.round(y / this.CHAR_WIDTH);
+            
+            // Every 5th grid line gets a marker (but skip zero)
+            if (gridLineNumber % 5 === 0 && gridLineNumber > 0) {
+                // Create height marker text
+                this.add.text(10, height - y - 10, `${gridLineNumber}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                
+                // Create a more visible horizontal line for this height
+                const markerGraphics = this.add.graphics();
+                markerGraphics.lineStyle(2, 0x4ecdc4, 0.6);
+                markerGraphics.moveTo(0, height - y);
+                markerGraphics.lineTo(this.LEVEL_WIDTH, height - y);
+                markerGraphics.strokePath();
+                markerGraphics.setDepth(-50);
+            }
+        }
     }
     
     createBoundaryWalls(height) {
@@ -279,28 +305,16 @@ export default class TowerScene extends Phaser.Scene {
         }).setScrollFactor(0);
         
         // Controls
-        this.add.text(20, 60, 'Arrow Keys: Move | Space: Jump | Down: Flatten | ESC: Menu', {
+        this.add.text(20, 60, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
             fontSize: '14px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
         
-        // Timer
-        this.startTime = this.time.now;
-        this.timerText = this.add.text(20, 100, 'Time: 0.00s', {
-            fontSize: '16px',
-            color: '#4ecdc4',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0);
     }
     
     update(time, delta) {
-        // Update timer
-        const elapsed = (this.time.now - this.startTime) / 1000;
-        this.timerText.setText(`Time: ${elapsed.toFixed(2)}s`);
-        
         // Worm controls
         if (this.cursors.left.isDown) {
             this.worm.setMotorDirection(-1);
@@ -312,6 +326,7 @@ export default class TowerScene extends Phaser.Scene {
         
         this.worm.setFlatten(this.cursors.down.isDown);
         this.worm.setJump(this.spaceKey.isDown);
+        this.worm.setLift(this.cursors.up.isDown);
         
         this.worm.update(delta);
         
@@ -358,9 +373,8 @@ export default class TowerScene extends Phaser.Scene {
             strokeThickness: 8
         }).setOrigin(0.5).setScrollFactor(0);
         
-        // Add time
-        const elapsed = (this.time.now - this.startTime) / 1000;
-        this.add.text(500, 380, `Time: ${elapsed.toFixed(2)} seconds`, {
+        // Add completion message
+        this.add.text(500, 380, `Tower Completed!`, {
             fontSize: '32px',
             color: '#ffffff',
             stroke: '#000000',
