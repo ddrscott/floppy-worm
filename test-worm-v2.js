@@ -404,10 +404,6 @@
             const constraints = [];
             const segmentRadii = [];
             
-            // Initialize friction arrays for this worm
-            this.originalFriction = [];
-            this.originalFrictionStatic = [];
-            
             // Default configuration
             const defaultConfig = {
                 baseRadius: 10,
@@ -470,10 +466,6 @@
                 }
 
                 segments.push(segment);
-                
-                // Store original friction values for dynamic control
-                this.originalFriction[i] = friction;
-                this.originalFrictionStatic[i] = frictionStatic;
                 
                 // Position next segment
                 if (i < segmentSizes.length - 1) {
@@ -660,28 +652,6 @@
                 this.matter.body.setAngularVelocity(this.worm.motor, 0);
             }
             
-            // Dynamic friction control for better locomotion
-            if (this.worm.segments && this.originalFriction.length > 0) {
-                const motorIndex = 3; // Motor is at segment 3
-                
-                if (this.motorDirection !== 0) {
-                    // Reduce friction on segments below the motor when moving
-                    for (let i = motorIndex + 1; i < this.worm.segments.length; i++) {
-                        this.worm.segments[i].friction = this.originalFriction[i] * 0.3; // 30% of original
-                        this.worm.segments[i].frictionStatic = this.originalFrictionStatic[i] * 0.3;
-                    }
-                } else {
-                    // Restore normal friction when stopped
-                    for (let i = motorIndex + 1; i < this.worm.segments.length; i++) {
-                        this.worm.segments[i].friction = this.originalFriction[i];
-                        this.worm.segments[i].frictionStatic = this.originalFrictionStatic[i];
-                    }
-                }
-            }
-            
-            // Debug: Draw motor crank position
-            if (this.worm.motor && this.physicsParams.showDebug) {
-            }
             
             // Update camera target to follow motor position
             if (this.cameraTarget && this.worm.motor) {
