@@ -96,7 +96,7 @@
                 
                 // Motor parameters
                 motorSpeed: 5, // rotations per second
-                motorAxelOffset: 35,
+                motorAxelOffset: 40,
                 
                 // Debug
                 showDebug: true,
@@ -141,7 +141,7 @@
             // Create worm with simple config
             this.worm = this.createWorm(30, 300, {
                 baseRadius: 10,
-                segmentSizes: [0.85, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+                segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
             });
             
             // Create camera target - a Phaser object that follows the motor
@@ -448,12 +448,12 @@
             }
 
             // Create motor attached to the worm
-            const motor = this.matter.add.circle(x, motorY, baseRadius * 4, {
+            const motor = this.matter.add.circle(x, motorY, baseRadius * 3, {
                 name: 'motor',
-                density: 0.0001,  // Start with no density
+                density: 0.001,  // Start with no density
                 isSensor: true,
                 render: {
-                    visible: false,
+                    visible: this.physicsParams.showDebug,
                 }
             });
 
@@ -462,9 +462,12 @@
                 bodyA: segments[1],
                 bodyB: motor,
                 pointB: { x: 0, y: this.physicsParams.motorAxelOffset },
-                length: 0,
-                stiffness: 0.9,
+                length: this.physicsParams.motorAxelOffset * 0.3,
+                stiffness: 0.3,
                 damping: 0.1,
+                render: {
+                    visible: this.physicsParams.showDebug,
+                }
             });
             Matter.World.add(this.matter.world.localWorld, motorMount);
             
@@ -613,7 +616,7 @@
                     if (segment.graphics) {
                         segment.graphics.x = segment.position.x;
                         segment.graphics.y = segment.position.y;
-                        segment.graphics.rotation = segment.angle;
+                        // segment.graphics.rotation = segment.angle;
                     }
                 });
             }
