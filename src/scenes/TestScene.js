@@ -14,7 +14,7 @@ export default class TestScene extends Phaser.Scene {
 
     create() {
         // Set world bounds without default walls
-        this.matter.world.setBounds(0, 0, 800, 600, 32, false, false, false, false);
+        this.matter.world.setBounds(0, 0, 800, 600, 320, false, false, false, false);
         
         // Create custom colored boundary walls
         this.createBoundaryWalls();
@@ -26,11 +26,9 @@ export default class TestScene extends Phaser.Scene {
         this.createGrid();
 
         // Target platform on left side
-        this.platform = this.matter.add.rectangle(300, 500, 20, 250, {
+        this.matter.add.gameObject(
+            this.add.rectangle(300, 500, 50, 250, 0xff6b6b), {
             isStatic: true,
-            friction: 1,
-            restitution: 0.1,
-            render: { fillColor: 0xe17055 }
         });
         
         // Create worm using the new Worm class
