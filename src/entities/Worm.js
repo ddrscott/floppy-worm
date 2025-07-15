@@ -1,4 +1,6 @@
-export class Worm {
+import Phaser from 'phaser';
+
+export default class Worm {
     constructor(scene, x, y, config = {}) {
         this.scene = scene;
         this.matter = scene.matter;

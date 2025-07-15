@@ -10,7 +10,11 @@
   "keywords": ["game", "physics", "phaser", "matter.js"],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "dat.gui": "^0.7.9"
+  },
   "devDependencies": {
-      "parcel": "latest"
+    "parcel": "latest"
   }
 }
