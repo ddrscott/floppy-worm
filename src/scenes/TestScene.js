@@ -13,6 +13,10 @@ export default class TestScene extends Phaser.Scene {
     }
 
     create() {
+        // Enable debug rendering for TestScene
+        this.matter.world.drawDebug = true;
+        this.matter.world.debugGraphic.visible = true;
+        
         // Set world bounds without default walls
         this.matter.world.setBounds(0, 0, 800, 600, 320, false, false, false, false);
         

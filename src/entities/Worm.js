@@ -214,6 +214,26 @@ export default class Worm {
         this.motorMount = motorMount;
         this.flattenSprings = flattenSprings;
         this.jumpSpring = jumpSpring;
+        
+        // Create connection dots at constraint points
+        this.connectionDots = [];
+        for (let i = 0; i < this.segments.length - 1; i++) {
+            const segA = this.segments[i];
+            const segB = this.segments[i + 1];
+            
+            // Calculate connection point between segments
+            const midX = (segA.position.x + segB.position.x) / 2;
+            const midY = (segA.position.y + segB.position.y) / 2;
+            
+            // Create small dot graphics
+            const dot = this.scene.add.graphics();
+            dot.fillStyle(0x888888, 1); // Dark gray color
+            dot.fillCircle(0, 0, this.config.baseRadius * 0.5); // Small 3px radius dot
+            dot.setPosition(midX, midY);
+            dot.setDepth(0); // Above segments but below other UI
+            
+            this.connectionDots.push(dot);
+        }
     }
     
     // Control methods
@@ -257,6 +277,18 @@ export default class Worm {
             if (segment.graphics) {
                 segment.graphics.x = segment.position.x;
                 segment.graphics.y = segment.position.y;
+            }
+        });
+        
+        // Update connection dots positions
+        this.connectionDots.forEach((dot, index) => {
+            if (index < this.segments.length - 1) {
+                const segA = this.segments[index];
+                const segB = this.segments[index + 1];
+                
+                // Update dot position to stay between segments
+                dot.x = (segA.position.x + segB.position.x) / 2;
+                dot.y = (segA.position.y + segB.position.y) / 2;
             }
         });
     }
@@ -350,6 +382,15 @@ export default class Worm {
         
         if (this.motorMount) {
             this.matter.world.remove(this.motorMount);
+        }
+        
+        // Clean up connection dots
+        if (this.connectionDots) {
+            this.connectionDots.forEach(dot => {
+                if (dot) {
+                    dot.destroy();
+                }
+            });
         }
     }
 }

@@ -1,4 +1,7 @@
 import TestScene from '../scenes/TestScene';
+import TowerScene from '../scenes/TowerScene';
+import LevelsScene from '../scenes/LevelsScene';
+import { BasicWormScene } from '../worm-examples';
 
 export const gameConfig = {
     type: Phaser.AUTO,
@@ -9,21 +12,12 @@ export const gameConfig = {
     physics: {
         default: 'matter',
         matter: {
-            gravity: { y: 1 },  // Start with gravity off
-            debug: {
-                wireframes: false,
-                showBody: true,
-                showConstraint: true,
-                showStaticBody: true,
-                showAngleIndicator: true,
-                //showVelocity: true,
-                //showCollisions: true,
-                //showAxes: false,
-            },
-            positionIterations: 10,   // Even higher for better collision resolution
+            gravity: { y: 1 },
+            debug: false,  // Turn off debug globally
+            positionIterations: 10,
             velocityIterations: 16,
             constraintIterations: 2,
         }
     },
-    scene: TestScene
+    scene: [TowerScene, LevelsScene, TestScene, BasicWormScene]
 };
