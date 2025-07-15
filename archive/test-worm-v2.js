@@ -134,7 +134,7 @@
             this.createGrid();
 
             // Target platform on left side
-            this.platform = this.matter.add.rectangle(250, 450, 220, 20, {
+            this.platform = this.matter.add.rectangle(400, 600, 20, 100, {
                 isStatic: true,
                 friction: 1,
                 restitution: 0.1,
