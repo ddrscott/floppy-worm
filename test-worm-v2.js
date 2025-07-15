@@ -96,20 +96,15 @@
                 
                 // Motor parameters
                 motorSpeed: 5, // rotations per second
-                motorArmStiffness: 0.25,
-                motorArmDamping: 0.12,
-                motorArmLength: 50,
                 motorAxelOffset: 35,
                 
                 // Debug
                 showDebug: true,
-                pinTail: true,
                 showGrid: true,
                 
                 // Camera
                 cameraFollowTail: true,
-                cameraZoom: 2,
-                cameraSmoothing: 0.1
+                cameraZoom: 2
             };
         }
 
@@ -186,10 +181,6 @@
             // Set depth to ensure it's on top
             this.coordDisplay.setDepth(1000);
             
-            // Set up tail pinning if enabled
-            if (this.physicsParams.pinTail) {
-                this.tailPinPosition = { x: 135, y: 555 };
-            }
             
             // Set up camera basic settings
             this.cameras.main.setZoom(2);
@@ -207,10 +198,7 @@
             // Set up keyboard controls
             this.cursors = this.input.keyboard.createCursorKeys();
             this.motorDirection = 0; // -1 for left, 0 for idle, 1 for right
-            this.motorReturning = false; // Flag for returning to neutral
             this.motorNeutralAngle = -Math.PI/2; // Crank pointing up (12 o'clock, closest to head)
-            
-            this.cameraLerpFactor = 0.1; // How quickly camera follows (0.1 = 10% per frame)
         }
         
         createBoundaryWalls() {
@@ -355,21 +343,6 @@
             // Motor folder
             const motorFolder = this.gui.addFolder('Motor');
             motorFolder.add(this.physicsParams, 'motorSpeed', 0, 5).name('Speed (rot/sec)').step(0.1);
-            motorFolder.add(this.physicsParams, 'motorArmStiffness', 0.01, 1.0).name('Arm Stiffness').step(0.01).onChange(value => {
-                if (this.worm.motorArm) {
-                    this.worm.motorArm.stiffness = value;
-                }
-            });
-            motorFolder.add(this.physicsParams, 'motorArmDamping', 0, 1).name('Arm Damping').step(0.01).onChange(value => {
-                if (this.worm.motorArm) {
-                    this.worm.motorArm.damping = value;
-                }
-            });
-            motorFolder.add(this.physicsParams, 'motorArmLength', 0, 100).name('Arm Length').step(1).onChange(value => {
-                if (this.worm.motorArm) {
-                    this.worm.motorArm.length = value;
-                }
-            });
             motorFolder.open();
             
             // Debug folder
@@ -495,30 +468,6 @@
             });
             Matter.World.add(this.matter.world.localWorld, motorMount);
             
-            // Create pusher arms with very specific geometry
-            const crankRadius = baseRadius * 1.5; // Distance from motor center
-            
-            // Single arm design - simpler is better for getting it working
-            const motorArm = Matter.Constraint.create({
-                bodyA: motor,
-                bodyB: segments[7], // Push the front
-                pointA: { x: 0, y: crankRadius }, // Attachment on motor edge
-                pointB: { x: 0, y: -segmentRadii[1] }, // Top of segment
-                length: baseRadius * 5 * 2,
-                stiffness: this.physicsParams.motorArmStiffness,
-                damping: this.physicsParams.motorArmDamping,
-                render: {
-                    visible: false,
-                }
-            });
-            // Omit for now
-            // Matter.World.add(this.matter.world.localWorld, motorArm);
-            
-            // Try a simpler approach - just one arm for now
-            // We can add more once we get basic rotation working
-            constraints.push(motorArm);
-
-
             for (let i = 0; i < segments.length - 1; i++) {
                 const segA = segments[i];
                 const segB = segments[i + 1];
@@ -578,8 +527,7 @@
                 segments: segments,
                 constraints: constraints,
                 motor: motor,
-                motorMount: motorMount,
-                motorArm: motorArm,
+                motorMount: motorMount
             };
         }
         
