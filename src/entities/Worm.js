@@ -34,6 +34,7 @@ export default class Worm {
         this.motorDirection = 0;
         this.isFlattenActive = false;
         this.isJumpActive = false;
+        this.isLiftActive = false;
     }
     
     create(x, y) {
@@ -255,6 +256,10 @@ export default class Worm {
         }
     }
     
+    setLift(active) {
+        this.isLiftActive = active;
+    }
+    
     update(delta) {
         // Update motor
         if (this.motor) {
@@ -270,6 +275,13 @@ export default class Worm {
                 this.matter.body.setDensity(this.motor, 0.0001);
                 this.matter.body.setAngularVelocity(this.motor, 0);
             }
+        }
+        
+        // Handle lift action with gentle upward force on head
+        if (this.isLiftActive && this.segments.length > 0) {
+            const head = this.segments[0];
+            const liftForce = 0.1; // Very small upward force
+            this.matter.body.applyForce(head, head.position, { x: 0, y: -liftForce });
         }
         
         // Update segment graphics
