@@ -98,6 +98,15 @@
                 motorSpeed: 5, // rotations per second
                 motorAxelOffset: 40,
                 
+                // Action parameters
+                straightenTorque: 2.0, // Angular acceleration in rad/s²
+                straightenDamping: 0.1, // Damping to prevent oscillation
+                
+
+                launchIdle: 0.000001,
+                launchStiffness: 0.05, // Stiffness for launch constraints
+
+
                 // Debug
                 showDebug: true,
                 showGrid: true,
@@ -122,26 +131,26 @@
             this.createGrid();
 
             // Target platform on left side
-            this.platform = this.matter.add.rectangle(150, 400, 220, 20, {
+            this.platform = this.matter.add.rectangle(250, 450, 220, 20, {
                 isStatic: true,
                 friction: 1,
                 restitution: 0.1,
                 render: { fillColor: 0xe17055 }
             });
             
-            // Add visual platform using Phaser graphics
-            const platformGraphics = this.add.graphics();
-            platformGraphics.fillStyle(0xe17055, 1); // Orange/coral color
-            platformGraphics.lineStyle(3, 0xd63031, 1); // Darker red outline
-            platformGraphics.fillRect(-110, -10, 220, 20);
-            platformGraphics.strokeRect(-110, -10, 220, 20);
-            platformGraphics.x = 150;
-            platformGraphics.y = 400;
-
+            // // Add visual platform using Phaser graphics
+            // const platformGraphics = this.add.graphics();
+            // platformGraphics.fillStyle(0xe17055, 1); // Orange/coral color
+            // platformGraphics.lineStyle(3, 0xd63031, 1); // Darker red outline
+            // platformGraphics.fillRect(-110, -10, 220, 20);
+            // platformGraphics.strokeRect(-110, -10, 220, 20);
+            // platformGraphics.x = 150;
+            // platformGraphics.y = 400;
+            //
             // Create worm with simple config
             this.worm = this.createWorm(30, 300, {
                 baseRadius: 10,
-                segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
+                segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8]
             });
             
             // Create camera target - a Phaser object that follows the motor
@@ -199,6 +208,9 @@
             this.cursors = this.input.keyboard.createCursorKeys();
             this.motorDirection = 0; // -1 for left, 0 for idle, 1 for right
             this.motorNeutralAngle = -Math.PI/2; // Crank pointing up (12 o'clock, closest to head)
+            
+            // Add spacebar key
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         }
         
         createBoundaryWalls() {
@@ -345,6 +357,13 @@
             motorFolder.add(this.physicsParams, 'motorSpeed', 0, 5).name('Speed (rot/sec)').step(0.1);
             motorFolder.open();
             
+            // Actions folder
+            const actionsFolder = this.gui.addFolder('Actions');
+            actionsFolder.add(this.physicsParams, 'straightenTorque', 0, 5).name('Straighten Force').step(0.1);
+            actionsFolder.add(this.physicsParams, 'straightenDamping', 0, 1).name('Straighten Damping').step(0.01);
+            actionsFolder.add(this.physicsParams, 'launchStiffness', 0, 1).name('Launch Stiffness').step(0.01);
+            actionsFolder.open();
+            
             // Debug folder
             const debugFolder = this.gui.addFolder('Debug');
             debugFolder.add(this.physicsParams, 'showDebug').onChange(value => {
@@ -403,7 +422,7 @@
 
                 // Special properties for head segment
                 if (i === 0) {
-                    // density = 0.01; // Much heavier head for better dragging
+                    // density = this.physicsParams.segmentDensity * 5; // 5x heavier head
                     // friction = 150;  // Higher friction for better grip
                     // frictionStatic = 0.5; // Higher static friction
                 }
@@ -525,12 +544,42 @@
                 Matter.World.add(this.matter.world.localWorld, spacingConstraint);
                 constraints.push(spacingConstraint);
             }
+            
+            // Add spring constraint between head and tail
+            let headTailSpring = null;
+            if (segments.length > 1) {
+                const head = segments[0];
+                const tail = segments[segments.length - 1];
+                
+                // Calculate current distance between head and tail
+                const dx = tail.position.x - head.position.x;
+                const dy = tail.position.y - head.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                headTailSpring = Matter.Constraint.create({
+                    bodyA: head,
+                    bodyB: tail,
+                    pointA: { x: 0, y: 0 },
+                    pointB: { x: 0, y: 0 },
+                    length: distance * 1.5, // Shorter resting length to create tension
+                    stiffness: this.physicsParams.launchIdle,
+                    render: {
+                        visible: true,
+                        strokeStyle: '#ff6b6b',
+                        lineWidth: 2,
+                    }
+                });
+                
+                Matter.World.add(this.matter.world.localWorld, headTailSpring);
+                constraints.push(headTailSpring);
+            }
 
             return {
                 segments: segments,
                 constraints: constraints,
                 motor: motor,
-                motorMount: motorMount
+                motorMount: motorMount,
+                headTailSpring: headTailSpring
             };
         }
         
@@ -610,6 +659,20 @@
                 this.cameraTarget.y = this.worm.motor.position.y;
             }
             
+            // Handle spacebar for launch spring activation
+            if (this.worm && this.worm.headTailSpring) {
+                const launchIdx = this.worm.segments.length - 1; // Second to last segment (tail)
+                if (this.spaceKey.isDown) {
+                    // Apply launch parameters when spacebar is pressed
+                    this.worm.headTailSpring.stiffness = this.physicsParams.launchStiffness;
+                    this.worm.segments[launchIdx].density = 0.9; // Make tail segment denser to help with launch
+                } else {
+                    // Return to idle parameters when released
+                    this.worm.headTailSpring.stiffness = this.physicsParams.launchIdle;
+                    this.worm.segments[launchIdx].density = this.physicsParams.segmentDensity; // Reset tail segment density
+                }
+            }
+            
             // Update segment graphics positions
             if (this.worm && this.worm.segments) {
                 this.worm.segments.forEach((segment) => {
@@ -626,8 +689,8 @@
     // Game configuration
     const config = {
         type: Phaser.AUTO,
-        width: 800,
-        height: 600,
+        width: 1024,
+        height: 768,
         parent: 'game-container',
         backgroundColor: '#232333',
         physics: {
@@ -645,8 +708,8 @@
                     //showAxes: false,
                 },
                 positionIterations: 10,   // Even higher for better collision resolution
-                velocityIterations: 10,
-                constraintIterations: 4,
+                velocityIterations: 16,
+                constraintIterations: 2,
             }
         },
         scene: TestWormV2Scene
