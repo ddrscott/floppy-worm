@@ -103,8 +103,11 @@
                 straightenDamping: 0.1, // Damping to prevent oscillation
                 
 
-                launchIdle: 0.000001,
-                launchStiffness: 0.05, // Stiffness for launch constraints
+                flattenIdle: 0.000001,
+                flattenStiffness: 0.5, // Stiffness for flatten constraints
+                
+                jumpIdle: 0.000001,
+                jumpStiffness: 0.05, // Stiffness for jump constraint
 
 
                 // Debug
@@ -361,7 +364,8 @@
             const actionsFolder = this.gui.addFolder('Actions');
             actionsFolder.add(this.physicsParams, 'straightenTorque', 0, 5).name('Straighten Force').step(0.1);
             actionsFolder.add(this.physicsParams, 'straightenDamping', 0, 1).name('Straighten Damping').step(0.01);
-            actionsFolder.add(this.physicsParams, 'launchStiffness', 0, 1).name('Launch Stiffness').step(0.01);
+            actionsFolder.add(this.physicsParams, 'flattenStiffness', 0, 1).name('Flatten Stiffness').step(0.01);
+            actionsFolder.add(this.physicsParams, 'jumpStiffness', 0, 1).name('Jump Stiffness').step(0.01);
             actionsFolder.open();
             
             // Debug folder
@@ -545,24 +549,23 @@
                 constraints.push(spacingConstraint);
             }
             
-            // Add spring constraint between head and tail
-            let headTailSpring = null;
-            if (segments.length > 1) {
-                const head = segments[0];
-                const tail = segments[segments.length - 1];
+            // Add flatten springs between neighboring segments
+            const flattenSprings = [];
+            for (let i = 0; i < segments.length - 1; i++) {
+                const segA = segments[i];
+                const segB = segments[i + 1];
                 
-                // Calculate current distance between head and tail
-                const dx = tail.position.x - head.position.x;
-                const dy = tail.position.y - head.position.y;
+                // Calculate current distance between segments
+                const dx = segB.position.x - segA.position.x;
+                const dy = segB.position.y - segA.position.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 
-                headTailSpring = Matter.Constraint.create({
-                    bodyA: head,
-                    bodyB: tail,
-                    pointA: { x: 0, y: 0 },
-                    pointB: { x: 0, y: 0 },
-                    length: distance * 1.5, // Shorter resting length to create tension
-                    stiffness: this.physicsParams.launchIdle,
+                const spring = Matter.Constraint.create({
+                    bodyA: segA,
+                    bodyB: segB,
+                    // No pointA/pointB specified - defaults to centers
+                    length: distance * 1.25, // Shorter to create contraction
+                    stiffness: this.physicsParams.flattenIdle,
                     render: {
                         visible: true,
                         strokeStyle: '#ff6b6b',
@@ -570,8 +573,35 @@
                     }
                 });
                 
-                Matter.World.add(this.matter.world.localWorld, headTailSpring);
-                constraints.push(headTailSpring);
+                Matter.World.add(this.matter.world.localWorld, spring);
+                flattenSprings.push(spring);
+            }
+            
+            // Add jump spring from head to second-to-last segment
+            let jumpSpring = null;
+            if (segments.length > 2) {
+                const head = segments[0];
+                const jumpTarget = segments[segments.length - 2]; // Second to last segment
+                
+                // Calculate current distance between segments
+                const dx = jumpTarget.position.x - head.position.x;
+                const dy = jumpTarget.position.y - head.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                jumpSpring = Matter.Constraint.create({
+                    bodyA: head,
+                    bodyB: jumpTarget,
+                    // No pointA/pointB specified - defaults to centers
+                    length: distance * 2, // Shorter to create launch tension
+                    stiffness: this.physicsParams.jumpIdle,
+                    render: {
+                        visible: true,
+                        strokeStyle: '#74b9ff',
+                        lineWidth: 3,
+                    }
+                });
+                
+                Matter.World.add(this.matter.world.localWorld, jumpSpring);
             }
 
             return {
@@ -579,7 +609,8 @@
                 constraints: constraints,
                 motor: motor,
                 motorMount: motorMount,
-                headTailSpring: headTailSpring
+                flattenSprings: flattenSprings,
+                jumpSpring: jumpSpring
             };
         }
         
@@ -659,17 +690,29 @@
                 this.cameraTarget.y = this.worm.motor.position.y;
             }
             
-            // Handle spacebar for launch spring activation
-            if (this.worm && this.worm.headTailSpring) {
-                const launchIdx = this.worm.segments.length - 1; // Second to last segment (tail)
-                if (this.spaceKey.isDown) {
-                    // Apply launch parameters when spacebar is pressed
-                    this.worm.headTailSpring.stiffness = this.physicsParams.launchStiffness;
-                    this.worm.segments[launchIdx].density = 0.9; // Make tail segment denser to help with launch
+            // Handle down arrow for flatten spring activation
+            if (this.worm && this.worm.flattenSprings) {
+                if (this.cursors.down.isDown) {
+                    // Apply flatten parameters to all springs when down arrow is pressed
+                    this.worm.flattenSprings.forEach(spring => {
+                        spring.stiffness = this.physicsParams.flattenStiffness;
+                    });
                 } else {
                     // Return to idle parameters when released
-                    this.worm.headTailSpring.stiffness = this.physicsParams.launchIdle;
-                    this.worm.segments[launchIdx].density = this.physicsParams.segmentDensity; // Reset tail segment density
+                    this.worm.flattenSprings.forEach(spring => {
+                        spring.stiffness = this.physicsParams.flattenIdle;
+                    });
+                }
+            }
+            
+            // Handle spacebar for jump spring activation
+            if (this.worm && this.worm.jumpSpring) {
+                if (this.spaceKey.isDown) {
+                    // Apply jump parameters when spacebar is pressed
+                    this.worm.jumpSpring.stiffness = this.physicsParams.jumpStiffness;
+                } else {
+                    // Return to idle parameters when released
+                    this.worm.jumpSpring.stiffness = this.physicsParams.jumpIdle;
                 }
             }
             
