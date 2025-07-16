@@ -41,5 +41,5 @@ export const gameConfig = {
             constraintIterations: 2,
         }
     },
-    scene: [TowerScene, LevelsScene, TestScene, BasicWormScene]
+    scene: [TestScene, TowerScene, LevelsScene, BasicWormScene]
 };

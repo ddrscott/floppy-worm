@@ -4,18 +4,18 @@ export const defaultPhysicsParams = {
     gravityY: 1,
     
     // Segment physics
-    segmentFriction: 1,
-    segmentFrictionStatic: 0.8,
-    segmentDensity: 0.03,
-    segmentRestitution: 0.0001,
+    segmentFriction: 0.7,
+    segmentFrictionStatic: 0.6,
+    segmentDensity: 0.05,
+    segmentRestitution: 0.05,
     
     // Main constraint parameters
-    constraintStiffness: 1,
-    constraintDamping: 0.08,
+    constraintStiffness: 0.9,
+    constraintDamping: 0.1,
     constraintLength: 1.8, // Small gap to prevent overlap
     
     // Motor parameters
-    motorSpeed: 5, // rotations per second
+    motorSpeed: 2.5, // rotations per second
     motorAxelOffset: 40,
     
     // Action parameters
@@ -23,10 +23,10 @@ export const defaultPhysicsParams = {
     straightenDamping: 0.1, // Damping to prevent oscillation
     
     flattenIdle: 0.000001,
-    flattenStiffness: 0.5, // Stiffness for flatten constraints
+    flattenStiffness: 0.7, // Stiffness for flatten constraints
     
     jumpIdle: 0.000001,
-    jumpStiffness: 0.05, // Stiffness for jump constraint
+    jumpStiffness: 0.08, // Stiffness for jump constraint
 
     // Debug
     showDebug: true,
