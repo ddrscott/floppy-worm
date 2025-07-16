@@ -7,7 +7,7 @@ export default class DoubleWorm extends WormBase {
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
             jumpIdle: 0.000001,
-            jumpStiffness: 0.05,
+            jumpStiffness: 0.09,
             ...config
         };
         
@@ -18,7 +18,7 @@ export default class DoubleWorm extends WormBase {
         this.anchorStiffness = 0.15; // Spring stiffness connecting anchors to worm
         this.anchorDamping = 0.05;
         this.velocityDamping = 0.1; // How quickly velocity decays
-        this.impulseMultiplier = 0.002; // Multiplier for release impulse
+        this.impulseMultiplier = 0.00175; // Multiplier for release impulse
         
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
@@ -26,6 +26,19 @@ export default class DoubleWorm extends WormBase {
         
         // Create anchor system
         this.createAnchors();
+
+        if (this.segments.length > 2) {
+            const head = this.segments[0];
+            const middle = this.segments[parseInt(this.segments.length / 2)];
+            
+            this.headSpring = this.createJumpSegment(head, middle);
+        }
+
+        if (this.segments.length > 2) {
+            const middle = this.segments[parseInt(this.segments.length / 2)]
+            const tail = this.segments[this.segments.length - 2];
+            this.tailSpring = this.createJumpSegment(middle, tail);
+        }
     }
     
     createAnchors() {
@@ -106,81 +119,26 @@ export default class DoubleWorm extends WormBase {
         this.tailAnchorRest = { x: tailAttachSegment.position.x, y: tailAttachSegment.position.y };
         
         // Create visual indicators for anchor range (debug)
-        if (this.config.showDebug) {
-            this.headRangeGraphics = this.scene.add.graphics();
-            this.headRangeGraphics.lineStyle(1, 0x74b9ff, 0.3);
-            this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
-            
-            this.tailRangeGraphics = this.scene.add.graphics();
-            this.tailRangeGraphics.lineStyle(1, 0xff6b6b, 0.3);
-            this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
-            
-            // Create stick position indicators
-            this.headStickIndicator = this.scene.add.graphics();
-            this.headStickIndicator.fillStyle(0x74b9ff, 0.8);
-            this.headStickIndicator.fillCircle(0, 0, 8);
-            
-            this.tailStickIndicator = this.scene.add.graphics();
-            this.tailStickIndicator.fillStyle(0xff6b6b, 0.8);
-            this.tailStickIndicator.fillCircle(0, 0, 8);
-        }
+        this.headRangeGraphics = this.scene.add.graphics();
+        this.headRangeGraphics.lineStyle(1, 0x74b9ff, 0.3);
+        this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
+        
+        this.tailRangeGraphics = this.scene.add.graphics();
+        this.tailRangeGraphics.lineStyle(1, 0xff6b6b, 0.3);
+        this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
+        
+        // Create stick position indicators
+        this.headStickIndicator = this.scene.add.graphics();
+        this.headStickIndicator.fillStyle(0x74b9ff, 0.8);
+        this.headStickIndicator.fillCircle(0, 0, 8);
+        
+        this.tailStickIndicator = this.scene.add.graphics();
+        this.tailStickIndicator.fillStyle(0xff6b6b, 0.8);
+        this.tailStickIndicator.fillCircle(0, 0, 8);
     }
     
     createSwingComponents() {
-        // Create swing weight
-        let swingY = this.segments[1].position.y;
-        const swingWeight = this.matter.add.circle(
-            this.segments[1].position.x, 
-            swingY, 
-            this.config.baseRadius * 3, 
-            {
-                name: 'swingWeight',
-                density: 0.001,
-                isSensor: true,
-                render: {
-                    visible: this.config.showDebug,
-                }
-            }
-        );
         
-        // Add flatten springs
-        const flattenSprings = [];
-        for (let i = 0; i < this.segments.length - 1; i++) {
-            const segA = this.segments[i];
-            const segB = this.segments[i + 1];
-            
-            const dx = segB.position.x - segA.position.x;
-            const dy = segB.position.y - segA.position.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            const spring = this.Matter.Constraint.create({
-                bodyA: segA,
-                bodyB: segB,
-                length: distance * 1.25,
-                stiffness: this.config.flattenIdle,
-                render: {
-                    visible: true,
-                    strokeStyle: '#ff6b6b',
-                    lineWidth: 2,
-                }
-            });
-            
-            this.Matter.World.add(this.matter.world.localWorld, spring);
-            flattenSprings.push(spring);
-        }
-
-        if (this.segments.length > 2) {
-            const head = this.segments[0];
-            const middle = this.segments[parseInt(this.segments.length / 2)];
-            
-            this.headSpring = this.createJumpSegment(head, middle);
-        }
-
-        if (this.segments.length > 2) {
-            const middle = this.segments[parseInt(this.segments.length / 2)]
-            const tail = this.segments[this.segments.length - 2];
-            this.tailSpring = this.createJumpSegment(middle, tail);
-        }
     }
 
     createJumpSegment(from, to) {
@@ -191,7 +149,7 @@ export default class DoubleWorm extends WormBase {
         const spring = this.Matter.Constraint.create({
             bodyA: from,
             bodyB: to,
-            length: distance,
+            length: distance * 2,
             stiffness: this.config.jumpIdle,
             render: {
                 visible: true,
@@ -200,7 +158,7 @@ export default class DoubleWorm extends WormBase {
             }
         });
         
-        // this.Matter.World.add(this.matter.world.localWorld, spring);
+        this.Matter.World.add(this.matter.world.localWorld, spring);
         return spring;
     }
     
@@ -244,18 +202,8 @@ export default class DoubleWorm extends WormBase {
         super.destroy();
     }
 
-    /**
-     * Movement is based on swinging the weight of the worm around to generate momentum.
-     * This is controlled by the left and right sticks of the gamepad.
-     * When enough momentum is generated, it will naturally cause the worm to move or lift off.
-     * There are lots of parameters to tweak to get the right feel.
-     * The amount of movement is naturally constrainted by the degree of freedom of the sticks themselfs
-     * and we should use the sticks values as a multiplier to the movement limits.
-     * For instance, let's set the field of movement to 20 pixles radius then we read the
-     * stick values as often as we can to compute it's velocity and when the stick snaps to 0,
-     * we release and the force just does what it does.
-     */
     updateMovement(delta) {
+        this.updateStickDisplay();
         const pad = this.scene?.input?.gamepad?.getPad(0);
         if (!pad) return;
         
@@ -271,23 +219,41 @@ export default class DoubleWorm extends WormBase {
         this.updateAnchorPosition(this.headAnchor, this.headAnchorRest, this.leftStickState, deltaSeconds);
         this.updateAnchorPosition(this.tailAnchor, this.tailAnchorRest, this.rightStickState, deltaSeconds);
         
-        // Update visual debug indicators
-        if (this.config.showDebug && this.headRangeGraphics) {
-            this.headRangeGraphics.clear();
-            this.headRangeGraphics.lineStyle(1, 0x74b9ff, 0.3);
-            this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
-            
-            this.tailRangeGraphics.clear();
-            this.tailRangeGraphics.lineStyle(1, 0xff6b6b, 0.3);
-            this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
-            
-            // Update stick position indicators
-            this.headStickIndicator.x = this.headAnchorRest.x + (this.leftStickState.x * this.anchorRadius);
-            this.headStickIndicator.y = this.headAnchorRest.y + (this.leftStickState.y * this.anchorRadius);
-            
-            this.tailStickIndicator.x = this.tailAnchorRest.x + (this.rightStickState.x * this.anchorRadius);
-            this.tailStickIndicator.y = this.tailAnchorRest.y + (this.rightStickState.y * this.anchorRadius);
+        // Handle triggers to stiffen springs
+        console.log('pad: ', pad);
+        const leftTrigger = pad.buttons[6] ? pad.buttons[6].value : 0;
+        const rightTrigger = pad.buttons[7] ? pad.buttons[7].value : 0;
+        
+        // Left trigger stiffens head spring
+        if (this.headSpring) {
+            const baseStiffness = this.config.jumpIdle || 0.000001;
+            const maxStiffness = this.config.jumpStiffness;
+            this.headSpring.stiffness = baseStiffness + (leftTrigger * (maxStiffness - baseStiffness));
         }
+        
+        // Right trigger stiffens tail spring
+        if (this.tailSpring) {
+            const baseStiffness = this.config.jumpIdle || 0.000001;
+            const maxStiffness = this.config.jumpStiffness;
+            this.tailSpring.stiffness = baseStiffness + (rightTrigger * (maxStiffness - baseStiffness));
+        }
+        
+    }
+    updateStickDisplay() {
+        this.headRangeGraphics.clear();
+        this.headRangeGraphics.lineStyle(1, 0xff6b6b, 0.4);
+        this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
+        
+        this.tailRangeGraphics.clear();
+        this.tailRangeGraphics.lineStyle(1, 0x74b9ff, 0.4);
+        this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
+        
+        // Update stick position indicators
+        this.headStickIndicator.x = this.headAnchorRest.x + (this.leftStickState.x * this.anchorRadius);
+        this.headStickIndicator.y = this.headAnchorRest.y + (this.leftStickState.y * this.anchorRadius);
+        
+        this.tailStickIndicator.x = this.tailAnchorRest.x + (this.rightStickState.x * this.anchorRadius);
+        this.tailStickIndicator.y = this.tailAnchorRest.y + (this.rightStickState.y * this.anchorRadius);
     }
     
     updateStickState(stickState, gamepadStick, deltaSeconds) {
@@ -335,18 +301,38 @@ export default class DoubleWorm extends WormBase {
         const attachIndex = anchor === this.headAnchor ? this.headAttachIndex : this.tailAttachIndex;
         const segment = this.segments[attachIndex];
         
-        // Apply impulse based on accumulated velocity directly to the segment
-        const mass = segment.mass;
-        const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
-        const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
-
-        this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
-        
         // Update rest position to follow the attached segment
         restPos.x = segment.position.x;
         restPos.y = segment.position.y;
         
-        // Update anchor position to follow segment (for visual consistency)
-        this.matter.body.setPosition(anchor, segment.position);
+        // Apply position-based force when stick is active
+        if (Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1) {
+            // Calculate target position based on stick input
+            const targetX = restPos.x + (stickState.x * this.anchorRadius);
+            const targetY = restPos.y + (stickState.y * this.anchorRadius);
+            
+            // Calculate force toward target position
+            const dx = targetX - segment.position.x;
+            const dy = targetY - segment.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0.1) {
+                // Apply force proportional to distance
+                const forceMagnitude = distance * 0.0002;
+                const forceX = (dx / distance) * forceMagnitude;
+                const forceY = (dy / distance) * forceMagnitude;
+                
+                this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+            }
+        }
+        
+        // Also apply velocity-based impulse continuously
+        const mass = segment.mass;
+        const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
+        const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
+        
+        if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
+            this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
+        }
     }
 }
