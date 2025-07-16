@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <script src=" https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+
+    <title>Floppy Worm</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            /* Use all available viewport height */
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+        
+        body {
+            background-color: #232333;
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Add border only on larger screens */
+        @media (min-width: 768px) {
+            #game-container {
+                padding: 1em;
+            }
+            
+            #game-container canvas {
+                border: 1px solid #444;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+        }
+        
+        /* Prevent iOS bounce scrolling */
+        #game-container canvas {
+            position: absolute;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Loading screen */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #4ecdc4;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+    </div>
+
+    <script src="test-worm-class.js"></script>
+</body>
+</html>
