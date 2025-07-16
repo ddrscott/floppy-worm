@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Worm from '../entities/Worm';
+import MobileTouchControls from '../components/MobileTouchControls';
 
 export default class TowerScene extends Phaser.Scene {
     constructor() {
@@ -108,11 +109,14 @@ export default class TowerScene extends Phaser.Scene {
         
         // Camera controls
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Mobile touch controls
+        this.touchControls = new MobileTouchControls(this);
     }
     
     createGrid(height) {
         const graphics = this.add.graphics();
-        graphics.lineStyle(1, 0x333333, 0.3);
+        graphics.lineStyle(1, 0x888888, 0.5);
         
         // Vertical lines
         for (let x = 0; x <= this.LEVEL_WIDTH; x += this.CHAR_WIDTH) {
@@ -271,13 +275,11 @@ export default class TowerScene extends Phaser.Scene {
         // Set up camera to fill width of level
         this.cameras.main.setBounds(0, 0, this.LEVEL_WIDTH, levelRows.length * this.ROW_SPACING);
         
-        // Calculate zoom to fit level width in viewport
-        const gameWidth = this.sys.game.config.width;  // Game viewport width
-        const zoomToFitWidth = gameWidth / this.LEVEL_WIDTH;
+        // Handle dynamic sizing
+        this.handleResize();
         
-        this.cameras.main.startFollow(this.cameraTarget, true);
-        this.cameras.main.setZoom(zoomToFitWidth);
-        this.cameras.main.setDeadzone(0, 100);  // No horizontal deadzone, small vertical deadzone
+        // Listen for resize events
+        this.scale.on('resize', this.handleResize, this);
     }
     
     createPlatform(startCol, endCol, y, rowIndex) {
@@ -307,29 +309,68 @@ export default class TowerScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
         
-        // Controls
-        this.add.text(20, 60, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
-            fontSize: '14px',
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0);
+        // Controls - only show on desktop
+        const isTouchDevice = ('ontouchstart' in window) || 
+                            (navigator.maxTouchPoints > 0) || 
+                            (navigator.msMaxTouchPoints > 0);
         
+        if (!isTouchDevice) {
+            this.add.text(20, 60, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
+                fontSize: '14px',
+                color: '#ffffff',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: { x: 10, y: 5 }
+            }).setScrollFactor(0);
+        }
+    }
+    
+    handleResize() {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        // Calculate zoom to fit level width in viewport
+        const zoomToFitWidth = width / this.LEVEL_WIDTH;
+        
+        // Check if portrait or landscape
+        const isPortrait = height > width * 1.2;
+        
+        this.cameras.main.startFollow(this.cameraTarget, true);
+        this.cameras.main.setZoom(zoomToFitWidth);
+        
+        // Adjust deadzone based on orientation and available height
+        if (isPortrait) {
+            // Larger vertical view on portrait - show more ahead
+            this.cameras.main.setDeadzone(0, height * 0.1);
+        } else {
+            // Standard landscape deadzone
+            this.cameras.main.setDeadzone(0, height * 0.15);
+        }
     }
     
     update(time, delta) {
-        // Worm controls
-        if (this.cursors.left.isDown) {
+        // Update touch controls
+        if (this.touchControls) {
+            this.touchControls.update();
+        }
+        
+        // Worm controls (keyboard + touch)
+        const leftPressed = this.cursors.left.isDown || (this.touchControls && this.touchControls.isPressed('left'));
+        const rightPressed = this.cursors.right.isDown || (this.touchControls && this.touchControls.isPressed('right'));
+        const jumpPressed = this.spaceKey.isDown || (this.touchControls && this.touchControls.isPressed('jump'));
+        const liftPressed = this.cursors.up.isDown || (this.touchControls && this.touchControls.isPressed('up'));
+        const flattenPressed = this.cursors.down.isDown || (this.touchControls && this.touchControls.isPressed('down'));
+        
+        if (leftPressed) {
             this.worm.setMotorDirection(-1);
-        } else if (this.cursors.right.isDown) {
+        } else if (rightPressed) {
             this.worm.setMotorDirection(1);
         } else {
             this.worm.setMotorDirection(0);
         }
         
-        this.worm.setFlatten(this.cursors.down.isDown);
-        this.worm.setJump(this.spaceKey.isDown);
-        this.worm.setLift(this.cursors.up.isDown);
+        this.worm.setFlatten(flattenPressed);
+        this.worm.setJump(jumpPressed);
+        this.worm.setLift(liftPressed);
         
         this.worm.update(delta);
         
@@ -354,14 +395,6 @@ export default class TowerScene extends Phaser.Scene {
                 this.victory();
             }
         }
-        
-        // Camera manual controls
-        const cam = this.cameras.main;
-        const scrollSpeed = 5;
-        if (this.wasd.W.isDown) cam.scrollY -= scrollSpeed;
-        if (this.wasd.S.isDown) cam.scrollY += scrollSpeed;
-        if (this.wasd.A.isDown) cam.scrollX -= scrollSpeed;
-        if (this.wasd.D.isDown) cam.scrollX += scrollSpeed;
     }
     
     victory() {

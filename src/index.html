@@ -2,45 +2,78 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Worm Tower - Phaser Version</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Floppy Worm</title>
     <style>
-        body {
+        * {
             margin: 0;
-            padding: 3em;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            /* Use all available viewport height */
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+        
+        body {
             background-color: #232333;
             color: white;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
         }
+        
         #game-container {
             position: relative;
-            border: 1px solid #444;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #info {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 100;
-            pointer-events: none;
+        
+        /* Add border only on larger screens */
+        @media (min-width: 768px) {
+            #game-container {
+                padding: 1em;
+            }
+            
+            #game-container canvas {
+                border: 1px solid #444;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
         }
-        #score {
+        
+        /* Prevent iOS bounce scrolling */
+        #game-container canvas {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 100;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Loading screen */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             font-size: 24px;
-            font-weight: bold;
+            color: #4ecdc4;
+            text-align: center;
         }
     </style>
 </head>
