@@ -39,7 +39,7 @@ export default class TestScene extends Phaser.Scene {
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         });
         
-        // Create camera target - a Phaser object that follows the motor
+        // Create camera target - a Phaser object that follows the swing weight
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0); // Invisible rectangle
 
         
@@ -265,12 +265,12 @@ export default class TestScene extends Phaser.Scene {
         });
         constraintFolder.open();
         
-        // Motor folder
-        const motorFolder = this.gui.addFolder('Motor');
-        motorFolder.add(this.physicsParams, 'motorSpeed', 0, 5).name('Speed (rot/sec)').step(0.1).onChange(value => {
-            this.worm.updateConfig({ motorSpeed: value });
+        // Swing folder
+        const swingFolder = this.gui.addFolder('Swing');
+        swingFolder.add(this.physicsParams, 'swingSpeed', 0, 5).name('Speed (rot/sec)').step(0.1).onChange(value => {
+            this.worm.updateConfig({ swingSpeed: value });
         });
-        motorFolder.open();
+        swingFolder.open();
         
         // Actions folder
         const actionsFolder = this.gui.addFolder('Actions');
@@ -321,11 +321,11 @@ export default class TestScene extends Phaser.Scene {
         const flattenPressed = this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed());
         
         if (leftPressed) {
-            this.worm.setMotorDirection(-1);
+            this.worm.setSwingDirection(-1);
         } else if (rightPressed) {
-            this.worm.setMotorDirection(1);
+            this.worm.setSwingDirection(1);
         } else {
-            this.worm.setMotorDirection(0);
+            this.worm.setSwingDirection(0);
         }
         
         this.worm.setFlatten(flattenPressed);
@@ -335,11 +335,11 @@ export default class TestScene extends Phaser.Scene {
         // Update worm
         this.worm.update(delta);
         
-        // Update camera target to follow motor position
-        if (this.cameraTarget && this.worm.getMotorPosition()) {
-            const motorPos = this.worm.getMotorPosition();
-            this.cameraTarget.x = motorPos.x;
-            this.cameraTarget.y = motorPos.y;
+        // Update camera target to follow swing weight position
+        if (this.cameraTarget && this.worm.getSwingWeightPosition()) {
+            const swingPos = this.worm.getSwingWeightPosition();
+            this.cameraTarget.x = swingPos.x;
+            this.cameraTarget.y = swingPos.y;
         }
     }
 }
