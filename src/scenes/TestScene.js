@@ -3,6 +3,7 @@ import * as dat from 'dat.gui';
 import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
 import SwingWorm from '../entities/SwingWorm';
+import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 
 export default class TestScene extends Phaser.Scene {
@@ -34,9 +35,9 @@ export default class TestScene extends Phaser.Scene {
         });
         
         // Create worm using the new MotorWorm class
-        this.worm = new SwingWorm(this, 460, 220, {
+        this.worm = new DoubleWorm(this, 460, 220, {
             baseRadius: 15,
-            segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+            segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         });
         
         // Create camera target - a Phaser object that follows the swing weight
@@ -314,23 +315,16 @@ export default class TestScene extends Phaser.Scene {
     
     update(time, delta) {
         // Handle input (keyboard + virtual joystick)
-        const leftPressed = this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed());
-        const rightPressed = this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed());
-        const jumpPressed = this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed());
-        const liftPressed = this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed());
-        const flattenPressed = this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed());
+        const input = {
+            left: this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed()),
+            right: this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed()),
+            jump: this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed()),
+            up: this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed()),
+            down: this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed())
+        };
         
-        if (leftPressed) {
-            this.worm.setSwingDirection(-1);
-        } else if (rightPressed) {
-            this.worm.setSwingDirection(1);
-        } else {
-            this.worm.setSwingDirection(0);
-        }
-        
-        this.worm.setFlatten(flattenPressed);
-        this.worm.setJump(jumpPressed);
-        this.worm.setLift(liftPressed);
+        // Pass input to worm
+        this.worm.handleInput(input);
         
         // Update worm
         this.worm.update(delta);

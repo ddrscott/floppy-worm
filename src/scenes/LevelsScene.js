@@ -22,6 +22,12 @@ export default class LevelsScene extends Phaser.Scene {
                 description: 'Multiple example scenes showing different worm behaviors',
                 scene: 'BasicWormScene',
                 color: 0xfeca57
+            },
+            {
+                name: 'Gamepad Test',
+                description: 'Test and visualize PS4 controller inputs',
+                scene: 'GamepadTest',
+                color: 0x9b59b6
             }
         ];
     }

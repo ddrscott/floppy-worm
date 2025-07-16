@@ -1,6 +1,7 @@
 import TestScene from '../scenes/TestScene';
 import TowerScene from '../scenes/TowerScene';
 import LevelsScene from '../scenes/LevelsScene';
+import GamepadTest from '../scenes/GamepadTest';
 import { BasicWormScene } from '../worm-examples';
 
 // Detect if device is in portrait mode
@@ -41,5 +42,8 @@ export const gameConfig = {
             constraintIterations: 2,
         }
     },
-    scene: [TestScene, TowerScene, LevelsScene, BasicWormScene]
+    input: {
+        gamepad: true
+    },
+    scene: [TestScene, TowerScene, LevelsScene, GamepadTest, BasicWormScene]
 };

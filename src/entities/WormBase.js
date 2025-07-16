@@ -9,14 +9,15 @@ export default class WormBase {
         // Default configuration for structure and appearance
         this.config = {
             baseRadius: 10,
+            baseColor: 0xff6b6b,
             segmentSizes: [0.75, 1, 1, 0.90, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.03,
             segmentFriction: 1,
             segmentFrictionStatic: 0.8,
             segmentRestitution: 0.0001,
-            constraintStiffness: 0.8,
+            constraintStiffness: 0.9,
             constraintDamping: 0.08,
-            constraintLength: 4,
+            constraintLength: 3,
             showDebug: true,
             ...config
         };
@@ -24,7 +25,11 @@ export default class WormBase {
         // Create the worm structure
         this.create(x, y);
     }
-    
+
+    colorToHex(color) {
+        return '#' + color.toString(16).padStart(6, '0');
+    }
+
     create(x, y) {
         const segments = [];
         const constraints = [];
@@ -100,19 +105,19 @@ export default class WormBase {
             
             // Create small dot graphics
             const dot = this.scene.add.graphics();
-            dot.fillStyle(0x888888, 1); // Dark gray color
-            dot.fillCircle(0, 0, this.config.baseRadius * 0.5); // Small dot
+            dot.fillStyle(this.config.baseColor, 1); // Dark gray color
+            dot.fillCircle(0, 0, this.config.baseRadius * 0.4); // Small dot
             dot.setPosition(midX, midY);
             
             this.connectionDots.push(dot);
         }
         
         // Add minimum distance constraints
-        for (let i = 0; i < segments.length - 2; i++) {
+        for (let i = 0; i < segments.length - 1; i++) {
             const segA = segments[i];
-            const segB = segments[i + 2];
-            const minDistance = segmentRadii[i] + segmentRadii[i + 2] + 5;
-            
+            const segB = segments[i + 1];
+            const minDistance = segmentRadii[i] + segmentRadii[i + 1];
+        
             const spacingConstraint = this.Matter.Constraint.create({
                 bodyA: segA,
                 bodyB: segB,
@@ -120,9 +125,9 @@ export default class WormBase {
                 pointB: { x: 0, y: 0 },
                 length: minDistance,
                 stiffness: 0.005,
-                damping: 0.1
+                damping: 0.9
             });
-            
+        
             this.Matter.World.add(this.matter.world.localWorld, spacingConstraint);
             constraints.push(spacingConstraint);
         }
@@ -134,6 +139,8 @@ export default class WormBase {
     }
     
     update(delta) {
+        this.updateMovement(delta);
+
         // Update segment graphics
         this.segments.forEach((segment) => {
             if (segment.graphics) {
@@ -153,6 +160,10 @@ export default class WormBase {
                 dot.y = (segA.position.y + segB.position.y) / 2;
             }
         });
+    }
+
+    updateMovement(delta) {
+        console.error('WormBase.updateMovement() not implemented');
     }
     
     // Utility methods

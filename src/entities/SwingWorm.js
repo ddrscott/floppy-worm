@@ -23,6 +23,12 @@ export default class SwingWorm extends WormBase {
         
         // Create swing-specific components
         this.createSwingComponents();
+        
+        // Set up control callbacks
+        this.onDirectionChange = (direction) => this.setSwingDirection(direction);
+        this.onFlattenChange = (active) => this.setFlatten(active);
+        this.onJumpChange = (active) => this.setJump(active);
+        this.onLiftChange = (active) => this.setLift(active);
     }
     
     createSwingComponents() {
@@ -44,7 +50,7 @@ export default class SwingWorm extends WormBase {
         
         // Attach swing weight to segment
         const swingMount = this.Matter.Constraint.create({
-            bodyA: this.segments[1],
+            bodyA: this.segments[0],
             bodyB: swingWeight,
             pointB: { x: 0, y: this.config.swingPivotOffset },
             length: this.config.swingPivotOffset * 0.3,
@@ -111,7 +117,6 @@ export default class SwingWorm extends WormBase {
         this.swingWeight = swingWeight;
         this.swingMount = swingMount;
         this.flattenSprings = flattenSprings;
-        this.jumpSpring = jumpSpring;
     }
     
     // Control methods
