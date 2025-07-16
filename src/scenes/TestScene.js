@@ -13,9 +13,6 @@ export default class TestScene extends Phaser.Scene {
     }
 
     create() {
-        // Enable debug rendering for TestScene
-        this.matter.world.drawDebug = true;
-        this.matter.world.debugGraphic.visible = true;
         
         // Set world bounds without default walls
         this.matter.world.setBounds(0, 0, 800, 600, 320, false, false, false, false);
@@ -92,6 +89,21 @@ export default class TestScene extends Phaser.Scene {
         // Set depth to ensure it's on top
         this.coordDisplay.setDepth(1000);
         
+        // Add movement instructions
+        this.add.text(10, 10, 'Movement Controls', {
+            fontSize: '18px',
+            color: '#ffffff',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: { x: 10, y: 5 }
+        });
+        
+        this.add.text(10, 40, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
+            fontSize: '14px',
+            color: '#4ecdc4',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: { x: 10, y: 5 }
+        });
+        
         
         // Set up camera basic settings
         this.cameras.main.setZoom(2);
@@ -111,6 +123,26 @@ export default class TestScene extends Phaser.Scene {
         
         // Add spacebar key
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        
+        // ESC to return to levels menu
+        this.input.keyboard.on('keydown-ESC', () => {
+            this.scene.start('LevelsScene');
+        });
+        
+        // Clean up GUI when scene shuts down
+        this.events.on('shutdown', () => {
+            if (this.gui && this.gui.domElement && this.gui.domElement.parentElement) {
+                try {
+                    this.gui.destroy();
+                } catch (e) {
+                    // If destroy fails, manually remove the DOM element
+                    if (this.gui.domElement.parentElement) {
+                        this.gui.domElement.parentElement.removeChild(this.gui.domElement);
+                    }
+                }
+                this.gui = null;
+            }
+        });
     }
     
     createBoundaryWalls() {
@@ -296,6 +328,7 @@ export default class TestScene extends Phaser.Scene {
         
         this.worm.setFlatten(this.cursors.down.isDown);
         this.worm.setJump(this.spaceKey.isDown);
+        this.worm.setLift(this.cursors.up.isDown);
         
         // Update worm
         this.worm.update(delta);
