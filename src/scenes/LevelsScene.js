@@ -33,17 +33,23 @@ export default class LevelsScene extends Phaser.Scene {
         // Create background
         this.createBackground();
         
-        // Create title
-        this.add.text(400, 80, 'Floppy Worm', {
-            fontSize: '48px',
+        // Create title with responsive sizing
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const isMobile = gameWidth < 600;
+        const titleSize = isMobile ? '36px' : '48px';
+        const centerX = gameWidth / 2;
+        this.add.text(centerX, 80, 'Floppy Worm', {
+            fontSize: titleSize,
             color: '#ffffff',
             fontStyle: 'bold',
             stroke: '#000000',
             strokeThickness: 6
         }).setOrigin(0.5);
         
-        this.add.text(400, 130, 'Select a Level', {
-            fontSize: '24px',
+        const subtitleSize = isMobile ? '20px' : '24px';
+        this.add.text(centerX, 130, 'Select a Level', {
+            fontSize: subtitleSize,
             color: '#4ecdc4',
             fontStyle: 'italic'
         }).setOrigin(0.5);
@@ -68,14 +74,17 @@ export default class LevelsScene extends Phaser.Scene {
         const graphics = this.add.graphics();
         graphics.lineStyle(1, 0x333333, 0.2);
         
-        for (let x = 0; x <= 800; x += 40) {
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        for (let x = 0; x <= width; x += 40) {
             graphics.moveTo(x, 0);
-            graphics.lineTo(x, 600);
+            graphics.lineTo(x, height);
         }
         
-        for (let y = 0; y <= 600; y += 40) {
+        for (let y = 0; y <= height; y += 40) {
             graphics.moveTo(0, y);
-            graphics.lineTo(800, y);
+            graphics.lineTo(width, y);
         }
         
         graphics.strokePath();
@@ -85,35 +94,46 @@ export default class LevelsScene extends Phaser.Scene {
     createLevelButtons() {
         this.levelButtons = [];
         
+        const gameWidth = this.scale.width;
+        const centerX = gameWidth / 2;
+        
         this.levels.forEach((level, index) => {
             const y = 220 + index * 100;
             
             // Create button background
-            const buttonBg = this.add.rectangle(400, y, 600, 80, 0x2c3e50, 0.8);
+            const buttonBg = this.add.rectangle(centerX, y, Math.min(600, gameWidth - 40), 80, 0x2c3e50, 0.8);
             buttonBg.setStrokeStyle(3, level.color);
             
+            // Calculate text positions relative to button center
+            const textStartX = centerX - 250;
+            
             // Create level title
-            const title = this.add.text(120, y - 15, level.name, {
+            const title = this.add.text(textStartX, y - 15, level.name, {
                 fontSize: '24px',
                 color: '#ffffff',
                 fontStyle: 'bold'
             });
             
             // Create level description
-            const description = this.add.text(120, y + 15, level.description, {
+            const description = this.add.text(textStartX, y + 15, level.description, {
                 fontSize: '14px',
                 color: '#bdc3c7'
             });
             
             // Create selection indicator
-            const indicator = this.add.text(80, y, '▶', {
+            const indicator = this.add.text(textStartX - 40, y, '▶', {
                 fontSize: '32px',
                 color: level.color
             }).setVisible(index === this.selectedLevel);
             
-            // Make button interactive
-            buttonBg.setInteractive();
+            // Make button interactive with better touch support
+            buttonBg.setInteractive({ useHandCursor: true });
             buttonBg.on('pointerdown', () => {
+                buttonBg.setScale(0.98);
+            });
+            
+            buttonBg.on('pointerup', () => {
+                buttonBg.setScale(1);
                 this.selectLevel(index);
                 this.startLevel();
             });
@@ -138,8 +158,15 @@ export default class LevelsScene extends Phaser.Scene {
     }
     
     createInstructions() {
-        this.add.text(400, 550, 'Use ↑↓ to select, ENTER/SPACE to start, or click a level', {
-            fontSize: '16px',
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const centerX = gameWidth / 2;
+        const isMobile = gameWidth < 600;
+        const instructionText = isMobile ? 'Tap a level to start' : 'Use ↑↓ to select, ENTER/SPACE to start, or click a level';
+        const fontSize = isMobile ? '14px' : '16px';
+        
+        this.add.text(centerX, gameHeight - 50, instructionText, {
+            fontSize: fontSize,
             color: '#95a5a6',
             backgroundColor: 'rgba(0,0,0,0.5)',
             padding: { x: 20, y: 10 }

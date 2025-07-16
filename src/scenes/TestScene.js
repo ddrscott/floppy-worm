@@ -3,6 +3,7 @@ import * as dat from 'dat.gui';
 import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
 import Worm from '../entities/Worm';
+import MobileTouchControls from '../components/MobileTouchControls';
 
 export default class TestScene extends Phaser.Scene {
     constructor() {
@@ -89,20 +90,26 @@ export default class TestScene extends Phaser.Scene {
         // Set depth to ensure it's on top
         this.coordDisplay.setDepth(1000);
         
-        // Add movement instructions
-        this.add.text(10, 10, 'Movement Controls', {
-            fontSize: '18px',
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        });
+        // Add movement instructions - only on desktop
+        const isTouchDevice = ('ontouchstart' in window) || 
+                            (navigator.maxTouchPoints > 0) || 
+                            (navigator.msMaxTouchPoints > 0);
         
-        this.add.text(10, 40, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
-            fontSize: '14px',
-            color: '#4ecdc4',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        });
+        if (!isTouchDevice) {
+            this.add.text(10, 10, 'Movement Controls', {
+                fontSize: '18px',
+                color: '#ffffff',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: { x: 10, y: 5 }
+            });
+            
+            this.add.text(10, 40, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
+                fontSize: '14px',
+                color: '#4ecdc4',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                padding: { x: 10, y: 5 }
+            });
+        }
         
         
         // Set up camera basic settings
@@ -128,6 +135,9 @@ export default class TestScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-ESC', () => {
             this.scene.start('LevelsScene');
         });
+        
+        // Mobile touch controls
+        this.touchControls = new MobileTouchControls(this);
         
         // Clean up GUI when scene shuts down
         this.events.on('shutdown', () => {
@@ -317,18 +327,29 @@ export default class TestScene extends Phaser.Scene {
     
     
     update(time, delta) {
-        // Handle input
-        if (this.cursors.left.isDown) {
+        // Update touch controls
+        if (this.touchControls) {
+            this.touchControls.update();
+        }
+        
+        // Handle input (keyboard + touch)
+        const leftPressed = this.cursors.left.isDown || (this.touchControls && this.touchControls.isPressed('left'));
+        const rightPressed = this.cursors.right.isDown || (this.touchControls && this.touchControls.isPressed('right'));
+        const jumpPressed = this.spaceKey.isDown || (this.touchControls && this.touchControls.isPressed('jump'));
+        const liftPressed = this.cursors.up.isDown || (this.touchControls && this.touchControls.isPressed('up'));
+        const flattenPressed = this.cursors.down.isDown || (this.touchControls && this.touchControls.isPressed('down'));
+        
+        if (leftPressed) {
             this.worm.setMotorDirection(-1);
-        } else if (this.cursors.right.isDown) {
+        } else if (rightPressed) {
             this.worm.setMotorDirection(1);
         } else {
             this.worm.setMotorDirection(0);
         }
         
-        this.worm.setFlatten(this.cursors.down.isDown);
-        this.worm.setJump(this.spaceKey.isDown);
-        this.worm.setLift(this.cursors.up.isDown);
+        this.worm.setFlatten(flattenPressed);
+        this.worm.setJump(jumpPressed);
+        this.worm.setLift(liftPressed);
         
         // Update worm
         this.worm.update(delta);
