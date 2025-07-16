@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import Worm from '../entities/Worm';
-import MobileTouchControls from '../components/MobileTouchControls';
+import VirtualControls from '../components/VirtualControls';
 
 export default class TowerScene extends Phaser.Scene {
     constructor() {
@@ -110,8 +110,8 @@ export default class TowerScene extends Phaser.Scene {
         // Camera controls
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         
-        // Mobile touch controls
-        this.touchControls = new MobileTouchControls(this);
+        // Virtual controls (joystick + buttons)
+        this.virtualControls = new VirtualControls(this);
     }
     
     createGrid(height) {
@@ -335,7 +335,7 @@ export default class TowerScene extends Phaser.Scene {
         const isPortrait = height > width * 1.2;
         
         this.cameras.main.startFollow(this.cameraTarget, true);
-        this.cameras.main.setZoom(zoomToFitWidth);
+        this.cameras.main.setZoom(1);
         
         // Adjust deadzone based on orientation and available height
         if (isPortrait) {
@@ -343,22 +343,17 @@ export default class TowerScene extends Phaser.Scene {
             this.cameras.main.setDeadzone(0, height * 0.1);
         } else {
             // Standard landscape deadzone
-            this.cameras.main.setDeadzone(0, height * 0.15);
+            this.cameras.main.setDeadzone(0, width * 0.15);
         }
     }
     
     update(time, delta) {
-        // Update touch controls
-        if (this.touchControls) {
-            this.touchControls.update();
-        }
-        
-        // Worm controls (keyboard + touch)
-        const leftPressed = this.cursors.left.isDown || (this.touchControls && this.touchControls.isPressed('left'));
-        const rightPressed = this.cursors.right.isDown || (this.touchControls && this.touchControls.isPressed('right'));
-        const jumpPressed = this.spaceKey.isDown || (this.touchControls && this.touchControls.isPressed('jump'));
-        const liftPressed = this.cursors.up.isDown || (this.touchControls && this.touchControls.isPressed('up'));
-        const flattenPressed = this.cursors.down.isDown || (this.touchControls && this.touchControls.isPressed('down'));
+        // Worm controls (keyboard + virtual joystick)
+        const leftPressed = this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed());
+        const rightPressed = this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed());
+        const jumpPressed = this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed());
+        const liftPressed = this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed());
+        const flattenPressed = this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed());
         
         if (leftPressed) {
             this.worm.setMotorDirection(-1);
