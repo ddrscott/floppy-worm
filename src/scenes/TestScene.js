@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import * as dat from 'dat.gui';
 import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
-import Worm from '../entities/Worm';
+import SwingWorm from '../entities/SwingWorm';
 import VirtualControls from '../components/VirtualControls';
 
 export default class TestScene extends Phaser.Scene {
@@ -33,24 +33,10 @@ export default class TestScene extends Phaser.Scene {
             isStatic: true,
         });
         
-        // Create worm using the new Worm class
-        this.worm = new Worm(this, 30, 300, {
-            baseRadius: 10,
+        // Create worm using the new MotorWorm class
+        this.worm = new SwingWorm(this, 460, 220, {
+            baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            showDebug: this.physicsParams.showDebug,
-            segmentDensity: this.physicsParams.segmentDensity,
-            segmentFriction: this.physicsParams.segmentFriction,
-            segmentFrictionStatic: this.physicsParams.segmentFrictionStatic,
-            segmentRestitution: this.physicsParams.segmentRestitution,
-            constraintStiffness: this.physicsParams.constraintStiffness,
-            constraintDamping: this.physicsParams.constraintDamping,
-            constraintLength: this.physicsParams.constraintLength,
-            motorSpeed: this.physicsParams.motorSpeed,
-            motorAxelOffset: this.physicsParams.motorAxelOffset,
-            flattenIdle: this.physicsParams.flattenIdle,
-            flattenStiffness: this.physicsParams.flattenStiffness,
-            jumpIdle: this.physicsParams.jumpIdle,
-            jumpStiffness: this.physicsParams.jumpStiffness
         });
         
         // Create camera target - a Phaser object that follows the motor
@@ -78,9 +64,13 @@ export default class TestScene extends Phaser.Scene {
         if (this.physicsParams.cameraFollowTail) {
             this.cameras.main.startFollow(this.cameraTarget, true);
         }
+        // Set up camera basic settings
+        this.cameras.main.setZoom(2);
+        this.cameras.main.setBounds(0, 0, 800, 600);
+
         
         // Add coordinate display tool
-        this.coordDisplay = new CoordinateDisplay(this, 10, 300, {
+        this.coordDisplay = new CoordinateDisplay(this, 300, 300, {
             backgroundColor: 0x2d3436,
             backgroundAlpha: 0.9,
             textColor: '#4ecdc4',
@@ -112,10 +102,6 @@ export default class TestScene extends Phaser.Scene {
         }
         
         
-        // Set up camera basic settings
-        this.cameras.main.setZoom(2);
-        this.cameras.main.setBounds(0, 0, 800, 600);
-
         // Camera zoom controls
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
             const camera = this.cameras.main;
