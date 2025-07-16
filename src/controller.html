@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PS4 Controller Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333333;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        #game-container {
+            width: 100%;
+            height: 100%;
+            max-width: 1024px;
+            max-height: 768px;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="loading">Loading...</div>
+    </div>
+    
+    <div class="info-panel">
+        <h3>Controller Test</h3>
+        <ul>
+            <li>Connect PS4 controller</li>
+            <li>Press any button to activate</li>
+            <li>Test all inputs</li>
+            <li>Press ESC to reload</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import Phaser from 'phaser';
+        import GamepadTest from './scenes/GamepadTest.js';
+        
+        // Remove loading text when game starts
+        function removeLoading() {
+            const loading = document.querySelector('.loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+        
+        // Simple game configuration for controller test
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            backgroundColor: '#333333',
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: 1024,
+                height: 768
+            },
+            input: {
+                gamepad: true
+            },
+            scene: [GamepadTest],
+            callbacks: {
+                postBoot: function() {
+                    removeLoading();
+                }
+            }
+        };
+        
+        // Create game instance
+        const game = new Phaser.Game(config);
+        
+        // Handle ESC key to reload page
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                window.location.reload();
+            }
+        });
+        
+        // Log gamepad connection for debugging
+        window.addEventListener('gamepadconnected', (e) => {
+            console.log('Gamepad connected:', e.gamepad.id);
+            console.log('Buttons:', e.gamepad.buttons.length);
+            console.log('Axes:', e.gamepad.axes.length);
+        });
+        
+        window.addEventListener('gamepaddisconnected', (e) => {
+            console.log('Gamepad disconnected:', e.gamepad.id);
+        });
+    </script>
+</body>
+</html>
