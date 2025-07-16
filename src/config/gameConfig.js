@@ -13,9 +13,14 @@ export const gameConfig = {
         default: 'matter',
         matter: {
             gravity: { y: 1 },
-            debug: false,  // Turn off debug globally
-            positionIterations: 10,
-            velocityIterations: 16,
+            debug: {
+                showBody: true,
+                showStaticBody: true,
+                showVelocity: false,
+                bodyColor: 0xff0000
+            },
+            positionIterations: 20,
+            velocityIterations: 10,
             constraintIterations: 2,
         }
     },

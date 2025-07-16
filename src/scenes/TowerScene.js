@@ -75,6 +75,9 @@ export default class TowerScene extends Phaser.Scene {
     }
 
     create() {
+        // Turn off debug rendering for cleaner visuals
+        this.matter.world.drawDebug = false;
+        
         // Parse level to calculate height
         const levelRows = this.levelData.trim().split('\n').reverse().filter(row => row.trim().length > 0);
         const levelHeight = levelRows.length * this.ROW_SPACING;

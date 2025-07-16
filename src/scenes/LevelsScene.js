@@ -6,16 +6,16 @@ export default class LevelsScene extends Phaser.Scene {
         this.selectedLevel = 0;
         this.levels = [
             {
-                name: 'Test Scene',
-                description: 'Physics playground with adjustable parameters',
-                scene: 'TestScene',
-                color: 0xff6b6b
-            },
-            {
                 name: 'Tower Climb',
                 description: 'Climb the ASCII tower to reach the golden star',
                 scene: 'TowerScene',
                 color: 0x4ecdc4
+            },
+            {
+                name: 'Test Scene',
+                description: 'Physics playground with adjustable parameters',
+                scene: 'TestScene',
+                color: 0xff6b6b
             },
             {
                 name: 'Worm Examples',
