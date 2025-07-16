@@ -3,7 +3,7 @@ import * as dat from 'dat.gui';
 import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
 import Worm from '../entities/Worm';
-import MobileTouchControls from '../components/MobileTouchControls';
+import VirtualControls from '../components/VirtualControls';
 
 export default class TestScene extends Phaser.Scene {
     constructor() {
@@ -136,8 +136,8 @@ export default class TestScene extends Phaser.Scene {
             this.scene.start('LevelsScene');
         });
         
-        // Mobile touch controls
-        this.touchControls = new MobileTouchControls(this);
+        // Virtual controls (joystick + buttons)
+        this.virtualControls = new VirtualControls(this);
         
         // Clean up GUI when scene shuts down
         this.events.on('shutdown', () => {
@@ -327,17 +327,12 @@ export default class TestScene extends Phaser.Scene {
     
     
     update(time, delta) {
-        // Update touch controls
-        if (this.touchControls) {
-            this.touchControls.update();
-        }
-        
-        // Handle input (keyboard + touch)
-        const leftPressed = this.cursors.left.isDown || (this.touchControls && this.touchControls.isPressed('left'));
-        const rightPressed = this.cursors.right.isDown || (this.touchControls && this.touchControls.isPressed('right'));
-        const jumpPressed = this.spaceKey.isDown || (this.touchControls && this.touchControls.isPressed('jump'));
-        const liftPressed = this.cursors.up.isDown || (this.touchControls && this.touchControls.isPressed('up'));
-        const flattenPressed = this.cursors.down.isDown || (this.touchControls && this.touchControls.isPressed('down'));
+        // Handle input (keyboard + virtual joystick)
+        const leftPressed = this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed());
+        const rightPressed = this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed());
+        const jumpPressed = this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed());
+        const liftPressed = this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed());
+        const flattenPressed = this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed());
         
         if (leftPressed) {
             this.worm.setMotorDirection(-1);

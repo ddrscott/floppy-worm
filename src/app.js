@@ -6,4 +6,4 @@ import { gameConfig } from './config/gameConfig';
 window.dat = dat;
 
 // Create and start the game
-const game = new Phaser.Game(gameConfig);
+export const game = new Phaser.Game(gameConfig);
