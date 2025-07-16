@@ -1,11 +1,11 @@
 import WormBase from './WormBase';
 
-export default class MotorWorm extends WormBase {
+export default class SwingWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
-        // Merge motor-specific config with base config
-        const motorConfig = {
-            motorSpeed: 5,
-            motorAxelOffset: 40,
+        // Merge swing-specific config with base config
+        const swingConfig = {
+            swingSpeed: 5,
+            swingPivotOffset: 40,
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
             jumpIdle: 0.000001,
@@ -13,27 +13,27 @@ export default class MotorWorm extends WormBase {
             ...config
         };
         
-        super(scene, x, y, motorConfig);
+        super(scene, x, y, swingConfig);
         
         // Control states
-        this.motorDirection = 0;
+        this.swingDirection = 0;
         this.isFlattenActive = false;
         this.isJumpActive = false;
         this.isLiftActive = false;
         
-        // Create motor-specific components
-        this.createMotorComponents();
+        // Create swing-specific components
+        this.createSwingComponents();
     }
     
-    createMotorComponents() {
-        // Create motor
-        let motorY = this.segments[1].position.y;
-        const motor = this.matter.add.circle(
+    createSwingComponents() {
+        // Create swing weight
+        let swingY = this.segments[1].position.y;
+        const swingWeight = this.matter.add.circle(
             this.segments[1].position.x, 
-            motorY, 
+            swingY, 
             this.config.baseRadius * 3, 
             {
-                name: 'motor',
+                name: 'swingWeight',
                 density: 0.001,
                 isSensor: true,
                 render: {
@@ -42,19 +42,19 @@ export default class MotorWorm extends WormBase {
             }
         );
         
-        // Attach motor to segment
-        const motorMount = this.Matter.Constraint.create({
+        // Attach swing weight to segment
+        const swingMount = this.Matter.Constraint.create({
             bodyA: this.segments[1],
-            bodyB: motor,
-            pointB: { x: 0, y: this.config.motorAxelOffset },
-            length: this.config.motorAxelOffset * 0.3,
+            bodyB: swingWeight,
+            pointB: { x: 0, y: this.config.swingPivotOffset },
+            length: this.config.swingPivotOffset * 0.3,
             stiffness: 0.3,
             damping: 0.1,
             render: {
                 visible: this.config.showDebug,
             }
         });
-        this.Matter.World.add(this.matter.world.localWorld, motorMount);
+        this.Matter.World.add(this.matter.world.localWorld, swingMount);
         
         // Add flatten springs
         const flattenSprings = [];
@@ -107,16 +107,16 @@ export default class MotorWorm extends WormBase {
             this.Matter.World.add(this.matter.world.localWorld, jumpSpring);
         }
         
-        // Store motor-specific references
-        this.motor = motor;
-        this.motorMount = motorMount;
+        // Store swing-specific references
+        this.swingWeight = swingWeight;
+        this.swingMount = swingMount;
         this.flattenSprings = flattenSprings;
         this.jumpSpring = jumpSpring;
     }
     
     // Control methods
-    setMotorDirection(direction) {
-        this.motorDirection = direction; // -1 left, 0 idle, 1 right
+    setSwingDirection(direction) {
+        this.swingDirection = direction; // -1 left, 0 idle, 1 right
     }
     
     setFlatten(active) {
@@ -141,19 +141,19 @@ export default class MotorWorm extends WormBase {
         // Call parent update for graphics
         super.update(delta);
         
-        // Update motor
-        if (this.motor) {
-            if (this.motorDirection !== 0) {
-                this.matter.body.setDensity(this.motor, 0.01);
-                const rotationSpeed = Math.PI * 2 * this.config.motorSpeed * this.motorDirection;
+        // Update swing weight
+        if (this.swingWeight) {
+            if (this.swingDirection !== 0) {
+                this.matter.body.setDensity(this.swingWeight, 0.01);
+                const rotationSpeed = Math.PI * 2 * this.config.swingSpeed * this.swingDirection;
                 const rotationDelta = (rotationSpeed * delta) / 1000;
-                const currentAngle = this.motor.angle;
+                const currentAngle = this.swingWeight.angle;
                 
-                this.matter.body.setAngle(this.motor, currentAngle + rotationDelta);
-                this.matter.body.setAngularVelocity(this.motor, rotationSpeed);
+                this.matter.body.setAngle(this.swingWeight, currentAngle + rotationDelta);
+                this.matter.body.setAngularVelocity(this.swingWeight, rotationSpeed);
             } else {
-                this.matter.body.setDensity(this.motor, 0.0001);
-                this.matter.body.setAngularVelocity(this.motor, 0);
+                this.matter.body.setDensity(this.swingWeight, 0.0001);
+                this.matter.body.setAngularVelocity(this.swingWeight, 0);
             }
         }
         
@@ -165,15 +165,15 @@ export default class MotorWorm extends WormBase {
         }
     }
     
-    getMotorPosition() {
-        return this.motor ? this.motor.position : null;
+    getSwingWeightPosition() {
+        return this.swingWeight ? this.swingWeight.position : null;
     }
     
-    // Override updateConfig to handle motor-specific configs
+    // Override updateConfig to handle swing-specific configs
     updateConfig(newConfig) {
         super.updateConfig(newConfig);
         
-        // Update motor-specific parameters
+        // Update swing-specific parameters
         if (newConfig.flattenStiffness !== undefined && !this.isFlattenActive) {
             this.config.flattenStiffness = newConfig.flattenStiffness;
         }
@@ -183,9 +183,9 @@ export default class MotorWorm extends WormBase {
         }
     }
     
-    // Override destroy to clean up motor components
+    // Override destroy to clean up swing components
     destroy() {
-        // Clean up motor-specific components
+        // Clean up swing-specific components
         if (this.flattenSprings) {
             this.flattenSprings.forEach(spring => {
                 this.matter.world.remove(spring);
@@ -196,12 +196,12 @@ export default class MotorWorm extends WormBase {
             this.matter.world.remove(this.jumpSpring);
         }
         
-        if (this.motor) {
-            this.matter.world.remove(this.motor);
+        if (this.swingWeight) {
+            this.matter.world.remove(this.swingWeight);
         }
         
-        if (this.motorMount) {
-            this.matter.world.remove(this.motorMount);
+        if (this.swingMount) {
+            this.matter.world.remove(this.swingMount);
         }
         
         // Call parent destroy

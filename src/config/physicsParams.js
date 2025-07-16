@@ -14,9 +14,9 @@ export const defaultPhysicsParams = {
     constraintDamping: 0.1,
     constraintLength: 1.8, // Small gap to prevent overlap
     
-    // Motor parameters
-    motorSpeed: 2.5, // rotations per second
-    motorAxelOffset: 40,
+    // Swing parameters
+    swingSpeed: 2.5, // rotations per second
+    swingPivotOffset: 40,
     
     // Action parameters
     straightenTorque: 2.0, // Angular acceleration in rad/s²
