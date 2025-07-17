@@ -33,7 +33,7 @@ export default class DoubleWorm extends WormBase {
             minDistanceThreshold: 0.1,
             
             // Anti-flying parameters
-            groundingForce: 0.0003,
+            groundingForce: 0.03,
             groundingSegments: 0.33,
             groundingReactiveMultiplier: 0.5,
             groundingCenterWeight: 0.5,
@@ -249,10 +249,6 @@ export default class DoubleWorm extends WormBase {
         }
     }
 
-    createSwingComponents() {
-        
-    }
-
     createJumpSegment(from, to, length, stiffness) {
         const spring = this.Matter.Constraint.create({
             bodyA: from,
@@ -401,6 +397,7 @@ export default class DoubleWorm extends WormBase {
                 y: totalGrounding * (this.config.groundingCenterWeight + centerWeight * this.config.groundingCenterWeight)
             };
             
+            //console.log(`Applying grounding force to segment ${i}:`, force);
             this.matter.body.applyForce(segment, segment.position, force);
         }
     }
