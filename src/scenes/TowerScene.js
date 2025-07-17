@@ -8,7 +8,7 @@ export default class TowerScene extends Phaser.Scene {
         super({ key: 'TowerScene' });
         
         // Level dimension constants - tweak these to adjust level size
-        this.CHAR_WIDTH = 64;   // Width of each ASCII character in pixels
+        this.CHAR_WIDTH = 96;   // Width of each ASCII character in pixels
         this.CHAR_HEIGHT = 48;  // Height of each ASCII character in pixels
         this.ROW_SPACING = 96; // Vertical spacing between rows in pixels
         this.LEVEL_WIDTH = this.CHAR_WIDTH * 16; // width * number of characters per row
@@ -337,20 +337,11 @@ export default class TowerScene extends Phaser.Scene {
         // Calculate zoom to fit level width in viewport
         const zoomToFitWidth = width / this.LEVEL_WIDTH;
         
-        // Check if portrait or landscape
-        const isPortrait = height > width * 1.2;
-        
         this.cameras.main.startFollow(this.cameraTarget, true);
-        this.cameras.main.setZoom(1);
+        this.cameras.main.setZoom(Math.max(zoomToFitWidth, .8));
+        console.log(`Camera zoom set to: ${this.cameras.main.zoom}`);
         
-        // Adjust deadzone based on orientation and available height
-        if (isPortrait) {
-            // Larger vertical view on portrait - show more ahead
-            this.cameras.main.setDeadzone(0, height * 0.1);
-        } else {
-            // Standard landscape deadzone
-            this.cameras.main.setDeadzone(0, width * 0.15);
-        }
+        this.cameras.main.setDeadzone(100, 100);
     }
     
     update(time, delta) {
@@ -358,10 +349,11 @@ export default class TowerScene extends Phaser.Scene {
         
         // Update camera target to follow worm head
         if (this.cameraTarget && this.worm) {
-            const head = this.worm.getHead();
-            if (head) {
-                this.cameraTarget.x = head.position.x;
-                this.cameraTarget.y = head.position.y;
+            const head = this.worm.getHead(),
+                tail = this.worm.getTail();
+            if (head && tail) {
+                this.cameraTarget.x = (head.position.x + tail.position.x) / 2;
+                this.cameraTarget.y = (head.position.y + tail.position.y) / 2;
             }
         }
         
