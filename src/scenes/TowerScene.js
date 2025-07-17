@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import Worm from '../entities/Worm';
+import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 
 export default class TowerScene extends Phaser.Scene {
@@ -251,7 +251,7 @@ export default class TowerScene extends Phaser.Scene {
         });
         
         // Create worm at start position
-        this.worm = new Worm(this, wormStartX, wormStartY, {
+        this.worm = new DoubleWorm(this, wormStartX, wormStartY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             showDebug: false
@@ -348,25 +348,6 @@ export default class TowerScene extends Phaser.Scene {
     }
     
     update(time, delta) {
-        // Worm controls (keyboard + virtual joystick)
-        const leftPressed = this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed());
-        const rightPressed = this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed());
-        const jumpPressed = this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed());
-        const liftPressed = this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed());
-        const flattenPressed = this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed());
-        
-        if (leftPressed) {
-            this.worm.setMotorDirection(-1);
-        } else if (rightPressed) {
-            this.worm.setMotorDirection(1);
-        } else {
-            this.worm.setMotorDirection(0);
-        }
-        
-        this.worm.setFlatten(flattenPressed);
-        this.worm.setJump(jumpPressed);
-        this.worm.setLift(liftPressed);
-        
         this.worm.update(delta);
         
         // Update camera target to follow worm head
