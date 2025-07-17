@@ -100,7 +100,8 @@ export default class TestScene extends Phaser.Scene {
                 '─────────',
                 'WASD: Head control (Left stick)',
                 '↑←↓→: Tail control (Right stick)', 
-                'L2/R2: Stiffen springs',
+                'Space/L2: Head jump',
+                'Q or R2: Tail jump',
                 'Scroll: Zoom | ESC: Menu'
             ].join('\n');
             

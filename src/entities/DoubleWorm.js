@@ -262,8 +262,25 @@ export default class DoubleWorm extends WormBase {
             // Use gamepad if available
             leftStick = pad.leftStick;
             rightStick = pad.rightStick;
+            
+            // But also check keyboard and combine inputs
+            const keyboardLeft = this.simulateStickFromKeyboard('left', delta);
+            const keyboardRight = this.simulateStickFromKeyboard('right', delta);
+            
+            // Combine gamepad and keyboard inputs (take the one with larger magnitude)
+            const padLeftMag = Math.sqrt(leftStick.x * leftStick.x + leftStick.y * leftStick.y);
+            const keyLeftMag = Math.sqrt(keyboardLeft.x * keyboardLeft.x + keyboardLeft.y * keyboardLeft.y);
+            if (keyLeftMag > padLeftMag) {
+                leftStick = keyboardLeft;
+            }
+            
+            const padRightMag = Math.sqrt(rightStick.x * rightStick.x + rightStick.y * rightStick.y);
+            const keyRightMag = Math.sqrt(keyboardRight.x * keyboardRight.x + keyboardRight.y * keyboardRight.y);
+            if (keyRightMag > padRightMag) {
+                rightStick = keyboardRight;
+            }
         } else {
-            // Fall back to keyboard simulation
+            // Fall back to keyboard simulation only
             leftStick = this.simulateStickFromKeyboard('left', delta);
             rightStick = this.simulateStickFromKeyboard('right', delta);
         }
@@ -280,11 +297,19 @@ export default class DoubleWorm extends WormBase {
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
         const rightTrigger = pad && pad.buttons[7] ? pad.buttons[7].value : 0;
         
-        // Left trigger controls head spring
-        this.handleJumpSpring('head', leftTrigger);
+        // Always check keyboard keys for jump (works even with gamepad connected)
+        const keyboard = this.scene.input.keyboard;
+        const spacePressed = keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SPACE]?.isDown;
+        const slashPressed = keyboard.keys[191]?.isDown ||
+            keyboard.keys[Phaser.Input.Keyboard.KeyCodes.QUESTION_MARK]?.isDown || (keyboard.addKey && keyboard.addKey(191).isDown);
         
-        // Right trigger controls tail spring
-        this.handleJumpSpring('tail', rightTrigger);
+        // Left trigger or spacebar controls head spring
+        const headTriggerValue = Math.max(leftTrigger, spacePressed ? 1.0 : 0);
+        this.handleJumpSpring('head', headTriggerValue);
+        
+        // Right trigger or Q controls tail spring
+        const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
+        this.handleJumpSpring('tail', tailTriggerValue);
         
         // Apply grounding force to middle segments to prevent flying
         // Pass in the forces being applied to head and tail
@@ -395,7 +420,7 @@ export default class DoubleWorm extends WormBase {
         restPos.x = segment.position.x;
         restPos.y = segment.position.y;
         
-        // Apply position-based force when stick is active
+        // Apply position-based force only when stick is actively moved
         if (Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1) {
             // Calculate target position based on stick input
             const targetX = restPos.x + (stickState.x * this.anchorRadius);
@@ -417,16 +442,19 @@ export default class DoubleWorm extends WormBase {
                 totalForce.y += forceY;
             }
         }
+        // When stick is centered, don't apply any centering force - let the worm relax naturally
         
-        // Also apply velocity-based impulse continuously
-        const mass = segment.mass;
-        const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
-        const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
-        
-        if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
-            this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
-            totalForce.x += impulseX;
-            totalForce.y += impulseY;
+        // Apply velocity-based impulse only when stick is active and not on release
+        if ((Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1) && !stickState.released) {
+            const mass = segment.mass;
+            const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
+            const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
+            
+            if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
+                this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
+                totalForce.x += impulseX;
+                totalForce.y += impulseY;
+            }
         }
         
         return totalForce;
