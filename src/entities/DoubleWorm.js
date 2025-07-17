@@ -20,6 +20,10 @@ export default class DoubleWorm extends WormBase {
         this.velocityDamping = 0.1; // How quickly velocity decays
         this.impulseMultiplier = 0.00175; // Multiplier for release impulse
         
+        // Anti-flying parameters
+        this.groundingForce = config.groundingForce || 0.0003; // Downward force on middle segments
+        this.groundingSegments = config.groundingSegments || 0.33; // Percentage of middle segments to apply force to
+        
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
         this.rightStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
@@ -40,17 +44,14 @@ export default class DoubleWorm extends WormBase {
         // Create anchor system
         this.createAnchors();
 
-        if (this.segments.length > 2) {
-            const head = this.segments[0];
-            const middle = this.segments[this.segments.length - 2];
-            this.headSpring = this.createJumpSegment(head, middle);
-        }
-
-        if (this.segments.length > 2) {
-            const middle = this.segments[parseInt(this.segments.length * 0.33)];
-            const tail = this.segments[this.segments.length - 1];
-            this.tailSpring = this.createJumpSegment(middle, tail);
-        }
+        // Initialize spring references (but don't attach them yet)
+        this.headSpring = null;
+        this.tailSpring = null;
+        this.headSpringAttached = false;
+        this.tailSpringAttached = false;
+        
+        // Calculate initial worm lengths for jump springs
+        this.calculateInitialLengths();
     }
     
     createAnchors() {
@@ -149,20 +150,49 @@ export default class DoubleWorm extends WormBase {
         this.tailStickIndicator.fillCircle(0, 0, 8);
     }
     
+    calculateInitialLengths() {
+        // Calculate the initial straight length from head to attachment point
+        if (this.segments.length > 2) {
+            const head = this.segments[0];
+            const headAttach = this.segments[this.segments.length - 2];
+            
+            let headLength = 0;
+            for (let i = 0; i < this.segments.length - 2; i++) {
+                const segA = this.segments[i];
+                const segB = this.segments[i + 1];
+                const dx = segB.position.x - segA.position.x;
+                const dy = segB.position.y - segA.position.y;
+                headLength += Math.sqrt(dx * dx + dy * dy);
+            }
+            this.headSpringLength = headLength * 1.25; // 80% of full length for some contraction
+        }
+        
+        // Calculate the initial straight length from middle to tail
+        if (this.segments.length > 2) {
+            const tailAttachIndex = parseInt(this.segments.length * 0.33);
+            
+            let tailLength = 0;
+            for (let i = tailAttachIndex; i < this.segments.length - 1; i++) {
+                const segA = this.segments[i];
+                const segB = this.segments[i + 1];
+                const dx = segB.position.x - segA.position.x;
+                const dy = segB.position.y - segA.position.y;
+                tailLength += Math.sqrt(dx * dx + dy * dy);
+            }
+            this.tailSpringLength = tailLength * 1.25; // 80% of full length for some contraction
+        }
+    }
+
     createSwingComponents() {
         
     }
 
-    createJumpSegment(from, to) {
-        const dx = to.position.x - from.position.x;
-        const dy = to.position.y - from.position.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
+    createJumpSegment(from, to, length, stiffness) {
         const spring = this.Matter.Constraint.create({
             bodyA: from,
             bodyB: to,
-            length: distance * 1.75,
-            stiffness: this.config.jumpIdle,
+            length: length,
+            stiffness: stiffness || this.config.jumpIdle,
             render: {
                 visible: true,
                 strokeStyle: '#74b9ff',
@@ -170,7 +200,6 @@ export default class DoubleWorm extends WormBase {
             }
         });
         
-        this.Matter.World.add(this.matter.world.localWorld, spring);
         return spring;
     }
     
@@ -194,6 +223,14 @@ export default class DoubleWorm extends WormBase {
         }
         if (this.tailConstraint) {
             this.matter.world.remove(this.tailConstraint);
+        }
+        
+        // Clean up jump springs if attached
+        if (this.headSpring && this.headSpringAttached) {
+            this.Matter.World.remove(this.matter.world.localWorld, this.headSpring);
+        }
+        if (this.tailSpring && this.tailSpringAttached) {
+            this.Matter.World.remove(this.matter.world.localWorld, this.tailSpring);
         }
         
         // Clean up visual elements
@@ -235,28 +272,56 @@ export default class DoubleWorm extends WormBase {
         this.updateStickState(this.leftStickState, leftStick, deltaSeconds);
         this.updateStickState(this.rightStickState, rightStick, deltaSeconds);
         
-        // Update anchor positions based on stick input
-        this.updateAnchorPosition(this.headAnchor, this.headAnchorRest, this.leftStickState, deltaSeconds);
-        this.updateAnchorPosition(this.tailAnchor, this.tailAnchorRest, this.rightStickState, deltaSeconds);
+        // Update anchor positions based on stick input and collect applied forces
+        const headForces = this.updateAnchorPosition(this.headAnchor, this.headAnchorRest, this.leftStickState, deltaSeconds);
+        const tailForces = this.updateAnchorPosition(this.tailAnchor, this.tailAnchorRest, this.rightStickState, deltaSeconds);
         
-        // Handle triggers to stiffen springs
+        // Handle triggers to attach/detach and stiffen springs
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
         const rightTrigger = pad && pad.buttons[7] ? pad.buttons[7].value : 0;
         
-        // Left trigger stiffens head spring
-        if (this.headSpring) {
-            const baseStiffness = this.config.jumpIdle || 0.000001;
-            const maxStiffness = this.config.jumpStiffness;
-            this.headSpring.stiffness = baseStiffness + (leftTrigger * (maxStiffness - baseStiffness));
-        }
+        // Left trigger controls head spring
+        this.handleJumpSpring('head', leftTrigger);
         
-        // Right trigger stiffens tail spring
-        if (this.tailSpring) {
-            const baseStiffness = this.config.jumpIdle || 0.000001;
-            const maxStiffness = this.config.jumpStiffness;
-            this.tailSpring.stiffness = baseStiffness + (rightTrigger * (maxStiffness - baseStiffness));
-        }
+        // Right trigger controls tail spring
+        this.handleJumpSpring('tail', rightTrigger);
         
+        // Apply grounding force to middle segments to prevent flying
+        // Pass in the forces being applied to head and tail
+        this.applyGroundingForce(headForces, tailForces);
+    }
+    
+    applyGroundingForce(headForces, tailForces) {
+        // Calculate total upward force being applied
+        const totalUpwardForce = Math.abs(Math.min(0, (headForces?.y || 0) + (tailForces?.y || 0)));
+        
+        // If no upward forces, apply minimal grounding
+        const baseGrounding = this.groundingForce;
+        const reactiveGrounding = totalUpwardForce * 0.5; // Counter 50% of upward force
+        
+        // Calculate which segments are in the middle
+        const totalSegments = this.segments.length;
+        const middleCount = Math.floor(totalSegments * this.groundingSegments);
+        const startIndex = Math.floor((totalSegments - middleCount) / 2);
+        const endIndex = startIndex + middleCount;
+        
+        // Apply downward force to middle segments
+        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
+            const segment = this.segments[i];
+            
+            // Apply stronger force to the very center segments
+            const distFromCenter = Math.abs(i - totalSegments / 2);
+            const centerWeight = 1 - (distFromCenter / (middleCount / 2));
+            
+            // Combine base grounding with reactive grounding
+            const totalGrounding = baseGrounding + reactiveGrounding;
+            const force = { 
+                x: 0, 
+                y: totalGrounding * (0.5 + centerWeight * 0.5) // 50% to 100% force based on distance from center
+            };
+            
+            this.matter.body.applyForce(segment, segment.position, force);
+        }
     }
     updateStickDisplay() {
         this.headRangeGraphics.clear();
@@ -317,7 +382,10 @@ export default class DoubleWorm extends WormBase {
     }
     
     updateAnchorPosition(anchor, restPos, stickState) {
-        if (!anchor) return;
+        if (!anchor) return { x: 0, y: 0 };
+        
+        // Track total forces applied
+        let totalForce = { x: 0, y: 0 };
         
         // Get the segment that this anchor is attached to
         const attachIndex = anchor === this.headAnchor ? this.headAttachIndex : this.tailAttachIndex;
@@ -345,6 +413,8 @@ export default class DoubleWorm extends WormBase {
                 const forceY = (dy / distance) * forceMagnitude;
                 
                 this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+                totalForce.x += forceX;
+                totalForce.y += forceY;
             }
         }
         
@@ -355,7 +425,11 @@ export default class DoubleWorm extends WormBase {
         
         if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
             this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
+            totalForce.x += impulseX;
+            totalForce.y += impulseY;
         }
+        
+        return totalForce;
     }
     
     simulateStickFromKeyboard(stick, delta) {
@@ -443,5 +517,56 @@ export default class DoubleWorm extends WormBase {
         }
         
         return { x, y, keyboardRelease };
+    }
+    
+    handleJumpSpring(type, triggerValue) {
+        const threshold = 0.1; // Minimum trigger value to activate
+        const isActive = triggerValue > threshold;
+        
+        if (type === 'head') {
+            if (isActive && !this.headSpringAttached) {
+                // Create and attach head spring
+                const head = this.segments[0];
+                const middle = this.segments[this.segments.length - 2];
+                const stiffness = this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
+                
+                this.headSpring = this.createJumpSegment(head, middle, this.headSpringLength, stiffness);
+                this.Matter.World.add(this.matter.world.localWorld, this.headSpring);
+                this.headSpringAttached = true;
+            } else if (!isActive && this.headSpringAttached) {
+                // Remove head spring
+                if (this.headSpring) {
+                    this.Matter.World.remove(this.matter.world.localWorld, this.headSpring);
+                    this.headSpring = null;
+                    this.headSpringAttached = false;
+                }
+            } else if (isActive && this.headSpring) {
+                // Update stiffness based on trigger pressure
+                const stiffness = this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
+                this.headSpring.stiffness = stiffness;
+            }
+        } else if (type === 'tail') {
+            if (isActive && !this.tailSpringAttached) {
+                // Create and attach tail spring
+                const middle = this.segments[parseInt(this.segments.length * 0.33)];
+                const tail = this.segments[this.segments.length - 1];
+                const stiffness = this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
+                
+                this.tailSpring = this.createJumpSegment(middle, tail, this.tailSpringLength, stiffness);
+                this.Matter.World.add(this.matter.world.localWorld, this.tailSpring);
+                this.tailSpringAttached = true;
+            } else if (!isActive && this.tailSpringAttached) {
+                // Remove tail spring
+                if (this.tailSpring) {
+                    this.Matter.World.remove(this.matter.world.localWorld, this.tailSpring);
+                    this.tailSpring = null;
+                    this.tailSpringAttached = false;
+                }
+            } else if (isActive && this.tailSpring) {
+                // Update stiffness based on trigger pressure
+                const stiffness = this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
+                this.tailSpring.stiffness = stiffness;
+            }
+        }
     }
 }
