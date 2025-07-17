@@ -86,18 +86,30 @@ export default class TestScene extends Phaser.Scene {
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            this.add.text(10, 10, 'Movement Controls', {
-                fontSize: '18px',
-                color: '#ffffff',
+            // Controller recommendation
+            this.add.text(10, 10, '🎮 Best played with a controller!', {
+                fontSize: '16px',
+                color: '#ffd700',
                 backgroundColor: 'rgba(0,0,0,0.7)',
                 padding: { x: 10, y: 5 }
             });
             
-            this.add.text(10, 40, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
+            // Control mapping
+            const controlsText = [
+                'Controls:',
+                '─────────',
+                'WASD: Head control (Left stick)',
+                '↑←↓→: Tail control (Right stick)', 
+                'L2/R2: Stiffen springs',
+                'Scroll: Zoom | ESC: Menu'
+            ].join('\n');
+            
+            this.add.text(10, 50, controlsText, {
                 fontSize: '14px',
-                color: '#4ecdc4',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: { x: 10, y: 5 }
+                color: '#ffffff',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 10, y: 8 },
+                lineSpacing: 4
             });
         }
         
