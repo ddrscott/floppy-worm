@@ -4,25 +4,78 @@ export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
         // Merge swing-specific config with base config
         const swingConfig = {
+            // Jump spring defaults
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
             jumpIdle: 0.000001,
             jumpStiffness: 0.05,
+            
+            // Colors
+            headColor: 0xff6b6b,
+            headStrokeColor: 0xe74c3c,
+            tailColor: 0x74b9ff,
+            tailStrokeColor: 0x3498db,
+            dotColor: 0x2c3e50,
+            
+            // Anchor physics
+            anchorRadius: 45,
+            anchorStiffness: 0.15,
+            anchorDamping: 0.05,
+            anchorSensorRadius: 5,
+            anchorDensity: 0.0001,
+            
+            // Movement physics
+            velocityDamping: 0.1,
+            impulseMultiplier: 0.00175,
+            stickDeadzone: 0.1,
+            positionForceMagnitude: 0.0002,
+            minForceThreshold: 0.00001,
+            minDistanceThreshold: 0.1,
+            
+            // Anti-flying parameters
+            groundingForce: 0.0003,
+            groundingSegments: 0.33,
+            groundingReactiveMultiplier: 0.5,
+            groundingCenterWeight: 0.5,
+            
+            // Visual parameters
+            stickIndicatorRadius: 8,
+            rangeIndicatorAlpha: 0.4,
+            rangeIndicatorLineWidth: 1,
+            connectionDotRadius: 0.4,
+            
+            // Jump visual parameters
+            jumpSpringLineWidth: 3,
+            jumpSpringLengthMultiplier: 1.25,
+            laserLineWidth: 4,
+            laserGlowWidth: 8,
+            laserGlowAlpha: 0.3,
+            laserLength: 200,
+            laserArrowSize: 15,
+            laserArrowOffset: 10,
+            laserFadeDuration: 500,
+            
+            // Attach points
+            headAttachIndex: 1,
+            tailAttachFromEnd: 2,
+            tailSpringAttachPercent: 0.33,
+            
+            // Trigger thresholds
+            jumpTriggerThreshold: 0.1,
+            
             ...config
         };
         
         super(scene, x, y, swingConfig);
         
-        // Momentum control parameters
-        this.anchorRadius = 45; // Maximum distance anchors can move from rest position
-        this.anchorStiffness = 0.15; // Spring stiffness connecting anchors to worm
-        this.anchorDamping = 0.05;
-        this.velocityDamping = 0.1; // How quickly velocity decays
-        this.impulseMultiplier = 0.00175; // Multiplier for release impulse
-        
-        // Anti-flying parameters
-        this.groundingForce = config.groundingForce || 0.0003; // Downward force on middle segments
-        this.groundingSegments = config.groundingSegments || 0.33; // Percentage of middle segments to apply force to
+        // Copy config values to instance
+        this.anchorRadius = swingConfig.anchorRadius;
+        this.anchorStiffness = swingConfig.anchorStiffness;
+        this.anchorDamping = swingConfig.anchorDamping;
+        this.velocityDamping = swingConfig.velocityDamping;
+        this.impulseMultiplier = swingConfig.impulseMultiplier;
+        this.groundingForce = swingConfig.groundingForce;
+        this.groundingSegments = swingConfig.groundingSegments;
         
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
@@ -52,12 +105,18 @@ export default class DoubleWorm extends WormBase {
         
         // Calculate initial worm lengths for jump springs
         this.calculateInitialLengths();
+        
+        // Create laser trajectory indicators
+        this.headLaser = this.scene.add.graphics();
+        this.headLaser.setDepth(100);
+        this.tailLaser = this.scene.add.graphics();
+        this.tailLaser.setDepth(100);
     }
     
     createAnchors() {
-        // Attach anchors 2 segments inward for better leverage
-        const headAttachIndex = 1
-        const tailAttachIndex = this.segments.length - 2;
+        // Attach anchors segments inward for better leverage
+        const headAttachIndex = this.config.headAttachIndex;
+        const tailAttachIndex = this.segments.length - this.config.tailAttachFromEnd;
         
         const headAttachSegment = this.segments[headAttachIndex];
         const tailAttachSegment = this.segments[tailAttachIndex];
@@ -66,13 +125,13 @@ export default class DoubleWorm extends WormBase {
         this.headAnchor = this.matter.add.circle(
             headAttachSegment.position.x,
             headAttachSegment.position.y,
-            5,
+            this.config.anchorSensorRadius,
             {
                 isSensor: true,
-                density: 0.0001,
+                density: this.config.anchorDensity,
                 render: {
-                    fillStyle: '#74b9ff',
-                    strokeStyle: '#3498db',
+                    fillStyle: this.colorToHex(this.config.headColor),
+                    strokeStyle: this.colorToHex(this.config.headStrokeColor),
                     lineWidth: 2,
                     visible: this.config.showDebug
                 }
@@ -83,13 +142,13 @@ export default class DoubleWorm extends WormBase {
         this.tailAnchor = this.matter.add.circle(
             tailAttachSegment.position.x,
             tailAttachSegment.position.y,
-            5,
+            this.config.anchorSensorRadius,
             {
                 isSensor: true,
-                density: 0.0001,
+                density: this.config.anchorDensity,
                 render: {
-                    fillStyle: '#ff6b6b',
-                    strokeStyle: '#e74c3c',
+                    fillStyle: this.colorToHex(this.config.tailColor),
+                    strokeStyle: this.colorToHex(this.config.tailStrokeColor),
                     lineWidth: 2,
                     visible: this.config.showDebug
                 }
@@ -105,7 +164,7 @@ export default class DoubleWorm extends WormBase {
             length: 0,
             render: {
                 visible: this.config.showDebug,
-                strokeStyle: '#74b9ff',
+                strokeStyle: this.colorToHex(this.config.headColor),
                 lineWidth: 2
             }
         });
@@ -118,7 +177,7 @@ export default class DoubleWorm extends WormBase {
             length: 0,
             render: {
                 visible: this.config.showDebug,
-                strokeStyle: '#ff6b6b',
+                strokeStyle: this.colorToHex(this.config.tailColor),
                 lineWidth: 2
             }
         });
@@ -133,21 +192,21 @@ export default class DoubleWorm extends WormBase {
         
         // Create visual indicators for anchor range (debug)
         this.headRangeGraphics = this.scene.add.graphics();
-        this.headRangeGraphics.lineStyle(1, 0x74b9ff, 0.3);
+        this.headRangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, this.config.headColor, this.config.rangeIndicatorAlpha);
         this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
         
         this.tailRangeGraphics = this.scene.add.graphics();
-        this.tailRangeGraphics.lineStyle(1, 0xff6b6b, 0.3);
+        this.tailRangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, this.config.tailColor, this.config.rangeIndicatorAlpha);
         this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
         
         // Create stick position indicators
         this.headStickIndicator = this.scene.add.graphics();
-        this.headStickIndicator.fillStyle(0xff6b6b, 0.8);
-        this.headStickIndicator.fillCircle(0, 0, 8);
+        this.headStickIndicator.fillStyle(this.config.headColor, 0.8);
+        this.headStickIndicator.fillCircle(0, 0, this.config.stickIndicatorRadius);
         
         this.tailStickIndicator = this.scene.add.graphics();
-        this.tailStickIndicator.fillStyle(0x74b9ff, 0.8);
-        this.tailStickIndicator.fillCircle(0, 0, 8);
+        this.tailStickIndicator.fillStyle(this.config.tailColor, 0.8);
+        this.tailStickIndicator.fillCircle(0, 0, this.config.stickIndicatorRadius);
     }
     
     calculateInitialLengths() {
@@ -164,12 +223,12 @@ export default class DoubleWorm extends WormBase {
                 const dy = segB.position.y - segA.position.y;
                 headLength += Math.sqrt(dx * dx + dy * dy);
             }
-            this.headSpringLength = headLength * 1.25; // 80% of full length for some contraction
+            this.headSpringLength = headLength * this.config.jumpSpringLengthMultiplier;
         }
         
         // Calculate the initial straight length from middle to tail
         if (this.segments.length > 2) {
-            const tailAttachIndex = parseInt(this.segments.length * 0.33);
+            const tailAttachIndex = parseInt(this.segments.length * this.config.tailSpringAttachPercent);
             
             let tailLength = 0;
             for (let i = tailAttachIndex; i < this.segments.length - 1; i++) {
@@ -179,7 +238,7 @@ export default class DoubleWorm extends WormBase {
                 const dy = segB.position.y - segA.position.y;
                 tailLength += Math.sqrt(dx * dx + dy * dy);
             }
-            this.tailSpringLength = tailLength * 1.25; // 80% of full length for some contraction
+            this.tailSpringLength = tailLength * this.config.jumpSpringLengthMultiplier;
         }
     }
 
@@ -195,8 +254,8 @@ export default class DoubleWorm extends WormBase {
             stiffness: stiffness || this.config.jumpIdle,
             render: {
                 visible: true,
-                strokeStyle: '#74b9ff',
-                lineWidth: 3,
+                strokeStyle: this.colorToHex(this.config.headColor),
+                lineWidth: this.config.jumpSpringLineWidth,
             }
         });
         
@@ -245,6 +304,12 @@ export default class DoubleWorm extends WormBase {
         }
         if (this.tailStickIndicator) {
             this.tailStickIndicator.destroy();
+        }
+        if (this.headLaser) {
+            this.headLaser.destroy();
+        }
+        if (this.tailLaser) {
+            this.tailLaser.destroy();
         }
         
         // Call parent destroy
@@ -322,7 +387,7 @@ export default class DoubleWorm extends WormBase {
         
         // If no upward forces, apply minimal grounding
         const baseGrounding = this.groundingForce;
-        const reactiveGrounding = totalUpwardForce * 0.5; // Counter 50% of upward force
+        const reactiveGrounding = totalUpwardForce * this.config.groundingReactiveMultiplier;
         
         // Calculate which segments are in the middle
         const totalSegments = this.segments.length;
@@ -342,7 +407,7 @@ export default class DoubleWorm extends WormBase {
             const totalGrounding = baseGrounding + reactiveGrounding;
             const force = { 
                 x: 0, 
-                y: totalGrounding * (0.5 + centerWeight * 0.5) // 50% to 100% force based on distance from center
+                y: totalGrounding * (this.config.groundingCenterWeight + centerWeight * this.config.groundingCenterWeight)
             };
             
             this.matter.body.applyForce(segment, segment.position, force);
@@ -350,11 +415,11 @@ export default class DoubleWorm extends WormBase {
     }
     updateStickDisplay() {
         this.headRangeGraphics.clear();
-        this.headRangeGraphics.lineStyle(1, 0xff6b6b, 0.4);
+        this.headRangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, this.config.headColor, this.config.rangeIndicatorAlpha);
         this.headRangeGraphics.strokeCircle(this.headAnchorRest.x, this.headAnchorRest.y, this.anchorRadius);
         
         this.tailRangeGraphics.clear();
-        this.tailRangeGraphics.lineStyle(1, 0x74b9ff, 0.4);
+        this.tailRangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, this.config.tailColor, this.config.rangeIndicatorAlpha);
         this.tailRangeGraphics.strokeCircle(this.tailAnchorRest.x, this.tailAnchorRest.y, this.anchorRadius);
         
         // Update stick position indicators
@@ -383,10 +448,14 @@ export default class DoubleWorm extends WormBase {
         const deltaX = stickState.x - stickState.prevX;
         const deltaY = stickState.y - stickState.prevY;
         
-        // Velocity is change per second
-        if (deltaSeconds > 0) {
+        // Velocity is change per second - but not on keyboard releases
+        if (deltaSeconds > 0 && !isKeyboardRelease) {
             stickState.velocity.x = deltaX / deltaSeconds;
             stickState.velocity.y = deltaY / deltaSeconds;
+        } else if (isKeyboardRelease) {
+            // On keyboard release, zero out velocity to prevent snapback
+            stickState.velocity.x = 0;
+            stickState.velocity.y = 0;
         }
         
         // Apply damping to velocity (exponential decay over time)
@@ -395,8 +464,8 @@ export default class DoubleWorm extends WormBase {
         stickState.velocity.y *= dampingFactor;
         
         // Detect release (stick returning to center)
-        const wasActive = Math.abs(stickState.prevX) > 0.1 || Math.abs(stickState.prevY) > 0.1;
-        const isActive = Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1;
+        const wasActive = Math.abs(stickState.prevX) > this.config.stickDeadzone || Math.abs(stickState.prevY) > this.config.stickDeadzone;
+        const isActive = Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone;
         
         if (wasActive && !isActive && !isKeyboardRelease) {
             // Stick was released - apply impulse only for gamepad, not keyboard
@@ -421,7 +490,7 @@ export default class DoubleWorm extends WormBase {
         restPos.y = segment.position.y;
         
         // Apply position-based force only when stick is actively moved
-        if (Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1) {
+        if (Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) {
             // Calculate target position based on stick input
             const targetX = restPos.x + (stickState.x * this.anchorRadius);
             const targetY = restPos.y + (stickState.y * this.anchorRadius);
@@ -431,9 +500,9 @@ export default class DoubleWorm extends WormBase {
             const dy = targetY - segment.position.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            if (distance > 0.1) {
+            if (distance > this.config.minDistanceThreshold) {
                 // Apply force proportional to distance
-                const forceMagnitude = distance * 0.0002;
+                const forceMagnitude = distance * this.config.positionForceMagnitude;
                 const forceX = (dx / distance) * forceMagnitude;
                 const forceY = (dy / distance) * forceMagnitude;
                 
@@ -445,12 +514,12 @@ export default class DoubleWorm extends WormBase {
         // When stick is centered, don't apply any centering force - let the worm relax naturally
         
         // Apply velocity-based impulse only when stick is active and not on release
-        if ((Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1) && !stickState.released) {
+        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && !stickState.released) {
             const mass = segment.mass;
             const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
             const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
             
-            if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
+            if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
                 this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
                 totalForce.x += impulseX;
                 totalForce.y += impulseY;
@@ -547,8 +616,75 @@ export default class DoubleWorm extends WormBase {
         return { x, y, keyboardRelease };
     }
     
+    showJumpTrajectory(type, fromSegment, toSegment) {
+        const laser = type === 'head' ? this.headLaser : this.tailLaser;
+        const color = type === 'head' ? this.config.headColor : this.config.tailColor;
+        
+        // Clear previous drawing
+        laser.clear();
+        
+        // Calculate direction vector (reversed - pointing away from spring)
+        const dx = fromSegment.position.x - toSegment.position.x;
+        const dy = fromSegment.position.y - toSegment.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0) {
+            // Normalize direction
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            
+            // Draw laser beam
+            laser.lineStyle(this.config.laserLineWidth, color, 1);
+            laser.beginPath();
+            laser.moveTo(fromSegment.position.x, fromSegment.position.y);
+            
+            // Extend the laser outward
+            const laserLength = this.config.laserLength;
+            laser.lineTo(
+                fromSegment.position.x + dirX * laserLength,
+                fromSegment.position.y + dirY * laserLength
+            );
+            laser.strokePath();
+            
+            // Add glow effect
+            laser.lineStyle(this.config.laserGlowWidth, color, this.config.laserGlowAlpha);
+            laser.beginPath();
+            laser.moveTo(fromSegment.position.x, fromSegment.position.y);
+            laser.lineTo(
+                fromSegment.position.x + dirX * laserLength,
+                fromSegment.position.y + dirY * laserLength
+            );
+            laser.strokePath();
+            
+            // Add arrow head at the end
+            const arrowSize = this.config.laserArrowSize;
+            const arrowX = fromSegment.position.x + dirX * (laserLength - this.config.laserArrowOffset);
+            const arrowY = fromSegment.position.y + dirY * (laserLength - this.config.laserArrowOffset);
+            
+            laser.fillStyle(color, 1);
+            laser.beginPath();
+            laser.moveTo(arrowX + dirX * arrowSize, arrowY + dirY * arrowSize);
+            laser.lineTo(arrowX - dirY * arrowSize/2, arrowY + dirX * arrowSize/2);
+            laser.lineTo(arrowX + dirY * arrowSize/2, arrowY - dirX * arrowSize/2);
+            laser.closePath();
+            laser.fillPath();
+            
+            // Fade out the laser
+            laser.alpha = 1;
+            this.scene.tweens.add({
+                targets: laser,
+                alpha: 0,
+                duration: this.config.laserFadeDuration,
+                ease: 'Back',
+                onComplete: () => {
+                    laser.clear();
+                }
+            });
+        }
+    }
+    
     handleJumpSpring(type, triggerValue) {
-        const threshold = 0.1; // Minimum trigger value to activate
+        const threshold = this.config.jumpTriggerThreshold;
         const isActive = triggerValue > threshold;
         
         if (type === 'head') {
@@ -561,6 +697,9 @@ export default class DoubleWorm extends WormBase {
                 this.headSpring = this.createJumpSegment(head, middle, this.headSpringLength, stiffness);
                 this.Matter.World.add(this.matter.world.localWorld, this.headSpring);
                 this.headSpringAttached = true;
+                
+                // Show jump trajectory
+                this.showJumpTrajectory('head', head, middle);
             } else if (!isActive && this.headSpringAttached) {
                 // Remove head spring
                 if (this.headSpring) {
@@ -576,13 +715,16 @@ export default class DoubleWorm extends WormBase {
         } else if (type === 'tail') {
             if (isActive && !this.tailSpringAttached) {
                 // Create and attach tail spring
-                const middle = this.segments[parseInt(this.segments.length * 0.33)];
+                const middle = this.segments[parseInt(this.segments.length * this.config.tailSpringAttachPercent)];
                 const tail = this.segments[this.segments.length - 1];
                 const stiffness = this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
                 
                 this.tailSpring = this.createJumpSegment(middle, tail, this.tailSpringLength, stiffness);
                 this.Matter.World.add(this.matter.world.localWorld, this.tailSpring);
                 this.tailSpringAttached = true;
+                
+                // Show jump trajectory
+                this.showJumpTrajectory('tail', tail, middle);
             } else if (!isActive && this.tailSpringAttached) {
                 // Remove tail spring
                 if (this.tailSpring) {
