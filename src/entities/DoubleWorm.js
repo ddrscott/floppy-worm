@@ -25,7 +25,7 @@ export default class DoubleWorm extends WormBase {
             // Movement physics
             velocityDamping: 0.1,
             impulseMultiplier: 0.00175,
-            stickDeadzone: 0.1,
+            stickDeadzone: 0.05,
             positionForceMagnitude: 0.0002,
             minForceThreshold: 0.00001,
             minDistanceThreshold: 0.1,
@@ -46,6 +46,8 @@ export default class DoubleWorm extends WormBase {
             jumpSpringLengthMultiplier: 1.5,
             jumpTriggerThreshold: 0.01,
             jumpStiffness: 0.07,
+
+            // laser guidance
             laserLineWidth: 4,
             laserGlowWidth: 8,
             laserGlowAlpha: 0.3,

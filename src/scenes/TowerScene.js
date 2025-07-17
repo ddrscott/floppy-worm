@@ -151,8 +151,16 @@ export default class TowerScene extends Phaser.Scene {
             
             // Every 5th grid line gets a marker (but skip zero)
             if (gridLineNumber % 5 === 0 && gridLineNumber > 0) {
-                // Create height marker text
+                // Create height marker text on the left
                 this.add.text(10, height - y - 10, `${gridLineNumber}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                
+                // Create height marker text on the right
+                this.add.text(this.LEVEL_WIDTH - 40, height - y - 10, `${gridLineNumber}`, {
                     fontSize: '16px',
                     color: '#4ecdc4',
                     backgroundColor: 'rgba(0,0,0,0.8)',
