@@ -7,8 +7,6 @@ export default class DoubleWorm extends WormBase {
             // Jump spring defaults
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
-            jumpIdle: 0.000001,
-            jumpStiffness: 0.05,
             
             // Colors
             headColor: 0xff6b6b,
@@ -45,8 +43,9 @@ export default class DoubleWorm extends WormBase {
             connectionDotRadius: 0.4,
             
             // Jump visual parameters
-            jumpSpringLineWidth: 3,
-            jumpSpringLengthMultiplier: 1.25,
+            jumpSpringLengthMultiplier: 1.5,
+            jumpTriggerThreshold: 0.01,
+            jumpStiffness: 0.07,
             laserLineWidth: 4,
             laserGlowWidth: 8,
             laserGlowAlpha: 0.3,
@@ -58,10 +57,8 @@ export default class DoubleWorm extends WormBase {
             // Attach points
             headAttachIndex: 1,
             tailAttachFromEnd: 2,
-            tailSpringAttachPercent: 0.33,
+            tailSpringAttachPercent: 0.4,
             
-            // Trigger thresholds
-            jumpTriggerThreshold: 0.1,
             
             ...config
         };
@@ -254,12 +251,7 @@ export default class DoubleWorm extends WormBase {
             bodyA: from,
             bodyB: to,
             length: length,
-            stiffness: stiffness || this.config.jumpIdle,
-            render: {
-                visible: true,
-                strokeStyle: this.colorToHex(this.config.headColor),
-                lineWidth: this.config.jumpSpringLineWidth,
-            }
+            stiffness: stiffness,
         });
         
         return spring;
@@ -397,7 +389,6 @@ export default class DoubleWorm extends WormBase {
                 y: totalGrounding * (this.config.groundingCenterWeight + centerWeight * this.config.groundingCenterWeight)
             };
             
-            //console.log(`Applying grounding force to segment ${i}:`, force);
             this.matter.body.applyForce(segment, segment.position, force);
         }
     }
@@ -731,6 +722,6 @@ export default class DoubleWorm extends WormBase {
     }
     
     calculateStiffness(triggerValue) {
-        return this.config.jumpIdle + (triggerValue * (this.config.jumpStiffness - this.config.jumpIdle));
+        return triggerValue * this.config.jumpStiffness;
     }
 }
