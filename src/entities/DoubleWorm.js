@@ -53,7 +53,7 @@ export default class DoubleWorm extends WormBase {
             laserLength: 200,
             laserArrowSize: 15,
             laserArrowOffset: 10,
-            laserFadeDuration: 500,
+            laserFadeDuration: 1000,
             
             // Attach points
             headAttachIndex: 1,
@@ -623,9 +623,9 @@ export default class DoubleWorm extends WormBase {
         // Clear previous drawing
         laser.clear();
         
-        // Calculate direction vector (reversed - pointing away from spring)
-        const dx = fromSegment.position.x - toSegment.position.x;
-        const dy = fromSegment.position.y - toSegment.position.y;
+        // Calculate direction vector (from connection point to head/tail)
+        const dx = toSegment.position.x - fromSegment.position.x;
+        const dy = toSegment.position.y - fromSegment.position.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance > 0) {
@@ -633,13 +633,18 @@ export default class DoubleWorm extends WormBase {
             const dirX = dx / distance;
             const dirY = dy / distance;
             
+            // Calculate laser length inversely proportional to distance
+            // When segments are close (compressed spring), laser is longer
+            // When segments are far (extended spring), laser is shorter
+            const springLength = type === 'head' ? this.headSpringLength : this.tailSpringLength;
+            const compressionRatio = Math.max(0, Math.min(1, (springLength - distance) / springLength));
+            // Laser length ranges from 1.1x to 1.5x the spring length
+            const laserLength = springLength * (compressionRatio * 1.3);
+            
             // Draw laser beam
             laser.lineStyle(this.config.laserLineWidth, color, 1);
             laser.beginPath();
             laser.moveTo(fromSegment.position.x, fromSegment.position.y);
-            
-            // Extend the laser outward
-            const laserLength = this.config.laserLength;
             laser.lineTo(
                 fromSegment.position.x + dirX * laserLength,
                 fromSegment.position.y + dirY * laserLength
@@ -656,7 +661,7 @@ export default class DoubleWorm extends WormBase {
             );
             laser.strokePath();
             
-            // Add arrow head at the end
+            // Add arrow head at the end pointing in the direction of force
             const arrowSize = this.config.laserArrowSize;
             const arrowX = fromSegment.position.x + dirX * (laserLength - this.config.laserArrowOffset);
             const arrowY = fromSegment.position.y + dirY * (laserLength - this.config.laserArrowOffset);
@@ -675,7 +680,7 @@ export default class DoubleWorm extends WormBase {
                 targets: laser,
                 alpha: 0,
                 duration: this.config.laserFadeDuration,
-                ease: 'Back',
+                ease: 'Linear',
                 onComplete: () => {
                     laser.clear();
                 }
@@ -698,8 +703,8 @@ export default class DoubleWorm extends WormBase {
                 this.Matter.World.add(this.matter.world.localWorld, this.headSpring);
                 this.headSpringAttached = true;
                 
-                // Show jump trajectory
-                this.showJumpTrajectory('head', head, middle);
+                // Show jump trajectory from the connection point
+                this.showJumpTrajectory('head', middle, head);
             } else if (!isActive && this.headSpringAttached) {
                 // Remove head spring
                 if (this.headSpring) {
@@ -723,8 +728,8 @@ export default class DoubleWorm extends WormBase {
                 this.Matter.World.add(this.matter.world.localWorld, this.tailSpring);
                 this.tailSpringAttached = true;
                 
-                // Show jump trajectory
-                this.showJumpTrajectory('tail', tail, middle);
+                // Show jump trajectory from the connection point
+                this.showJumpTrajectory('tail', middle, tail);
             } else if (!isActive && this.tailSpringAttached) {
                 // Remove tail spring
                 if (this.tailSpring) {
