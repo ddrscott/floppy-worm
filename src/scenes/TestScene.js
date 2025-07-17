@@ -4,6 +4,7 @@ import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
+import ControlsDisplay from '../components/ControlsDisplay';
 
 export default class TestScene extends Phaser.Scene {
     constructor() {
@@ -43,16 +44,12 @@ export default class TestScene extends Phaser.Scene {
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0); // Invisible rectangle
 
         
-        // Add mouse constraint for interaction
-        this.matter.add.mouseSpring({
-            length: 0,
-            stiffness: 0.2,
-            damping: 0,
-            angularStiffness: 0,
-            collisionFilter: {
-                category: 0x0001,
-                mask: 0xFFFFFFFF,
-                group: 0
+        // Hidden magic keybinding for mouse constraint
+        this.mouseConstraint = null;
+        this.input.keyboard.on('keydown-M', () => {
+            // Check if shift is held (capital M)
+            if (this.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SHIFT].isDown) {
+                this.toggleMouseConstraint();
             }
         });
         
@@ -86,32 +83,8 @@ export default class TestScene extends Phaser.Scene {
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            // Controller recommendation
-            this.add.text(10, 10, '🎮 Best played with a controller!', {
-                fontSize: '16px',
-                color: '#ffd700',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: { x: 10, y: 5 }
-            });
-            
-            // Control mapping
-            const controlsText = [
-                'Controls:',
-                '─────────',
-                'WASD: Head control (Left stick)',
-                '↑←↓→: Tail control (Right stick)', 
-                'Space/L2: Head jump',
-                'Q or R2: Tail jump',
-                'Scroll: Zoom | ESC: Menu'
-            ].join('\n');
-            
-            this.add.text(10, 50, controlsText, {
-                fontSize: '14px',
-                color: '#ffffff',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                padding: { x: 10, y: 8 },
-                lineSpacing: 4
-            });
+            // Use the reusable ControlsDisplay component with zoom option
+            this.controlsDisplay = new ControlsDisplay(this, 10, 10, { showZoom: true });
         }
         
         
@@ -343,6 +316,57 @@ export default class TestScene extends Phaser.Scene {
                 this.cameraTarget.x = head.position.x;
                 this.cameraTarget.y = head.position.y;
             }
+        }
+    }
+    
+    toggleMouseConstraint() {
+        if (this.mouseConstraint) {
+            // Remove existing constraint
+            this.matter.world.removeConstraint(this.mouseConstraint);
+            this.mouseConstraint = null;
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 50, 'Mouse Constraint OFF', {
+                fontSize: '24px',
+                color: '#ff6b6b',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => text.destroy()
+            });
+        } else {
+            // Add mouse constraint
+            this.mouseConstraint = this.matter.add.mouseSpring({
+                length: 0,
+                stiffness: 0.2,
+                damping: 0,
+                angularStiffness: 0,
+                collisionFilter: {
+                    category: 0x0001,
+                    mask: 0xFFFFFFFF,
+                    group: 0
+                }
+            });
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 50, 'Mouse Constraint ON - Click and drag!', {
+                fontSize: '24px',
+                color: '#4ecdc4',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 2000,
+                onComplete: () => text.destroy()
+            });
         }
     }
 }

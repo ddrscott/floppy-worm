@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
+import ControlsDisplay from '../components/ControlsDisplay';
 
 export default class TowerScene extends Phaser.Scene {
     constructor() {
@@ -8,7 +9,7 @@ export default class TowerScene extends Phaser.Scene {
         
         // Level dimension constants - tweak these to adjust level size
         this.CHAR_WIDTH = 64;   // Width of each ASCII character in pixels
-        this.CHAR_HEIGHT = 96;  // Height of each ASCII character in pixels
+        this.CHAR_HEIGHT = 48;  // Height of each ASCII character in pixels
         this.ROW_SPACING = 96; // Vertical spacing between rows in pixels
         this.LEVEL_WIDTH = this.CHAR_WIDTH * 16; // width * number of characters per row
         
@@ -54,19 +55,19 @@ export default class TowerScene extends Phaser.Scene {
             ................
             .---............
             ................
-            .W....----......
+            ......----.....W
             ................
             ................
-            ..----..........
+            ------..........
             ................
             ................
-            ........--------
+            ........------..
             ................
             ................
-            ..------........
+            --------........
             ................
             ................
-            ........--------
+            ........-------.
             ................
             ................
         `;
@@ -112,6 +113,15 @@ export default class TowerScene extends Phaser.Scene {
         
         // Virtual controls (joystick + buttons)
         this.virtualControls = new VirtualControls(this);
+        
+        // Hidden magic keybinding for mouse constraint
+        this.mouseConstraint = null;
+        this.input.keyboard.on('keydown-M', () => {
+            // Check if shift is held (capital M)
+            if (this.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SHIFT].isDown) {
+                this.toggleMouseConstraint();
+            }
+        });
     }
     
     createGrid(height) {
@@ -309,38 +319,14 @@ export default class TowerScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
         
-        // Controller recommendation
-        this.add.text(20, 60, '🎮 Best played with a controller!', {
-            fontSize: '16px',
-            color: '#ffd700',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0);
-        
         // Controls - only show on desktop
         const isTouchDevice = ('ontouchstart' in window) || 
                             (navigator.maxTouchPoints > 0) || 
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            // Create control mapping display
-            const controlsText = [
-                'Controls:',
-                '─────────',
-                'WASD: Head control (Left stick)',
-                '↑←↓→: Tail control (Right stick)',
-                'Space/L2: Head jump',
-                'Q or R2: Tail jump',
-                'ESC: Menu'
-            ].join('\n');
-            
-            this.add.text(20, 100, controlsText, {
-                fontSize: '14px',
-                color: '#ffffff',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                padding: { x: 10, y: 8 },
-                lineSpacing: 4
-            }).setScrollFactor(0);
+            // Use the reusable ControlsDisplay component
+            this.controlsDisplay = new ControlsDisplay(this, 20, 60);
         }
     }
     
@@ -447,6 +433,57 @@ export default class TowerScene extends Phaser.Scene {
                     duration: 1000,
                     onComplete: () => star.destroy()
                 });
+            });
+        }
+    }
+    
+    toggleMouseConstraint() {
+        if (this.mouseConstraint) {
+            // Remove existing constraint
+            this.matter.world.removeConstraint(this.mouseConstraint);
+            this.mouseConstraint = null;
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 100, 'Mouse Constraint OFF', {
+                fontSize: '24px',
+                color: '#ff6b6b',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 1000,
+                onComplete: () => text.destroy()
+            });
+        } else {
+            // Add mouse constraint
+            this.mouseConstraint = this.matter.add.mouseSpring({
+                length: 0,
+                stiffness: 0.4,
+                damping: 0,
+                angularStiffness: 0,
+                collisionFilter: {
+                    category: 0x0001,
+                    mask: 0xFFFFFFFF,
+                    group: 0
+                }
+            });
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 100, 'Mouse Constraint ON - Click and drag!', {
+                fontSize: '24px',
+                color: '#4ecdc4',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 2000,
+                onComplete: () => text.destroy()
             });
         }
     }
