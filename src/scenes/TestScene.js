@@ -277,12 +277,6 @@ export default class TestScene extends Phaser.Scene {
         });
         constraintFolder.open();
         
-        // Swing folder
-        const swingFolder = this.gui.addFolder('Swing');
-        swingFolder.add(this.physicsParams, 'swingSpeed', 0, 5).name('Speed (rot/sec)').step(0.1).onChange(value => {
-            this.worm.updateConfig({ swingSpeed: value });
-        });
-        swingFolder.open();
         
         // Actions folder
         const actionsFolder = this.gui.addFolder('Actions');
@@ -295,6 +289,19 @@ export default class TestScene extends Phaser.Scene {
             this.worm.updateConfig({ jumpStiffness: value });
         });
         actionsFolder.open();
+        
+        // Anti-flying folder
+        const antiFlyFolder = this.gui.addFolder('Anti-Flying');
+        this.physicsParams.groundingForce = this.worm.groundingForce || 0.0003;
+        this.physicsParams.groundingSegments = this.worm.groundingSegments || 0.4;
+        
+        antiFlyFolder.add(this.physicsParams, 'groundingForce', 0, 0.001).name('Grounding Force').step(0.00001).onChange(value => {
+            this.worm.groundingForce = value;
+        });
+        antiFlyFolder.add(this.physicsParams, 'groundingSegments', 0.1, 0.8).name('Middle Segments %').step(0.05).onChange(value => {
+            this.worm.groundingSegments = value;
+        });
+        antiFlyFolder.open();
         
         // Debug folder
         const debugFolder = this.gui.addFolder('Debug');
@@ -325,26 +332,16 @@ export default class TestScene extends Phaser.Scene {
     
     
     update(time, delta) {
-        // Handle input (keyboard + virtual joystick)
-        const input = {
-            left: this.cursors.left.isDown || (this.virtualControls && this.virtualControls.getLeftPressed()),
-            right: this.cursors.right.isDown || (this.virtualControls && this.virtualControls.getRightPressed()),
-            jump: this.spaceKey.isDown || (this.virtualControls && this.virtualControls.getJumpPressed()),
-            up: this.cursors.up.isDown || (this.virtualControls && this.virtualControls.getUpPressed()),
-            down: this.cursors.down.isDown || (this.virtualControls && this.virtualControls.getDownPressed())
-        };
-        
-        // Pass input to worm
-        this.worm.handleInput(input);
-        
-        // Update worm
+        // Update worm (DoubleWorm handles its own input)
         this.worm.update(delta);
         
-        // Update camera target to follow swing weight position
-        if (this.cameraTarget && this.worm.getSwingWeightPosition()) {
-            const swingPos = this.worm.getSwingWeightPosition();
-            this.cameraTarget.x = swingPos.x;
-            this.cameraTarget.y = swingPos.y;
+        // Update camera target to follow head position
+        if (this.cameraTarget && this.worm) {
+            const head = this.worm.getHead();
+            if (head) {
+                this.cameraTarget.x = head.position.x;
+                this.cameraTarget.y = head.position.y;
+            }
         }
     }
 }
