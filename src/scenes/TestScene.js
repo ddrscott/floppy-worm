@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import * as dat from 'dat.gui';
 import CoordinateDisplay from '../components/CoordinateDisplay';
 import { defaultPhysicsParams } from '../config/physicsParams';
-import SwingWorm from '../entities/SwingWorm';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 

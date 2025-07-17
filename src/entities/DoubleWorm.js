@@ -29,14 +29,13 @@ export default class DoubleWorm extends WormBase {
 
         if (this.segments.length > 2) {
             const head = this.segments[0];
-            const middle = this.segments[parseInt(this.segments.length * 0.66)];
-            
+            const middle = this.segments[this.segments.length - 2];
             this.headSpring = this.createJumpSegment(head, middle);
         }
 
         if (this.segments.length > 2) {
-            const middle = this.segments[parseInt(this.segments.length * 0.33)];
-            const tail = this.segments[this.segments.length - 2];
+            const middle = this.segments[1];
+            const tail = this.segments[this.segments.length - 1];
             this.tailSpring = this.createJumpSegment(middle, tail);
         }
     }
@@ -129,11 +128,11 @@ export default class DoubleWorm extends WormBase {
         
         // Create stick position indicators
         this.headStickIndicator = this.scene.add.graphics();
-        this.headStickIndicator.fillStyle(0x74b9ff, 0.8);
+        this.headStickIndicator.fillStyle(0xff6b6b, 0.8);
         this.headStickIndicator.fillCircle(0, 0, 8);
         
         this.tailStickIndicator = this.scene.add.graphics();
-        this.tailStickIndicator.fillStyle(0xff6b6b, 0.8);
+        this.tailStickIndicator.fillStyle(0x74b9ff, 0.8);
         this.tailStickIndicator.fillCircle(0, 0, 8);
     }
     
