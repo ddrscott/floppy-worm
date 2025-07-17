@@ -7,7 +7,7 @@ export default class DoubleWorm extends WormBase {
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
             jumpIdle: 0.000001,
-            jumpStiffness: 0.09,
+            jumpStiffness: 0.06,
             ...config
         };
         
@@ -29,13 +29,13 @@ export default class DoubleWorm extends WormBase {
 
         if (this.segments.length > 2) {
             const head = this.segments[0];
-            const middle = this.segments[parseInt(this.segments.length / 2)];
+            const middle = this.segments[parseInt(this.segments.length * 0.66)];
             
             this.headSpring = this.createJumpSegment(head, middle);
         }
 
         if (this.segments.length > 2) {
-            const middle = this.segments[parseInt(this.segments.length / 2)]
+            const middle = this.segments[parseInt(this.segments.length * 0.33)];
             const tail = this.segments[this.segments.length - 2];
             this.tailSpring = this.createJumpSegment(middle, tail);
         }
@@ -149,7 +149,7 @@ export default class DoubleWorm extends WormBase {
         const spring = this.Matter.Constraint.create({
             bodyA: from,
             bodyB: to,
-            length: distance * 2,
+            length: distance * 1.75,
             stiffness: this.config.jumpIdle,
             render: {
                 visible: true,
