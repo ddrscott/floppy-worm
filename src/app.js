@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import * as dat from 'dat.gui';
 import TowerScene from './scenes/TowerScene';
+import TestScene from './scenes/TestScene';
 import LevelsScene from './scenes/LevelsScene';
 import GamepadTest from './scenes/GamepadTest';
 
@@ -37,6 +38,6 @@ export const game = new Phaser.Game(
     input: {
         gamepad: true
     },
-    scene: [TowerScene, LevelsScene, GamepadTest]
+    scene: [TowerScene, LevelsScene, GamepadTest, TestScene]
 }
 );
