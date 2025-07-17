@@ -7,7 +7,7 @@ export default class DoubleWorm extends WormBase {
             flattenIdle: 0.000001,
             flattenStiffness: 0.5,
             jumpIdle: 0.000001,
-            jumpStiffness: 0.06,
+            jumpStiffness: 0.05,
             ...config
         };
         
@@ -24,6 +24,19 @@ export default class DoubleWorm extends WormBase {
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
         this.rightStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
         
+        // Keyboard simulation config
+        this.keyboardConfig = {
+            maxDuration: 200, // milliseconds to reach full value
+            curve: 2, // exponential curve (1 = linear, 2 = quadratic, etc)
+            ...config.keyboardConfig
+        };
+        
+        // Keyboard state tracking
+        this.keyboardState = {
+            left: { w: 0, a: 0, s: 0, d: 0 }, // WASD for left stick
+            right: { up: 0, left: 0, down: 0, right: 0 } // Arrows for right stick
+        };
+        
         // Create anchor system
         this.createAnchors();
 
@@ -34,7 +47,7 @@ export default class DoubleWorm extends WormBase {
         }
 
         if (this.segments.length > 2) {
-            const middle = this.segments[1];
+            const middle = this.segments[parseInt(this.segments.length * 0.33)];
             const tail = this.segments[this.segments.length - 1];
             this.tailSpring = this.createJumpSegment(middle, tail);
         }
@@ -204,11 +217,19 @@ export default class DoubleWorm extends WormBase {
     updateMovement(delta) {
         this.updateStickDisplay();
         const pad = this.scene?.input?.gamepad?.getPad(0);
-        if (!pad) return;
-        
-        const leftStick = pad.leftStick;
-        const rightStick = pad.rightStick;
         const deltaSeconds = delta / 1000; // Convert to seconds
+        
+        let leftStick, rightStick;
+        
+        if (pad) {
+            // Use gamepad if available
+            leftStick = pad.leftStick;
+            rightStick = pad.rightStick;
+        } else {
+            // Fall back to keyboard simulation
+            leftStick = this.simulateStickFromKeyboard('left', delta);
+            rightStick = this.simulateStickFromKeyboard('right', delta);
+        }
         
         // Update stick states
         this.updateStickState(this.leftStickState, leftStick, deltaSeconds);
@@ -219,9 +240,8 @@ export default class DoubleWorm extends WormBase {
         this.updateAnchorPosition(this.tailAnchor, this.tailAnchorRest, this.rightStickState, deltaSeconds);
         
         // Handle triggers to stiffen springs
-        console.log('pad: ', pad);
-        const leftTrigger = pad.buttons[6] ? pad.buttons[6].value : 0;
-        const rightTrigger = pad.buttons[7] ? pad.buttons[7].value : 0;
+        const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
+        const rightTrigger = pad && pad.buttons[7] ? pad.buttons[7].value : 0;
         
         // Left trigger stiffens head spring
         if (this.headSpring) {
@@ -266,6 +286,9 @@ export default class DoubleWorm extends WormBase {
         stickState.x = gamepadStick.x;
         stickState.y = gamepadStick.y;
         
+        // Check if this is a keyboard release
+        const isKeyboardRelease = gamepadStick.keyboardRelease || false;
+        
         // Calculate velocity (change per second)
         const deltaX = stickState.x - stickState.prevX;
         const deltaY = stickState.y - stickState.prevY;
@@ -285,8 +308,8 @@ export default class DoubleWorm extends WormBase {
         const wasActive = Math.abs(stickState.prevX) > 0.1 || Math.abs(stickState.prevY) > 0.1;
         const isActive = Math.abs(stickState.x) > 0.1 || Math.abs(stickState.y) > 0.1;
         
-        if (wasActive && !isActive) {
-            // Stick was released - this is where we could apply impulse
+        if (wasActive && !isActive && !isKeyboardRelease) {
+            // Stick was released - apply impulse only for gamepad, not keyboard
             stickState.released = true;
         } else {
             stickState.released = false;
@@ -333,5 +356,92 @@ export default class DoubleWorm extends WormBase {
         if (Math.abs(impulseX) > 0.00001 || Math.abs(impulseY) > 0.00001) {
             this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
         }
+    }
+    
+    simulateStickFromKeyboard(stick, delta) {
+        const keyboard = this.scene.input.keyboard;
+        const state = this.keyboardState[stick];
+        
+        // Define key mappings
+        const keyMap = stick === 'left' ? {
+            up: 'W',
+            left: 'A', 
+            down: 'S',
+            right: 'D'
+        } : {
+            up: 'UP',
+            left: 'LEFT',
+            down: 'DOWN', 
+            right: 'RIGHT'
+        };
+        
+        // Update key press durations
+        const keys = keyboard.keys;
+        
+        // Check each direction
+        const isUpPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.up]]?.isDown;
+        const isLeftPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.left]]?.isDown;
+        const isDownPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.down]]?.isDown;
+        const isRightPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.right]]?.isDown;
+        
+        // Track if any key was just released
+        let keyboardRelease = false;
+        
+        // Update press durations
+        if (stick === 'left') {
+            if (!isUpPressed && state.w > 0) keyboardRelease = true;
+            if (!isLeftPressed && state.a > 0) keyboardRelease = true;
+            if (!isDownPressed && state.s > 0) keyboardRelease = true;
+            if (!isRightPressed && state.d > 0) keyboardRelease = true;
+            
+            state.w = isUpPressed ? Math.min(state.w + delta, this.keyboardConfig.maxDuration) : 0;
+            state.a = isLeftPressed ? Math.min(state.a + delta, this.keyboardConfig.maxDuration) : 0;
+            state.s = isDownPressed ? Math.min(state.s + delta, this.keyboardConfig.maxDuration) : 0;
+            state.d = isRightPressed ? Math.min(state.d + delta, this.keyboardConfig.maxDuration) : 0;
+        } else {
+            if (!isUpPressed && state.up > 0) keyboardRelease = true;
+            if (!isLeftPressed && state.left > 0) keyboardRelease = true;
+            if (!isDownPressed && state.down > 0) keyboardRelease = true;
+            if (!isRightPressed && state.right > 0) keyboardRelease = true;
+            
+            state.up = isUpPressed ? Math.min(state.up + delta, this.keyboardConfig.maxDuration) : 0;
+            state.left = isLeftPressed ? Math.min(state.left + delta, this.keyboardConfig.maxDuration) : 0;
+            state.down = isDownPressed ? Math.min(state.down + delta, this.keyboardConfig.maxDuration) : 0;
+            state.right = isRightPressed ? Math.min(state.right + delta, this.keyboardConfig.maxDuration) : 0;
+        }
+        
+        // Calculate stick values with configurable curve
+        const curve = this.keyboardConfig.curve;
+        const maxDur = this.keyboardConfig.maxDuration;
+        
+        const getValue = (duration) => {
+            const normalized = duration / maxDur;
+            return Math.pow(normalized, 1 / curve);
+        };
+        
+        // Calculate X and Y values
+        let x = 0;
+        let y = 0;
+        
+        if (stick === 'left') {
+            if (state.a > 0) x -= getValue(state.a);
+            if (state.d > 0) x += getValue(state.d);
+            if (state.w > 0) y -= getValue(state.w);
+            if (state.s > 0) y += getValue(state.s);
+        } else {
+            if (state.left > 0) x -= getValue(state.left);
+            if (state.right > 0) x += getValue(state.right);
+            if (state.up > 0) y -= getValue(state.up);
+            if (state.down > 0) y += getValue(state.down);
+        }
+        
+        // Normalize diagonal movement
+        const magnitude = Math.sqrt(x * x + y * y);
+        if (magnitude > 1) {
+            x /= magnitude;
+            y /= magnitude;
+        }
+        
+        return { x, y, keyboardRelease };
     }
 }

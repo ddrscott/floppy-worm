@@ -8,7 +8,7 @@ export default class TowerScene extends Phaser.Scene {
         
         // Level dimension constants - tweak these to adjust level size
         this.CHAR_WIDTH = 64;   // Width of each ASCII character in pixels
-        this.CHAR_HEIGHT = 48;  // Height of each ASCII character in pixels
+        this.CHAR_HEIGHT = 96;  // Height of each ASCII character in pixels
         this.ROW_SPACING = 96; // Vertical spacing between rows in pixels
         this.LEVEL_WIDTH = this.CHAR_WIDTH * 16; // width * number of characters per row
         
@@ -309,17 +309,36 @@ export default class TowerScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
         
+        // Controller recommendation
+        this.add.text(20, 60, '🎮 Best played with a controller!', {
+            fontSize: '16px',
+            color: '#ffd700',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: { x: 10, y: 5 }
+        }).setScrollFactor(0);
+        
         // Controls - only show on desktop
         const isTouchDevice = ('ontouchstart' in window) || 
                             (navigator.maxTouchPoints > 0) || 
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            this.add.text(20, 60, 'Left/Right: Move | Up: Lift | Down: Flatten | Space: Jump | ESC: Menu', {
+            // Create control mapping display
+            const controlsText = [
+                'Controls:',
+                '─────────',
+                'WASD: Head control (Left stick)',
+                '↑←↓→: Tail control (Right stick)',
+                'L2/R2: Stiffen springs',
+                'ESC: Menu'
+            ].join('\n');
+            
+            this.add.text(20, 100, controlsText, {
                 fontSize: '14px',
                 color: '#ffffff',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: { x: 10, y: 5 }
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 10, y: 8 },
+                lineSpacing: 4
             }).setScrollFactor(0);
         }
     }
