@@ -97,12 +97,15 @@ export default class DoubleWorm extends WormBase {
             headStickinessSegmentCount: 0.3,     // Fraction of head segments that can stick
             tailStickinessSegmentCount: 0.3,     // Fraction of tail segments that can stick
             
-            // Spark Particle Effects - Visual feedback for stickiness
-            sparkParticleConfig: {
-                scale: { start: 0.5, end: 0 },      // Larger, more visible sparks
-                speed: { min: 60, max: 120 },        // More dramatic movement  
-                lifespan: 200,                     // Longer lifespan for visibility
-                blendMode: 'NORMAL'                 // Normal blending for clear visibility
+            // Stickiness Visual Effects - Pulsating circles at grip points
+            stickinessVisualConfig: {
+                circleRadius: 8,                    // Base radius of pulsating circle
+                pulseScale: 0.5,                    // How much bigger it gets when pulsing
+                pulseDuration: 1000,                 // Time for one pulse cycle (ms)
+                circleColor: 0xff6b6b,              // Red color for grip indication
+                circleAlpha: 0.8,                   // Base transparency
+                // strokeWidth: 2,                     // Circle outline thickness
+                // strokeColor: 0xFF0000               // White outline for contrast
             },
             
             // Attach points
@@ -152,8 +155,8 @@ export default class DoubleWorm extends WormBase {
             tail: []   // Array of active sticky constraints for tail section
         };
         
-        // Initialize spark particle emitters for stickiness visual feedback
-        this.sparkEmitters = new Map(); // Map constraint → emitter
+        // Initialize pulsating circles for stickiness visual feedback
+        this.stickinessCircles = new Map(); // Map constraint → circle graphics
         
         // Initialize anchor system
         this.anchors = {
@@ -339,24 +342,24 @@ export default class DoubleWorm extends WormBase {
             }
         });
         
-        // Clean up sticky constraints and emitters
+        // Clean up sticky constraints and circles
         if (this.stickyConstraints) {
             Object.values(this.stickyConstraints).forEach(constraints => {
                 constraints.forEach(constraintData => {
                     this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-                    this.removeSparkEmitter(constraintData.constraint);
+                    this.removeStickinessCircle(constraintData.constraint);
                 });
             });
         }
         
-        // Clean up any remaining spark emitters
-        if (this.sparkEmitters) {
-            this.sparkEmitters.forEach((emitter, constraint) => {
-                if (emitter && emitter.scene) {
-                    emitter.destroy();
+        // Clean up any remaining stickiness circles
+        if (this.stickinessCircles) {
+            this.stickinessCircles.forEach((circle, constraint) => {
+                if (circle && circle.scene) {
+                    circle.destroy();
                 }
             });
-            this.sparkEmitters.clear();
+            this.stickinessCircles.clear();
         }
         
         // Call parent destroy
@@ -898,18 +901,18 @@ export default class DoubleWorm extends WormBase {
                 surfaceBody: collision.surfaceBody
             });
             
-            // Create spark emitter at contact point
-            this.createSparkEmitter(constraint, collision.contactPoint);
+            // Create pulsating circle at contact point
+            this.createStickinessCircle(constraint, collision.contactPoint);
         });
     }
     
     deactivateStickiness(section) {
         const constraints = this.stickyConstraints[section];
         
-        // Remove all constraints and emitters for this section
+        // Remove all constraints and circles for this section
         constraints.forEach(constraintData => {
             this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-            this.removeSparkEmitter(constraintData.constraint);
+            this.removeStickinessCircle(constraintData.constraint);
         });
         
         // Clear the array
@@ -930,9 +933,9 @@ export default class DoubleWorm extends WormBase {
                 if (collision && collision.isColliding && collision.surfaceBody === surfaceBody) {
                     validConstraints.push(constraintData);
                 } else {
-                    // Remove invalid constraint and its emitter
+                    // Remove invalid constraint and its circle
                     this.Matter.World.remove(this.matter.world.localWorld, constraint);
-                    this.removeSparkEmitter(constraint);
+                    this.removeStickinessCircle(constraint);
                 }
             });
             
@@ -940,67 +943,69 @@ export default class DoubleWorm extends WormBase {
         });
     }
     
-    createSparkEmitter(constraint, contactPoint) {
-        // Ensure we have a spark texture, create it if needed
-        if (!this.scene.textures.exists('spark')) {
-            this.createSparkTexture();
-        }
+    createStickinessCircle(constraint, contactPoint) {
+        const config = this.config.stickinessVisualConfig;
         
-        // Create a small particle emitter at the contact point
-        const emitter = this.scene.add.particles(contactPoint.x, contactPoint.y, 'spark', {
-            ...this.config.sparkParticleConfig,
-            emitZone: { 
-                type: 'edge', 
-                source: new Phaser.Geom.Circle(0, 0, 4) // Small emission radius
-            }
+        // Create a graphics object for the pulsating circle
+        const circle = this.scene.add.graphics();
+        circle.setPosition(contactPoint.x, contactPoint.y);
+        circle.setDepth(100); // Above segments and constraints
+        
+        // Create the pulsating animation
+        const pulseAnimation = this.scene.tweens.add({
+            targets: circle,
+            scaleX: config.pulseScale,
+            scaleY: config.pulseScale,
+            duration: config.pulseDuration / 2,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
         });
         
-        // Set emitter depth to be above segments but below UI
-        emitter.setDepth(50);
+        // Store both the circle and its animation
+        this.stickinessCircles.set(constraint, {
+            graphics: circle,
+            animation: pulseAnimation
+        });
         
-        // Store the emitter mapped to the constraint
-        this.sparkEmitters.set(constraint, emitter);
+        // Draw the initial circle
+        this.drawStickinessCircle(circle, config);
         
-        return emitter;
+        return circle;
     }
     
-    removeSparkEmitter(constraint) {
-        const emitter = this.sparkEmitters.get(constraint);
-        if (emitter) {
-            // Stop emitting new particles
-            emitter.stop();
+    drawStickinessCircle(graphics, config) {
+        graphics.clear();
+        graphics.fillStyle(config.circleColor, config.circleAlpha);
+        graphics.lineStyle(config.strokeWidth, config.strokeColor, 1.0);
+        graphics.fillCircle(0, 0, config.circleRadius);
+        graphics.strokeCircle(0, 0, config.circleRadius);
+    }
+    
+    removeStickinessCircle(constraint) {
+        const circleData = this.stickinessCircles.get(constraint);
+        if (circleData) {
+            const { graphics, animation } = circleData;
             
-            // Remove the emitter after existing particles fade out
-            this.scene.time.delayedCall(this.config.sparkParticleConfig.lifespan, () => {
-                if (emitter && emitter.scene) {
-                    emitter.destroy();
-                }
-            });
+            // Stop the animation
+            if (animation) {
+                animation.destroy();
+            }
+            
+            // Destroy the graphics object
+            if (graphics && graphics.scene) {
+                graphics.destroy();
+            }
             
             // Remove from tracking
-            this.sparkEmitters.delete(constraint);
+            this.stickinessCircles.delete(constraint);
         }
     }
     
-    updateSparkEmitterPosition(constraint, newContactPoint) {
-        const emitter = this.sparkEmitters.get(constraint);
-        if (emitter) {
-            emitter.setPosition(newContactPoint.x, newContactPoint.y);
+    updateStickinessCirclePosition(constraint, newContactPoint) {
+        const circleData = this.stickinessCircles.get(constraint);
+        if (circleData && circleData.graphics) {
+            circleData.graphics.setPosition(newContactPoint.x, newContactPoint.y);
         }
-    }
-    
-    createSparkTexture() {
-        // Create a red spark texture for grip/stop indication
-        const graphics = this.scene.add.graphics();
-        
-        // Draw a bright red circle for the spark
-        graphics.fillStyle(0xFF0000); // Bright red color
-        graphics.fillCircle(3, 3, 3); // 6x6 pixel spark for better visibility
-        
-        // Generate texture from graphics
-        graphics.generateTexture('spark', 6, 6);
-        
-        // Clean up the graphics object
-        graphics.destroy();
     }
 }
