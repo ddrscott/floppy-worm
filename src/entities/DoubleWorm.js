@@ -43,7 +43,7 @@ export default class DoubleWorm extends WormBase {
             connectionDotRadius: 0.4,
             
             // Jump visual parameters
-            jumpSpringLengthMultiplier: 1.5,
+            jumpSpringLengthMultiplier: 1,
             jumpTriggerThreshold: 0.01,
             jumpStiffness: 0.025,
 
@@ -216,35 +216,16 @@ export default class DoubleWorm extends WormBase {
     }
     
     calculateInitialLengths() {
-        // Calculate the initial straight length from head to attachment point
         if (this.segments.length > 2) {
-            const head = this.segments[0];
-            const headAttach = this.segments[this.segments.length - 2];
-            
-            let headLength = 0;
-            for (let i = 0; i < this.segments.length - 2; i++) {
-                const segA = this.segments[i];
-                const segB = this.segments[i + 1];
-                const dx = segB.position.x - segA.position.x;
-                const dy = segB.position.y - segA.position.y;
-                headLength += Math.sqrt(dx * dx + dy * dy);
-            }
-            this.springs.head.length = headLength * this.config.jumpSpringLengthMultiplier;
+            const segA = this.segments[0];
+            const segB = this.segments[this.segments.length - 2];
+            this.springs.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
         }
         
-        // Calculate the initial straight length from middle to tail
         if (this.segments.length > 2) {
-            const tailAttachIndex = parseInt(this.segments.length * this.config.tailSpringAttachPercent);
-            
-            let tailLength = 0;
-            for (let i = tailAttachIndex; i < this.segments.length - 1; i++) {
-                const segA = this.segments[i];
-                const segB = this.segments[i + 1];
-                const dx = segB.position.x - segA.position.x;
-                const dy = segB.position.y - segA.position.y;
-                tailLength += Math.sqrt(dx * dx + dy * dy);
-            }
-            this.springs.tail.length = tailLength * this.config.jumpSpringLengthMultiplier;
+            const segA = this.segments[1];
+            const segB = this.segments[this.segments.length - 1];
+            this.springs.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
         }
     }
 
