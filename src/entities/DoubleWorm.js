@@ -340,6 +340,12 @@ export default class DoubleWorm extends WormBase {
             if (springData.laser) {
                 springData.laser.destroy();
             }
+            // Clean up ground-anchored spring properties
+            if (springData.isGroundAnchored) {
+                springData.isGroundAnchored = false;
+                springData.groundBody = null;
+                springData.groundedSegment = null;
+            }
         });
         
         // Clean up sticky constraints and circles
@@ -779,12 +785,47 @@ export default class DoubleWorm extends WormBase {
         const segments = springData.getSegments();
         const stiffness = this.calculateStiffness(triggerValue);
         
-        springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
+        // Check for ground contact on opposite end for smarter anchoring
+        let groundedSegments = [];
+        if (type === 'head') {
+            // Head jumping - check if tail segments are grounded
+            groundedSegments = this.getGroundedSegmentsInRange(0.7, 1.0);
+        } else if (type === 'tail') {
+            // Tail jumping - check if head segments are grounded  
+            groundedSegments = this.getGroundedSegmentsInRange(0.0, 0.3);
+        }
+        
+        if (groundedSegments.length > 0) {
+            // Use ground-anchored spring for better physics
+            const jumpingSegment = segments.from;
+            const bestGroundContact = groundedSegments[0]; // Already sorted by distance
+            
+            const springResult = this.createGroundAnchoredSpring(
+                jumpingSegment, 
+                bestGroundContact, 
+                springData.length, 
+                stiffness
+            );
+
+            
+            springData.spring = springResult.constraint;
+            springData.isGroundAnchored = true;
+            springData.groundBody = springResult.groundBody;
+            springData.groundedSegment = springResult.groundedSegment;
+            
+            // Show trajectory to ground contact point instead of segment
+            this.showJumpTrajectory(type, bestGroundContact.segment, jumpingSegment);
+        } else {
+            // Fallback to traditional segment-to-segment spring
+            springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
+            springData.isGroundAnchored = false;
+            
+            // Show traditional trajectory
+            this.showJumpTrajectory(type, segments.to, segments.from);
+        }
+        
         this.Matter.World.add(this.matter.world.localWorld, springData.spring);
         springData.attached = true;
-        
-        // Show jump trajectory from the connection point
-        this.showJumpTrajectory(type, segments.to, segments.from);
     }
     
     detachSpring(type) {
@@ -794,18 +835,61 @@ export default class DoubleWorm extends WormBase {
             this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
             springData.spring = null;
             springData.attached = false;
+            
+            // Clean up ground-anchored spring properties
+            if (springData.isGroundAnchored) {
+                springData.isGroundAnchored = false;
+                springData.groundBody = null;
+                springData.groundedSegment = null;
+            }
         }
     }
     
     updateSpringStiffness(type, triggerValue) {
         const springData = this.springs[type];
         if (springData.spring) {
+            // Check if we need to convert ground-anchored spring back to segment spring
+            if (springData.isGroundAnchored && springData.groundedSegment) {
+                const segmentIndex = this.segments.indexOf(springData.groundedSegment);
+                const collision = this.segmentCollisions[segmentIndex];
+                
+                // If the grounded segment is no longer touching the ground, convert to segment spring
+                if (!collision || !collision.isColliding || collision.surfaceBody !== springData.groundBody) {
+                    this.convertToSegmentSpring(type, triggerValue);
+                    return;
+                }
+            }
+            
             springData.spring.stiffness = this.calculateStiffness(triggerValue);
         }
     }
     
     calculateStiffness(triggerValue) {
         return triggerValue * this.config.jumpStiffness;
+    }
+    
+    convertToSegmentSpring(type, triggerValue) {
+        const springData = this.springs[type];
+        
+        // Remove the current ground-anchored spring
+        if (springData.spring) {
+            this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
+        }
+        
+        // Create new segment-to-segment spring
+        const segments = springData.getSegments();
+        const stiffness = this.calculateStiffness(triggerValue);
+        
+        springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
+        this.Matter.World.add(this.matter.world.localWorld, springData.spring);
+        
+        // Clear ground-anchored properties
+        springData.isGroundAnchored = false;
+        springData.groundBody = null;
+        springData.groundedSegment = null;
+        
+        // Update trajectory visualization
+        this.showJumpTrajectory(type, segments.to, segments.from);
     }
     
     updateStickinessSystem(headActive, tailActive) {
@@ -1007,5 +1091,69 @@ export default class DoubleWorm extends WormBase {
         if (circleData && circleData.graphics) {
             circleData.graphics.setPosition(newContactPoint.x, newContactPoint.y);
         }
+    }
+    
+    // Ground contact detection for jump spring anchoring
+    getGroundedSegmentsInRange(startPercent, endPercent) {
+        if (!this.segments || !this.segmentCollisions) {
+            return [];
+        }
+        
+        const totalSegments = this.segments.length;
+        const startIndex = Math.floor(totalSegments * startPercent);
+        const endIndex = Math.floor(totalSegments * endPercent);
+        
+        const groundedSegments = [];
+        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
+            const collision = this.segmentCollisions[i];
+            
+            if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
+                groundedSegments.push({
+                    index: i,
+                    segment: this.segments[i],
+                    collision: collision,
+                    // Distance from jumping end for prioritization
+                    distanceFromStart: Math.abs(i - startIndex)
+                });
+            }
+        }
+        
+        
+        // Sort by distance from range start (closest first for better leverage)
+        groundedSegments.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+        
+        return groundedSegments;
+    }
+    
+    createGroundAnchoredSpring(jumpingSegment, groundedSegmentData, springLength, stiffness) {
+        const { segment: groundedSegment, collision } = groundedSegmentData;
+        
+        // Calculate relative position on ground body for the anchor point
+        const groundRelativePoint = {
+            x: collision.contactPoint.x - collision.surfaceBody.position.x,
+            y: collision.contactPoint.y - collision.surfaceBody.position.y
+        };
+        
+        // Create constraint from jumping segment to ground contact point
+        const spring = this.Matter.Constraint.create({
+            bodyA: jumpingSegment,
+            bodyB: collision.surfaceBody, // Anchor to static ground body
+            pointA: { x: 0, y: 0 }, // Center of jumping segment
+            pointB: groundRelativePoint, // Contact point on ground
+            length: springLength,
+            stiffness: stiffness,
+            render: {
+                visible: this.config.showDebug,
+                strokeStyle: '#00FF00', // Green for ground-anchored springs
+                lineWidth: 3
+            }
+        });
+        
+        return {
+            constraint: spring,
+            isGroundAnchored: true,
+            groundBody: collision.surfaceBody,
+            groundedSegment: groundedSegment
+        };
     }
 }
