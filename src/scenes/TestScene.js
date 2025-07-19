@@ -223,10 +223,28 @@ export default class TestScene extends Phaser.Scene {
         });
         actionsFolder.open();
         
+        // Compression springs folder
+        const compressionFolder = this.gui.addFolder('Compression Springs');
+        compressionFolder.add(this.physicsParams, 'baseCompressionStiffness', 0, 0.02).name('Base Stiffness').step(0.001).onChange(value => {
+            this.worm.config.baseCompressionStiffness = value;
+        });
+        compressionFolder.add(this.physicsParams, 'maxCompressionStiffness', 0, 0.1).name('Max Stiffness').step(0.005).onChange(value => {
+            this.worm.config.maxCompressionStiffness = value;
+        });
+        compressionFolder.add(this.physicsParams, 'compressionTriggerSensitivity', 0, 2).name('Trigger Sensitivity').step(0.1).onChange(value => {
+            this.worm.config.compressionTriggerSensitivity = value;
+        });
+        compressionFolder.open();
+        
         // Anti-flying folder
         const antiFlyFolder = this.gui.addFolder('Anti-Flying');
         this.physicsParams.groundingForce = this.worm.groundingForce || 0.0003;
         this.physicsParams.groundingSegments = this.worm.groundingSegments || 0.4;
+        
+        // Initialize compression spring parameters for GUI
+        this.physicsParams.baseCompressionStiffness = this.worm.config.baseCompressionStiffness || 0.005;
+        this.physicsParams.maxCompressionStiffness = this.worm.config.maxCompressionStiffness || 0.05;
+        this.physicsParams.compressionTriggerSensitivity = this.worm.config.compressionTriggerSensitivity || 1.0;
         
         antiFlyFolder.add(this.physicsParams, 'groundingForce', 0, 0.001).name('Grounding Force').step(0.00001).onChange(value => {
             this.worm.groundingForce = value;
