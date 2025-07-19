@@ -184,12 +184,8 @@ export default class WormBase {
     // Color helpers
     getSegmentColor(index, total) {
         if (index === 0) return 0xff6b6b;
-        else if (index === 1) return 0xffa502;
-        else if (index === 2) return 0xffd93d;
-        else if (index < 5) return 0x6bcf7f;
-        else if (index < 8) return 0x4ecdc4;
-        else if (index < 11) return 0x74b9ff;
-        else return 0xa29bfe;
+        else if (index < 3) return 0xffa502;
+        else return 0xF2C40A;
     }
     
     getDarkerColor(color) {
