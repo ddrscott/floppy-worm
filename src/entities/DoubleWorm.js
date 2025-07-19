@@ -81,6 +81,17 @@ export default class DoubleWorm extends WormBase {
                                             // Higher = more explosive jumps, stronger spring force
                                             // Lower = gentler spring assistance, subtle effect
 
+            // Compression Spring Physics - Controls trigger-responsive body tension
+            baseCompressionStiffness: 0.005,    // Base stiffness when no triggers pressed
+                                                // Higher = stiffer baseline body, less flexibility
+                                                // Lower = more flexible baseline, looser feel
+            maxCompressionStiffness: 0.5,      // Maximum stiffness at full trigger activation
+                                                // Higher = very rigid body when tensed, precise control
+                                                // Lower = moderate stiffening, maintains some flexibility
+            compressionTriggerSensitivity: 1.0, // How responsive compression is to trigger input (0-2 typical)
+                                                // Higher = more dramatic stiffness changes per trigger input
+                                                // Lower = subtle stiffness changes, more gradual response
+
             // laser guidance
             laserLineWidth: 4,
             laserGlowWidth: 8,
@@ -92,7 +103,7 @@ export default class DoubleWorm extends WormBase {
             
             // Stickiness Physics - Constraint-based surface grip system
             stickinessActivationThreshold: 0.3,  // Minimum stick input magnitude to activate
-            stickinessConstraintStiffness: 0.1,  // Strength of sticky constraints (0-1)
+            stickinessConstraintStiffness: 0.3,  // Strength of sticky constraints (0-1)
             stickinessConstraintDamping: 0.5,    // Damping for sticky constraints  
             headStickinessSegmentCount: 0.3,     // Fraction of head segments that can stick
             tailStickinessSegmentCount: 0.3,     // Fraction of tail segments that can stick
@@ -463,6 +474,13 @@ export default class DoubleWorm extends WormBase {
         // Right trigger or Q controls tail spring
         const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         this.handleJumpSpring('tail', tailTriggerValue);
+        
+        // Update compression spring stiffness based on trigger values
+        const maxTriggerValue = Math.max(headTriggerValue, tailTriggerValue);
+        const compressionStiffness = this.config.baseCompressionStiffness + 
+            (maxTriggerValue * this.config.compressionTriggerSensitivity * 
+             (this.config.maxCompressionStiffness - this.config.baseCompressionStiffness));
+        this.updateCompressionStiffness(compressionStiffness);
         
         // Update stickiness system using section-based processing
         this.updateStickinessSystemSections([

@@ -9,7 +9,7 @@ export default class TowerScene extends Phaser.Scene {
         
         // Level dimension constants - tweak these to adjust level size
         this.CHAR_WIDTH = 96;   // Width of each ASCII character in pixels
-        this.CHAR_HEIGHT = 36;  // Height of each ASCII character in pixels
+        this.CHAR_HEIGHT = 48;  // Height of each ASCII character in pixels
         this.ROW_SPACING = 96; // Vertical spacing between rows in pixels
         this.LEVEL_WIDTH = this.CHAR_WIDTH * 16; // width * number of characters per row
         
@@ -20,14 +20,14 @@ export default class TowerScene extends Phaser.Scene {
         // * = goal/target
         this.levelData = `
             ................
-            ..*.............
+            ..*.......W.....
             .---............
             ................
             .............--.
             ................
             .---............
             ................
-            ......----.....W
+            ......----......
             ................
             ................
             ------..........
@@ -245,6 +245,23 @@ export default class TowerScene extends Phaser.Scene {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             showDebug: false
+        });
+
+        // Add a random impulse to make the worm start with some movement
+        this.time.delayedCall(5, () => {
+            if (this.worm && this.worm.segments) {
+                // Apply random horizontal force to a middle segment for natural movement
+                const middleIndex = Math.floor(this.worm.segments.length / 2);
+                const targetSegment = this.worm.segments[middleIndex];
+                
+                // Small random horizontal impulse (positive or negative)
+                const randomForceX = (Math.random() - 0.5) * 0.004; // Range: -0.001 to 0.001
+                
+                this.matter.body.applyForce(targetSegment, targetSegment.position, {
+                    x: randomForceX,
+                    y: randomForceX
+                });
+            }
         });
         
         // Create camera target - invisible rectangle that follows worm
