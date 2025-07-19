@@ -336,16 +336,42 @@ export default class WormBase {
         }
     }
     
-    // Utility method to get segments touching surfaces in a given range
-    getTouchingSegments(startPercent, endPercent) {
-        if (!this.segments || !this.segmentCollisions) return [];
+    // Utility methods for segment range operations
+    getSegmentRange(startPercent, endPercent) {
+        if (!this.segments) return { startIndex: 0, endIndex: 0, count: 0 };
         
         const totalSegments = this.segments.length;
         const startIndex = Math.floor(totalSegments * startPercent);
         const endIndex = Math.floor(totalSegments * endPercent);
+        const count = endIndex - startIndex;
         
+        return { startIndex, endIndex, count };
+    }
+    
+    getSegmentsInRange(startPercent, endPercent) {
+        if (!this.segments) return [];
+        
+        const { startIndex, endIndex } = this.getSegmentRange(startPercent, endPercent);
+        const segmentsInRange = [];
+        
+        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
+            segmentsInRange.push({
+                index: i,
+                segment: this.segments[i]
+            });
+        }
+        
+        return segmentsInRange;
+    }
+    
+    // Utility method to get segments touching surfaces in a given range
+    getTouchingSegments(startPercent, endPercent) {
+        if (!this.segments || !this.segmentCollisions) return [];
+        
+        const { startIndex, endIndex } = this.getSegmentRange(startPercent, endPercent);
         const touchingSegments = [];
-        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
+        
+        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
             if (this.segmentCollisions[i].isColliding) {
                 touchingSegments.push({
                     index: i,
@@ -356,5 +382,45 @@ export default class WormBase {
         }
         
         return touchingSegments;
+    }
+    
+    // Get segments with static body collisions in range (for ground detection)
+    getGroundedSegmentsInRange(startPercent, endPercent) {
+        if (!this.segments || !this.segmentCollisions) return [];
+        
+        const { startIndex, endIndex } = this.getSegmentRange(startPercent, endPercent);
+        const groundedSegments = [];
+        
+        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
+            const collision = this.segmentCollisions[i];
+            if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
+                groundedSegments.push({
+                    index: i,
+                    segment: this.segments[i],
+                    collision: collision,
+                    distanceFromStart: Math.abs(i - startIndex)
+                });
+            }
+        }
+        
+        // Sort by distance from range start for better leverage
+        groundedSegments.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+        
+        return groundedSegments;
+    }
+    
+    // Input processing utilities
+    calculateStickMagnitude(stick) {
+        return Math.sqrt(stick.x * stick.x + stick.y * stick.y);
+    }
+    
+    normalizeStickDirection(stick) {
+        const magnitude = this.calculateStickMagnitude(stick);
+        if (magnitude === 0) return { x: 0, y: 0 };
+        
+        return {
+            x: stick.x / magnitude,
+            y: stick.y / magnitude
+        };
     }
 }
