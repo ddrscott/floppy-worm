@@ -46,6 +46,21 @@ export default class TowerScene extends Phaser.Scene {
         
         this.platforms = [];
         this.platformColors = [0xff6b6b, 0x4ecdc4, 0x95e1d3, 0xfeca57, 0xa29bfe];
+        
+        // Mini-map configuration - will be updated dynamically in create()
+        this.miniMapConfig = {
+            width: 200,
+            height: 200,
+            padding: 20,
+            visible: true
+        };
+        this.minimap = null;
+        
+        // Store elements to hide from mini-map
+        this.minimapIgnoreList = [];
+        
+        // Track gamepad button state for mini-map toggle
+        this.button2WasPressed = false;
     }
 
     create() {
@@ -68,6 +83,35 @@ export default class TowerScene extends Phaser.Scene {
         // Parse and create level
         this.parseLevel(levelRows);
         
+        this.levelHeight = levelHeight;
+        this.levelWidth = this.LEVEL_WIDTH;
+
+        // Update mini-map size based on level proportions
+        const levelAspectRatio = this.levelWidth / levelHeight;
+        const maxMiniMapWidth = 150;
+        const maxMiniMapHeight = 250;
+        const minMiniMapSize = 80;
+        
+        // Calculate ideal mini-map size while maintaining aspect ratio
+        let miniMapWidth, miniMapHeight;
+        
+        if (levelAspectRatio > 1) {
+            // Level is wider than tall
+            miniMapWidth = Math.min(maxMiniMapWidth, minMiniMapSize * Math.sqrt(levelAspectRatio * 2));
+            miniMapHeight = miniMapWidth / levelAspectRatio;
+        } else {
+            // Level is taller than wide
+            miniMapHeight = Math.min(maxMiniMapHeight, minMiniMapSize * Math.sqrt(2 / levelAspectRatio));
+            miniMapWidth = miniMapHeight * levelAspectRatio;
+        }
+        
+        // Ensure minimum sizes
+        this.miniMapConfig.width = Math.max(minMiniMapSize, miniMapWidth);
+        this.miniMapConfig.height = Math.max(minMiniMapSize, miniMapHeight);
+
+        // Create mini-map camera (after level is parsed)
+        this.createMiniMap(levelHeight);
+        
         // Create UI
         this.createUI();
         
@@ -78,6 +122,11 @@ export default class TowerScene extends Phaser.Scene {
         // ESC to return to levels menu
         this.input.keyboard.on('keydown-ESC', () => {
             this.scene.start('LevelsScene');
+        });
+        
+        // TAB to toggle mini-map
+        this.input.keyboard.on('keydown-M', () => {
+            this.toggleMiniMap();
         });
         
         // Camera controls
@@ -116,6 +165,9 @@ export default class TowerScene extends Phaser.Scene {
         graphics.strokePath();
         graphics.setDepth(-100);
         
+        // Store grid for mini-map ignore list
+        this.minimapIgnoreList.push(graphics);
+        
         // Add height markers every 5 grid lines (counting from bottom = 0)
         // Count grid lines from bottom to top, aligning with the actual horizontal grid lines
         for (let y = 0; y <= height; y += this.CHAR_WIDTH) {
@@ -124,7 +176,7 @@ export default class TowerScene extends Phaser.Scene {
             // Every 5th grid line gets a marker (but skip zero)
             if (gridLineNumber % 5 === 0 && gridLineNumber > 0) {
                 // Create height marker text on the left
-                this.add.text(10, height - y - 10, `${gridLineNumber}`, {
+                const leftText = this.add.text(10, height - y - 10, `${gridLineNumber}`, {
                     fontSize: '16px',
                     color: '#4ecdc4',
                     backgroundColor: 'rgba(0,0,0,0.8)',
@@ -132,7 +184,7 @@ export default class TowerScene extends Phaser.Scene {
                 });
                 
                 // Create height marker text on the right
-                this.add.text(this.LEVEL_WIDTH - 40, height - y - 10, `${gridLineNumber}`, {
+                const rightText = this.add.text(this.LEVEL_WIDTH - 40, height - y - 10, `${gridLineNumber}`, {
                     fontSize: '16px',
                     color: '#4ecdc4',
                     backgroundColor: 'rgba(0,0,0,0.8)',
@@ -146,6 +198,11 @@ export default class TowerScene extends Phaser.Scene {
                 markerGraphics.lineTo(this.LEVEL_WIDTH, height - y);
                 markerGraphics.strokePath();
                 markerGraphics.setDepth(-50);
+                
+                // Store height markers for mini-map ignore list
+                this.minimapIgnoreList.push(leftText);
+                this.minimapIgnoreList.push(rightText);
+                this.minimapIgnoreList.push(markerGraphics);
             }
         }
     }
@@ -309,12 +366,19 @@ export default class TowerScene extends Phaser.Scene {
     
     createUI() {
         // Title
-        this.add.text(20, 20, 'Floppy Worm', {
+        const title = this.add.text(20, 20, 'Floppy Worm', {
             fontSize: '24px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
+        
+        // Hide UI from mini-map
+        if (this.minimap) {
+            this.minimap.ignore(title);
+        } else {
+            this.minimapIgnoreList.push(title);
+        }
         
         // Controls - only show on desktop
         const isTouchDevice = ('ontouchstart' in window) || 
@@ -322,27 +386,155 @@ export default class TowerScene extends Phaser.Scene {
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            // Use the reusable ControlsDisplay component
             this.controlsDisplay = new ControlsDisplay(this, 20, 60);
+            this.minimap.ignore(this.controlsDisplay.elements);
         }
+    }
+    
+    createMiniMap(levelHeight) {
+        // Calculate mini-map position (upper-right corner)
+        const screenWidth = this.scale.width;
+        const screenHeight = this.scale.height;
+        const mapX = screenWidth - this.miniMapConfig.width - this.miniMapConfig.padding;
+        const mapY = this.miniMapConfig.padding;
+        
+        // Create mini-map camera
+        this.minimap = this.cameras.add(mapX, mapY, this.miniMapConfig.width, this.miniMapConfig.height);
+        
+        // Set camera bounds to cover the entire level
+        this.minimap.setBounds(0, 0, this.LEVEL_WIDTH, levelHeight);
+        
+        // Calculate zoom to fit entire level in mini-map
+        const zoomX = this.miniMapConfig.width / this.LEVEL_WIDTH;
+        const zoomY = this.miniMapConfig.height / levelHeight;
+        const zoom = Math.min(zoomX, zoomY) * 0.9; // 0.9 for small margin
+        
+        this.minimap.setZoom(zoom);
+        
+        // Set background color and center on level
+        this.minimap.setBackgroundColor(0x2c3e50);
+        this.minimap.centerOn(this.LEVEL_WIDTH / 2, levelHeight / 2);
+        
+        // Set mini-map name for debugging
+        this.minimap.setName('minimap');
+        
+        // Apply ignore list to hide clutter from mini-map
+        this.minimapIgnoreList.forEach(element => {
+            this.minimap.ignore(element);
+        });
+        
+        // Clear the ignore list since it's been applied
+        this.minimapIgnoreList = [];
+        
+        // Add visual border around mini-map
+        this.createMiniMapBorder(mapX, mapY);
+        
+        // Create viewport indicator for mini-map
+        this.createViewportIndicator();
+    }
+    
+    createMiniMapBorder(x, y) {
+        // Create border graphics
+        this.miniMapBorder = this.add.graphics();
+        this.miniMapBorder.lineStyle(2, 0x34495e, 1);
+        this.miniMapBorder.strokeRect(x, y, this.miniMapConfig.width, this.miniMapConfig.height);
+        this.miniMapBorder.setScrollFactor(0);
+        this.miniMapBorder.setDepth(1001); // Above mini-map
+        
+        // Add mini-map label
+        this.miniMapLabel = this.add.text(x + 5, y - 20, 'Map (M)', {
+            fontSize: '12px',
+            color: '#4ecdc4',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 4, y: 2 }
+        }).setScrollFactor(0).setDepth(1001);
+        
+        // Hide border from mini-map itself
+        if (this.minimap) {
+            this.minimap.ignore(this.miniMapBorder);
+            this.minimap.ignore(this.miniMapLabel);
+        }
+    }
+    
+    createViewportIndicator() {
+        // Create a rectangle to show the main camera's viewport in the mini-map
+        console.log('this', this);
+        this.viewportIndicator = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x4ecdc4);
+        this.viewportIndicator.setStrokeStyle(5, 0x4ecdc4, 0.8);
+        this.viewportIndicator.setFillStyle(0x4ecdc4, 0.1);
+        this.viewportIndicator.setDepth(100);
+        
+        // Hide from main camera but show in mini-map
+        this.cameras.main.ignore(this.viewportIndicator);
+    }
+    
+    updateMiniMapBorder(x, y) {
+        if (this.miniMapBorder) {
+            this.miniMapBorder.clear();
+            this.miniMapBorder.lineStyle(2, 0x34495e, 1);
+            this.miniMapBorder.strokeRect(x, y, this.miniMapConfig.width, this.miniMapConfig.height);
+        }
+        
+        if (this.miniMapLabel) {
+            this.miniMapLabel.setPosition(x + 5, y - 20);
+        }
+    }
+    
+    updateViewportIndicator() {
+        if (!this.viewportIndicator || !this.minimap || !this.miniMapConfig.visible) return;
+        
+        const mainCam = this.cameras.main;
+        const miniZoom = this.minimap.zoom;
+        
+        // Calculate viewport size in world coordinates based on current screen size
+        const viewWidth = mainCam.width / mainCam.zoom;
+        const viewHeight = mainCam.height / mainCam.zoom;
+        
+        // Get the actual visible area center from the main camera
+        const centerX = mainCam.worldView.centerX;
+        const centerY = mainCam.worldView.centerY;
+        
+        // Set viewport indicator position to match main camera center
+        this.viewportIndicator.setPosition(centerX, centerY);
+        
+        // Scale viewport indicator to show actual viewport size in mini-map scale
+        // The viewport indicator should be scaled by the mini-map's zoom level
+        // This makes it represent the actual viewport size in the mini-map coordinate system
+        const scaleX = viewWidth * miniZoom / 50;  // 50 is the base width of the indicator
+        const scaleY = viewHeight * miniZoom / 30; // 30 is the base height of the indicator
+        this.viewportIndicator.setScale(scaleX, scaleY);
     }
     
     handleResize() {
         const width = this.scale.width;
-        const height = this.scale.height;
-        
-        // Calculate zoom to fit level width in viewport
-        const zoomToFitWidth = width / this.LEVEL_WIDTH;
         
         this.cameras.main.startFollow(this.cameraTarget, true);
-        this.cameras.main.setZoom(Math.max(zoomToFitWidth, .8));
-        console.log(`Camera zoom set to: ${this.cameras.main.zoom}`);
-        
+        this.cameras.main.setZoom(1);
         this.cameras.main.setDeadzone(100, 100);
+
+        console.log('Main camera', this.cameras.main);
+        
+        // Reposition mini-map on resize
+        if (this.minimap) {
+            const mapX = width - this.miniMapConfig.width - this.miniMapConfig.padding;
+            const mapY = this.miniMapConfig.padding;
+            this.minimap.setPosition(mapX, mapY);
+            this.updateMiniMapBorder(mapX, mapY);
+            
+            // Update viewport indicator since screen size changed
+            this.updateViewportIndicator();
+        }
     }
     
     update(time, delta) {
         this.worm.update(delta);
+        
+        // Check for gamepad button 2 to toggle mini-map
+        const pad = this.input.gamepad.getPad(0);
+        if (pad && pad.buttons[2] && pad.buttons[2].pressed && !this.button2WasPressed) {
+            this.toggleMiniMap();
+        }
+        this.button2WasPressed = pad && pad.buttons[2] && pad.buttons[2].pressed;
         
         // Update camera target to follow worm head
         if (this.cameraTarget && this.worm) {
@@ -352,6 +544,18 @@ export default class TowerScene extends Phaser.Scene {
                 this.cameraTarget.x = (head.position.x + tail.position.x) / 2;
                 this.cameraTarget.y = (head.position.y + tail.position.y) / 2;
             }
+        }
+        
+        // Update mini-map and viewport indicator
+        if (this.minimap && this.worm && this.miniMapConfig.visible) {
+            const head = this.worm.getHead();
+            if (head) {
+                // Center mini-map on worm position
+                this.minimap.centerOn(head.position.x, head.position.y);
+            }
+            
+            // Update viewport indicator to show main camera position
+            this.updateViewportIndicator();
         }
         
         // Check if worm reached goal
@@ -381,7 +585,7 @@ export default class TowerScene extends Phaser.Scene {
         }).setOrigin(0.5).setScrollFactor(0);
         
         // Add completion message
-        this.add.text(500, 380, `Tower Completed!`, {
+        const completionText = this.add.text(500, 380, `Tower Completed!`, {
             fontSize: '32px',
             color: '#ffffff',
             stroke: '#000000',
@@ -389,12 +593,19 @@ export default class TowerScene extends Phaser.Scene {
         }).setOrigin(0.5).setScrollFactor(0);
         
         // Return to menu button
-        this.add.text(500, 450, 'Press ESC to return to menu', {
+        const menuText = this.add.text(500, 450, 'Press ESC to return to menu', {
             fontSize: '20px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: { x: 20, y: 10 }
         }).setOrigin(0.5).setScrollFactor(0);
+        
+        // Hide victory text from mini-map
+        if (this.minimap) {
+            this.minimap.ignore(victoryText);
+            this.minimap.ignore(completionText);
+            this.minimap.ignore(menuText);
+        }
         
         // Re-enable ESC key only
         this.input.keyboard.enabled = true;
@@ -415,6 +626,11 @@ export default class TowerScene extends Phaser.Scene {
                     Phaser.Display.Color.RandomRGB().color
                 ).setScrollFactor(0);
                 
+                // Hide celebration stars from mini-map
+                if (this.minimap) {
+                    this.minimap.ignore(star);
+                }
+                
                 this.tweens.add({
                     targets: star,
                     alpha: 0,
@@ -422,6 +638,45 @@ export default class TowerScene extends Phaser.Scene {
                     duration: 1000,
                     onComplete: () => star.destroy()
                 });
+            });
+        }
+    }
+    
+    toggleMiniMap() {
+        if (this.minimap) {
+            this.miniMapConfig.visible = !this.miniMapConfig.visible;
+            this.minimap.setVisible(this.miniMapConfig.visible);
+            
+            // Toggle border, label, and viewport indicator visibility
+            if (this.miniMapBorder) {
+                this.miniMapBorder.setVisible(this.miniMapConfig.visible);
+            }
+            if (this.miniMapLabel) {
+                this.miniMapLabel.setVisible(this.miniMapConfig.visible);
+            }
+            if (this.viewportIndicator) {
+                this.viewportIndicator.setVisible(this.miniMapConfig.visible);
+            }
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 50, 
+                this.miniMapConfig.visible ? 'Mini-map ON' : 'Mini-map OFF', {
+                fontSize: '20px',
+                color: this.miniMapConfig.visible ? '#4ecdc4' : '#ff6b6b',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 15, y: 8 }
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            // Hide feedback text from mini-map
+            if (this.minimap) {
+                this.minimap.ignore(text);
+            }
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 1500,
+                onComplete: () => text.destroy()
             });
         }
     }
@@ -439,6 +694,11 @@ export default class TowerScene extends Phaser.Scene {
                 backgroundColor: 'rgba(0,0,0,0.8)',
                 padding: { x: 20, y: 10 }
             }).setOrigin(0.5).setScrollFactor(0);
+            
+            // Hide from mini-map
+            if (this.minimap) {
+                this.minimap.ignore(text);
+            }
             
             this.tweens.add({
                 targets: text,
@@ -467,6 +727,11 @@ export default class TowerScene extends Phaser.Scene {
                 backgroundColor: 'rgba(0,0,0,0.8)',
                 padding: { x: 20, y: 10 }
             }).setOrigin(0.5).setScrollFactor(0);
+            
+            // Hide from mini-map
+            if (this.minimap) {
+                this.minimap.ignore(text);
+            }
             
             this.tweens.add({
                 targets: text,
