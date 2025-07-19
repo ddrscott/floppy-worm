@@ -113,7 +113,7 @@ export default class WormBase {
             this.connectionDots.push(dot);
         }
         
-        this.springs = [];
+        this.compressionSprings = [];
         for (let i = 0; i < segments.length - 1; i++) {
             const segA = segments[i];
             const segB = segments[i + 1];
@@ -128,9 +128,9 @@ export default class WormBase {
                 stiffness: 0.005,
                 damping: 0.9
             });
-            this.springs.push(spacingConstraint);
+            this.compressionSprings.push(spacingConstraint);
         }
-        this.Matter.World.add(this.matter.world.localWorld, this.springs);
+        this.Matter.World.add(this.matter.world.localWorld, this.compressionSprings);
         
         // Store references
         this.segments = segments;
