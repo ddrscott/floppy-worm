@@ -142,8 +142,8 @@ export default class DoubleWorm extends WormBase {
                 laser: this.scene.add.graphics(),
                 color: this.config.tailColor,
                 getSegments: () => ({
-                    from: this.segments[parseInt(this.segments.length * this.config.tailSpringAttachPercent)],
-                    to: this.segments[this.segments.length - 1]
+                    from: this.segments[this.segments.length - 1],
+                    to: this.segments[1]
                 })
             }
         };
