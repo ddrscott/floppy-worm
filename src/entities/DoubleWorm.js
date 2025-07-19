@@ -45,7 +45,7 @@ export default class DoubleWorm extends WormBase {
             // Jump visual parameters
             jumpSpringLengthMultiplier: 1,
             jumpTriggerThreshold: 0.01,
-            jumpStiffness: 0.025,
+            jumpStiffness: 0.0375,
 
             // laser guidance
             laserLineWidth: 4,
