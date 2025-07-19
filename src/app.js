@@ -39,6 +39,11 @@ export const game = new Phaser.Game(
     input: {
         gamepad: true
     },
-    scene: [TestScene, TowerScene, LevelsScene, GamepadTest, ]
+    scene: [
+        TowerScene,
+        LevelsScene,
+        GamepadTest,
+        TestScene,
+    ]
 }
 );

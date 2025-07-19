@@ -22,8 +22,14 @@ export default class WormBase {
             ...config
         };
         
+        // Initialize collision tracking for stickiness system
+        this.segmentCollisions = [];
+        
         // Create the worm structure
         this.create(x, y);
+        
+        // Set up collision detection after segments are created
+        this.setupCollisionDetection();
     }
 
     colorToHex(color) {
@@ -243,5 +249,116 @@ export default class WormBase {
                 }
             });
         }
+        
+        // Clean up collision detection
+        this.cleanupCollisionDetection();
+    }
+    
+    // Collision Detection System for Stickiness
+    setupCollisionDetection() {
+        // Initialize collision data for each segment
+        this.segmentCollisions = this.segments.map(() => ({
+            isColliding: false,
+            contactPoint: { x: 0, y: 0 },
+            surfaceBody: null,
+            surfaceNormal: { x: 0, y: 1 }
+        }));
+        
+        // Set up Matter.js collision events
+        this.matter.world.on('collisionstart', this.handleCollisionStart.bind(this));
+        this.matter.world.on('collisionend', this.handleCollisionEnd.bind(this));
+    }
+    
+    handleCollisionStart(event) {
+        if (!this.segments) return;
+        
+        event.pairs.forEach(pair => {
+            const { bodyA, bodyB } = pair;
+            
+            // Check if one of the bodies is a worm segment
+            const segmentIndex = this.segments.findIndex(seg => seg === bodyA || seg === bodyB);
+            if (segmentIndex === -1) return;
+            
+            const segment = this.segments[segmentIndex];
+            const otherBody = segment === bodyA ? bodyB : bodyA;
+            
+            // Only track collisions with static bodies (platforms, ground)
+            if (!otherBody.isStatic) return;
+            
+            // Calculate contact point and surface normal
+            const collision = pair.collision;
+            // Use the first support point as the contact point
+            const contactPoint = collision.supports && collision.supports.length > 0 ? 
+                { x: collision.supports[0].x, y: collision.supports[0].y } :
+                { x: segment.position.x, y: segment.position.y };
+            
+            // Surface normal points away from the static surface
+            const normal = segment === bodyA ? 
+                { x: collision.normal.x, y: collision.normal.y } : 
+                { x: -collision.normal.x, y: -collision.normal.y };
+            
+            // Update collision data
+            this.segmentCollisions[segmentIndex] = {
+                isColliding: true,
+                contactPoint: contactPoint,
+                surfaceBody: otherBody,
+                surfaceNormal: normal
+            };
+        });
+    }
+    
+    handleCollisionEnd(event) {
+        if (!this.segments) return;
+        
+        event.pairs.forEach(pair => {
+            const { bodyA, bodyB } = pair;
+            
+            // Check if one of the bodies is a worm segment
+            const segmentIndex = this.segments.findIndex(seg => seg === bodyA || seg === bodyB);
+            if (segmentIndex === -1) return;
+            
+            const segment = this.segments[segmentIndex];
+            const otherBody = segment === bodyA ? bodyB : bodyA;
+            
+            // Only track static body collisions
+            if (!otherBody.isStatic) return;
+            
+            // Clear collision data
+            this.segmentCollisions[segmentIndex] = {
+                isColliding: false,
+                contactPoint: { x: 0, y: 0 },
+                surfaceBody: null,
+                surfaceNormal: { x: 0, y: 1 }
+            };
+        });
+    }
+    
+    cleanupCollisionDetection() {
+        if (this.matter && this.matter.world) {
+            this.matter.world.off('collisionstart', this.handleCollisionStart);
+            this.matter.world.off('collisionend', this.handleCollisionEnd);
+        }
+    }
+    
+    // Utility method to get segments touching surfaces in a given range
+    getTouchingSegments(startPercent, endPercent) {
+        if (!this.segments || !this.segmentCollisions) return [];
+        
+        const totalSegments = this.segments.length;
+        const startIndex = Math.floor(totalSegments * startPercent);
+        const endIndex = Math.floor(totalSegments * endPercent);
+        
+        const touchingSegments = [];
+        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
+            if (this.segmentCollisions[i].isColliding) {
+                touchingSegments.push({
+                    index: i,
+                    segment: this.segments[i],
+                    collision: this.segmentCollisions[i]
+                });
+            }
+        }
+        
+        return touchingSegments;
     }
 }
