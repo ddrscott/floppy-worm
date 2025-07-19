@@ -31,10 +31,10 @@ export default class DoubleWorm extends WormBase {
                                           // Lower = lighter anchors, more responsive
             
             // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 0.2,          // How quickly stick velocity decays over time (0-1)
+            velocityDamping: 0.3,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.0007,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.0008,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
@@ -91,7 +91,7 @@ export default class DoubleWorm extends WormBase {
             laserFadeDuration: 1000,
             
             // Stickiness Physics - Constraint-based surface grip system
-            stickinessActivationThreshold: 0.3,  // Minimum downward stick input to activate
+            stickinessActivationThreshold: 0.3,  // Minimum stick input magnitude to activate
             stickinessConstraintStiffness: 0.1,  // Strength of sticky constraints (0-1)
             stickinessConstraintDamping: 0.5,    // Damping for sticky constraints  
             headStickinessSegmentCount: 0.3,     // Fraction of head segments that can stick
@@ -191,7 +191,7 @@ export default class DoubleWorm extends WormBase {
         this.createAnchors();
 
         // Initialize spring system
-        this.springs = {
+        this.jumpSprings = {
             head: {
                 spring: null,
                 attached: false,
@@ -217,7 +217,7 @@ export default class DoubleWorm extends WormBase {
         };
         
         // Set laser depths
-        Object.values(this.springs).forEach(springData => {
+        Object.values(this.jumpSprings).forEach(springData => {
             springData.laser.setDepth(100);
         });
         
@@ -287,13 +287,13 @@ export default class DoubleWorm extends WormBase {
         if (this.segments.length > 2) {
             const segA = this.segments[0];
             const segB = this.segments[this.segments.length - 2];
-            this.springs.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
+            this.jumpSprings.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
         }
         
         if (this.segments.length > 2) {
             const segA = this.segments[1];
             const segB = this.segments[this.segments.length - 1];
-            this.springs.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
+            this.jumpSprings.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
         }
     }
 
@@ -333,7 +333,7 @@ export default class DoubleWorm extends WormBase {
         });
         
         // Clean up jump springs if attached
-        Object.values(this.springs).forEach(springData => {
+        Object.values(this.jumpSprings).forEach(springData => {
             if (springData.spring && springData.attached) {
                 this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
             }
@@ -432,9 +432,9 @@ export default class DoubleWorm extends WormBase {
         const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         this.handleJumpSpring('tail', tailTriggerValue);
         
-        // Update stickiness system based on downward stick input
-        const headStickinessActive = leftStick.y > this.config.stickinessActivationThreshold;
-        const tailStickinessActive = rightStick.y > this.config.stickinessActivationThreshold;
+        // Update stickiness system based on directional stick input toward surfaces
+        const headStickinessActive = this.checkDirectionalStickiness('head', leftStick);
+        const tailStickinessActive = this.checkDirectionalStickiness('tail', rightStick);
         this.updateStickinessSystem(headStickinessActive, tailStickinessActive);
         
         // Clean up invalid sticky constraints
@@ -692,7 +692,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     showJumpTrajectory(type, fromSegment, toSegment) {
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         const laser = springData.laser;
         const color = springData.color;
         
@@ -712,7 +712,7 @@ export default class DoubleWorm extends WormBase {
             // Calculate laser length inversely proportional to distance
             // When segments are close (compressed spring), laser is longer
             // When segments are far (extended spring), laser is shorter
-            const springLength = this.springs[type].length;
+            const springLength = this.jumpSprings[type].length;
             const compressionRatio = Math.max(0, Math.min(1, (springLength - distance) / springLength));
             // Laser length ranges from 1.1x to 1.5x the spring length
             const laserLength = springLength * (compressionRatio * 1.3);
@@ -768,7 +768,7 @@ export default class DoubleWorm extends WormBase {
         const threshold = this.config.jumpTriggerThreshold;
         const isActive = triggerValue > threshold;
         
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         if (!springData) return;
         
         if (isActive && !springData.attached) {
@@ -781,7 +781,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     attachSpring(type, triggerValue) {
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         const segments = springData.getSegments();
         const stiffness = this.calculateStiffness(triggerValue);
         
@@ -829,7 +829,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     detachSpring(type) {
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         
         if (springData.spring) {
             this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
@@ -846,7 +846,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     updateSpringStiffness(type, triggerValue) {
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         if (springData.spring) {
             // Check if we need to convert ground-anchored spring back to segment spring
             if (springData.isGroundAnchored && springData.groundedSegment) {
@@ -869,7 +869,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     convertToSegmentSpring(type, triggerValue) {
-        const springData = this.springs[type];
+        const springData = this.jumpSprings[type];
         
         // Remove the current ground-anchored spring
         if (springData.spring) {
@@ -890,6 +890,64 @@ export default class DoubleWorm extends WormBase {
         
         // Update trajectory visualization
         this.showJumpTrajectory(type, segments.to, segments.from);
+    }
+    
+    checkDirectionalStickiness(section, stick) {
+        if (!this.segments || !this.segmentCollisions) return false;
+        
+        // Get stick magnitude - need minimum input to activate
+        const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
+        if (stickMagnitude < this.config.stickinessActivationThreshold) {
+            return false;
+        }
+        
+        // Normalize stick direction vector
+        const stickDirection = {
+            x: stick.x / stickMagnitude,
+            y: stick.y / stickMagnitude
+        };
+        
+        // Determine segment range for this section
+        const isHead = section === 'head';
+        const segmentFraction = isHead ? 
+            this.config.headStickinessSegmentCount : 
+            this.config.tailStickinessSegmentCount;
+        
+        const totalSegments = this.segments.length;
+        const segmentCount = Math.floor(totalSegments * segmentFraction);
+        
+        let startIndex, endIndex;
+        if (isHead) {
+            startIndex = 0;
+            endIndex = segmentCount;
+        } else {
+            startIndex = totalSegments - segmentCount;
+            endIndex = totalSegments;
+        }
+        
+        // Check if any segment in range has collision where stick points toward surface
+        for (let i = startIndex; i < endIndex; i++) {
+            const collision = this.segmentCollisions[i];
+            if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
+                // Calculate if stick direction aligns with pushing into the surface
+                // Surface normal points away from surface, so we want opposite direction
+                const surfaceInwardDirection = {
+                    x: -collision.surfaceNormal.x,
+                    y: -collision.surfaceNormal.y
+                };
+                
+                // Dot product tells us how aligned the stick is with pushing into surface
+                const alignment = stickDirection.x * surfaceInwardDirection.x + 
+                                stickDirection.y * surfaceInwardDirection.y;
+                
+                // If stick is pointing toward surface (positive dot product above threshold)
+                if (alignment > 0.5) { // 0.5 means ~60 degree cone toward surface
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
     
     updateStickinessSystem(headActive, tailActive) {
