@@ -21,7 +21,7 @@ export default class TestScene extends Phaser.Scene {
     create() {
         
         // Set world bounds without default walls
-        this.matter.world.setBounds(0, 0, 1024, 768, 100);
+        this.matter.world.setBounds(0, -1000, 1024, 1768, 100);
         
         
         // Create dat.GUI
@@ -31,19 +31,23 @@ export default class TestScene extends Phaser.Scene {
         this.createGrid();
 
         // Target platform on left side
-        this.matter.add.gameObject(
-            this.add.rectangle(300, 500, 50, 250, 0xff6b6b), {
+        const hbar = this.matter.add.gameObject(
+            this.add.rectangle(300, 720, 50, 250, 0xff6b6b), {
             isStatic: true,
+            friction: 1,
         });
+
         
         // Target platform on left side
-        this.matter.add.gameObject(
-            this.add.rectangle(300, 400, 500, 48, 0xff6b6b), {
+        const vbar = this.matter.add.gameObject(
+            this.add.rectangle(300, 600, 5000, 48, 0xff6b6b), {
             isStatic: true,
+            friction: 1,
         });
+        vbar.setAngle(7);
         
         // Create worm using the new MotorWorm class
-        this.worm = new DoubleWorm(this, 660, 220, {
+        this.worm = new DoubleWorm(this, 660, 20, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         });
@@ -257,6 +261,8 @@ export default class TestScene extends Phaser.Scene {
             this.cameras.main.setZoom(value);
         });
         cameraFolder.open();
+
+        this.gui.close();
     }
     
     
