@@ -31,13 +31,13 @@ export const game = new Phaser.Game(
                 bodyColor: 0xff0000
             },
             positionIterations: 20,
-            velocityIterations: 10,
+            velocityIterations: 20,
             constraintIterations: 2,
         }
     },
     input: {
         gamepad: true
     },
-    scene: [TowerScene, LevelsScene, GamepadTest, TestScene]
+    scene: [TestScene, TowerScene, LevelsScene, GamepadTest, ]
 }
 );

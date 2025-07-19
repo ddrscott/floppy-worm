@@ -12,15 +12,17 @@ export default class TestScene extends Phaser.Scene {
         
         // Initialize physics parameters
         this.physicsParams = { ...defaultPhysicsParams };
+
+
+        this.width = 1024;
+        this.height = 768;
     }
 
     create() {
         
         // Set world bounds without default walls
-        this.matter.world.setBounds(0, 0, 800, 600, 320, false, false, false, false);
+        this.matter.world.setBounds(0, 0, 1024, 768, 100);
         
-        // Create custom colored boundary walls
-        this.createBoundaryWalls();
         
         // Create dat.GUI
         this.gui = new dat.GUI();
@@ -34,8 +36,14 @@ export default class TestScene extends Phaser.Scene {
             isStatic: true,
         });
         
+        // Target platform on left side
+        this.matter.add.gameObject(
+            this.add.rectangle(300, 400, 500, 48, 0xff6b6b), {
+            isStatic: true,
+        });
+        
         // Create worm using the new MotorWorm class
-        this.worm = new DoubleWorm(this, 460, 220, {
+        this.worm = new DoubleWorm(this, 660, 220, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         });
@@ -44,8 +52,7 @@ export default class TestScene extends Phaser.Scene {
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0); // Invisible rectangle
 
         
-        // Hidden magic keybinding for mouse constraint
-        this.mouseConstraint = null;
+        this.toggleMouseConstraint();
         this.input.keyboard.on('keydown-M', () => {
             // Check if shift is held (capital M)
             if (this.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SHIFT].isDown) {
@@ -62,8 +69,8 @@ export default class TestScene extends Phaser.Scene {
             this.cameras.main.startFollow(this.cameraTarget, true);
         }
         // Set up camera basic settings
-        this.cameras.main.setZoom(2);
-        this.cameras.main.setBounds(0, 0, 800, 600);
+        this.cameras.main.setZoom(1);
+        this.cameras.main.setBounds(0, 0, this.width, this.height);
 
         
         // Add coordinate display tool
@@ -127,58 +134,6 @@ export default class TestScene extends Phaser.Scene {
         });
     }
     
-    createBoundaryWalls() {
-        const wallThickness = 50;
-        const wallColor = 0x2c3e50;
-        
-        // Create visual boundary with Phaser graphics
-        const graphics = this.add.graphics();
-        
-        // Draw colored boundary walls
-        graphics.fillStyle(wallColor, 0.8);
-        graphics.lineStyle(3, 0x34495e, 1);
-        
-        // Top wall
-        graphics.fillRect(0, -wallThickness, 800, wallThickness);
-        graphics.strokeRect(0, -wallThickness, 800, wallThickness);
-        
-        // Bottom wall
-        graphics.fillRect(0, 600, 800, wallThickness);
-        graphics.strokeRect(0, 600, 800, wallThickness);
-        
-        // Left wall
-        graphics.fillRect(-wallThickness, 0, wallThickness, 600);
-        graphics.strokeRect(-wallThickness, 0, wallThickness, 600);
-        
-        // Right wall
-        graphics.fillRect(800, 0, wallThickness, 600);
-        graphics.strokeRect(800, 0, wallThickness, 600);
-        
-        // Add red boundary line
-        graphics.lineStyle(4, 0xe74c3c, 0.8);
-        graphics.strokeRect(0, 0, 800, 600);
-        
-        // Create physics walls
-        const walls = [
-            // Top wall
-            this.matter.add.rectangle(400, -wallThickness/2, 800, wallThickness, {
-                isStatic: true
-            }),
-            // Bottom wall
-            this.matter.add.rectangle(400, 600 + wallThickness/2, 800, wallThickness, {
-                isStatic: true
-            }),
-            // Left wall
-            this.matter.add.rectangle(-wallThickness/2, 300, wallThickness, 600, {
-                isStatic: true
-            }),
-            // Right wall
-            this.matter.add.rectangle(800 + wallThickness/2, 300, wallThickness, 600, {
-                isStatic: true
-            })
-        ];
-    }
-    
     createGrid() {
         const gridSize = 50; // Size of each grid cell
         const graphics = this.add.graphics();
@@ -187,15 +142,15 @@ export default class TestScene extends Phaser.Scene {
         graphics.lineStyle(1, 0x3a3a4a, 0.3); // Dark gray with low opacity
         
         // Draw vertical lines
-        for (let x = 0; x <= 800; x += gridSize) {
+        for (let x = 0; x <= this.width; x += gridSize) {
             graphics.moveTo(x, 0);
-            graphics.lineTo(x, 600);
+            graphics.lineTo(x, this.height);
         }
         
         // Draw horizontal lines
-        for (let y = 0; y <= 600; y += gridSize) {
+        for (let y = 0; y <= this.height; y += gridSize) {
             graphics.moveTo(0, y);
-            graphics.lineTo(800, y);
+            graphics.lineTo(this.width, y);
         }
         
         // Draw the grid
