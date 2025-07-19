@@ -187,6 +187,32 @@ export default class DoubleWorm extends WormBase {
         // Set correct tail attach index now that segments exist
         this.anchors.tail.attachIndex = this.segments.length - swingConfig.tailAttachFromEnd;
         
+        // Create section configuration for systematic processing
+        this.sections = {
+            head: {
+                name: 'head',
+                stick: this.leftStickState,
+                anchor: this.anchors.head,
+                springData: null, // Will be set after jump springs are initialized
+                segmentRange: { start: 0, end: this.config.headStickinessSegmentCount },
+                stickinessSegmentCount: this.config.headStickinessSegmentCount,
+                color: this.config.headColor,
+                strokeColor: this.config.headStrokeColor,
+                oppositeRangeForGrounding: { start: 0.7, end: 1.0 }
+            },
+            tail: {
+                name: 'tail',
+                stick: this.rightStickState,
+                anchor: this.anchors.tail,
+                springData: null, // Will be set after jump springs are initialized
+                segmentRange: { start: 1 - this.config.tailStickinessSegmentCount, end: 1 },
+                stickinessSegmentCount: this.config.tailStickinessSegmentCount,
+                color: this.config.tailColor,
+                strokeColor: this.config.tailStrokeColor,
+                oppositeRangeForGrounding: { start: 0.0, end: 0.3 }
+            }
+        };
+        
         // Create anchor system
         this.createAnchors();
 
@@ -220,6 +246,10 @@ export default class DoubleWorm extends WormBase {
         Object.values(this.jumpSprings).forEach(springData => {
             springData.laser.setDepth(100);
         });
+        
+        // Link sections to their corresponding spring data
+        this.sections.head.springData = this.jumpSprings.head;
+        this.sections.tail.springData = this.jumpSprings.tail;
         
         // Calculate initial worm lengths for jump springs
         this.calculateInitialLengths();
@@ -410,9 +440,11 @@ export default class DoubleWorm extends WormBase {
         this.updateStickState(this.leftStickState, leftStick, deltaSeconds);
         this.updateStickState(this.rightStickState, rightStick, deltaSeconds);
         
-        // Update anchor positions based on stick input and collect applied forces
-        const headForces = this.updateAnchorPosition('head', deltaSeconds);
-        const tailForces = this.updateAnchorPosition('tail', deltaSeconds);
+        // Update anchor positions using section-based processing
+        const sectionForces = this.updateSectionAnchors([
+            { section: this.sections.head, stick: leftStick },
+            { section: this.sections.tail, stick: rightStick }
+        ], deltaSeconds);
         
         // Handle triggers to attach/detach and stiffen springs
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
@@ -432,17 +464,18 @@ export default class DoubleWorm extends WormBase {
         const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         this.handleJumpSpring('tail', tailTriggerValue);
         
-        // Update stickiness system based on directional stick input toward surfaces
-        const headStickinessActive = this.checkDirectionalStickiness('head', leftStick);
-        const tailStickinessActive = this.checkDirectionalStickiness('tail', rightStick);
-        this.updateStickinessSystem(headStickinessActive, tailStickinessActive);
+        // Update stickiness system using section-based processing
+        this.updateStickinessSystemSections([
+            { section: this.sections.head, stick: leftStick },
+            { section: this.sections.tail, stick: rightStick }
+        ]);
         
         // Clean up invalid sticky constraints
         this.cleanupInvalidStickyConstraints();
         
         // Apply grounding force to middle segments to prevent flying
         // Pass in the forces being applied to head and tail
-        this.applyGroundingForce(headForces, tailForces);
+        this.applyGroundingForce(sectionForces.head, sectionForces.tail);
     }
     
     applyGroundingForce(headForces, tailForces) {
@@ -490,6 +523,81 @@ export default class DoubleWorm extends WormBase {
         });
     }
     
+    updateSectionAnchors(sectionStickPairs, deltaSeconds) {
+        const forces = {};
+        
+        // Process each section systematically
+        sectionStickPairs.forEach(({ section, stick }) => {
+            forces[section.name] = this.updateAnchorPositionSection(section, stick, deltaSeconds);
+        });
+        
+        return forces;
+    }
+    
+    updateAnchorPositionSection(section, stick, deltaSeconds) {
+        const anchorData = section.anchor;
+        if (!anchorData.body) return { x: 0, y: 0 };
+        
+        // Track total forces applied
+        let totalForce = { x: 0, y: 0 };
+        
+        // Get the segment that this anchor is attached to
+        const segment = this.segments[anchorData.attachIndex];
+        const stickState = section.stick;
+        const restPos = anchorData.restPos;
+        
+        // Update rest position to follow the attached segment
+        restPos.x = segment.position.x;
+        restPos.y = segment.position.y;
+        
+        // When stick is centered, move anchor to segment position to prevent pullback
+        if (Math.abs(stickState.x) <= this.config.stickDeadzone && Math.abs(stickState.y) <= this.config.stickDeadzone) {
+            this.Matter.Body.setPosition(anchorData.body, { x: segment.position.x, y: segment.position.y });
+            this.Matter.Body.setVelocity(anchorData.body, { x: 0, y: 0 });
+        }
+        
+        // Apply position-based force only when stick is actively moved
+        if (Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) {
+            // Calculate target position based on stick input
+            const targetX = restPos.x + (stickState.x * this.anchorRadius);
+            const targetY = restPos.y + (stickState.y * this.anchorRadius);
+            
+            // Move anchor to target position
+            this.Matter.Body.setPosition(anchorData.body, { x: targetX, y: targetY });
+            
+            // Calculate force toward target position
+            const dx = targetX - segment.position.x;
+            const dy = targetY - segment.position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > this.config.minDistanceThreshold) {
+                // Apply force proportional to distance
+                const forceMagnitude = distance * this.config.positionForceMagnitude;
+                const forceX = (dx / distance) * forceMagnitude;
+                const forceY = (dy / distance) * forceMagnitude;
+                
+                this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+                totalForce.x += forceX;
+                totalForce.y += forceY;
+            }
+        }
+        
+        // Apply velocity-based impulse only when stick is active and not on release
+        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && !stickState.released) {
+            const mass = segment.mass;
+            const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
+            const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
+            
+            if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
+                this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
+                totalForce.x += impulseX;
+                totalForce.y += impulseY;
+            }
+        }
+        
+        return totalForce;
+    }
+    
     updateStickState(stickState, gamepadStick, deltaSeconds) {
         if (!gamepadStick) return;
         
@@ -535,70 +643,6 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
-    updateAnchorPosition(type, deltaSeconds) {
-        const anchorData = this.anchors[type];
-        if (!anchorData.body) return { x: 0, y: 0 };
-        
-        // Track total forces applied
-        let totalForce = { x: 0, y: 0 };
-        
-        // Get the segment that this anchor is attached to
-        const segment = this.segments[anchorData.attachIndex];
-        const stickState = anchorData.stickState;
-        const restPos = anchorData.restPos;
-        
-        // Update rest position to follow the attached segment
-        restPos.x = segment.position.x;
-        restPos.y = segment.position.y;
-        
-        // When stick is centered, move anchor to segment position to prevent pullback
-        if (Math.abs(stickState.x) <= this.config.stickDeadzone && Math.abs(stickState.y) <= this.config.stickDeadzone) {
-            this.Matter.Body.setPosition(anchorData.body, { x: segment.position.x, y: segment.position.y });
-            this.Matter.Body.setVelocity(anchorData.body, { x: 0, y: 0 });
-        }
-        
-        // Apply position-based force only when stick is actively moved
-        if (Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) {
-            // Calculate target position based on stick input
-            const targetX = restPos.x + (stickState.x * this.anchorRadius);
-            const targetY = restPos.y + (stickState.y * this.anchorRadius);
-            
-            // Move anchor to target position
-            this.Matter.Body.setPosition(anchorData.body, { x: targetX, y: targetY });
-            
-            // Calculate force toward target position
-            const dx = targetX - segment.position.x;
-            const dy = targetY - segment.position.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance > this.config.minDistanceThreshold) {
-                // Apply force proportional to distance
-                const forceMagnitude = distance * this.config.positionForceMagnitude;
-                const forceX = (dx / distance) * forceMagnitude;
-                const forceY = (dy / distance) * forceMagnitude;
-                
-                this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
-                totalForce.x += forceX;
-                totalForce.y += forceY;
-            }
-        }
-        // When stick is centered, don't apply any centering force - let the worm relax naturally
-        
-        // Apply velocity-based impulse only when stick is active and not on release
-        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && !stickState.released) {
-            const mass = segment.mass;
-            const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
-            const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
-            
-            if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
-                this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
-                totalForce.x += impulseX;
-                totalForce.y += impulseY;
-            }
-        }
-        
-        return totalForce;
-    }
     
     simulateStickFromKeyboard(stick, delta) {
         const keyboard = this.scene.input.keyboard;
@@ -785,15 +829,12 @@ export default class DoubleWorm extends WormBase {
         const segments = springData.getSegments();
         const stiffness = this.calculateStiffness(triggerValue);
         
-        // Check for ground contact on opposite end for smarter anchoring
-        let groundedSegments = [];
-        if (type === 'head') {
-            // Head jumping - check if tail segments are grounded
-            groundedSegments = this.getGroundedSegmentsInRange(0.7, 1.0);
-        } else if (type === 'tail') {
-            // Tail jumping - check if head segments are grounded  
-            groundedSegments = this.getGroundedSegmentsInRange(0.0, 0.3);
-        }
+        // Check for ground contact on opposite end for smarter anchoring using section config
+        const section = this.sections[type];
+        const groundedSegments = this.getGroundedSegmentsInRange(
+            section.oppositeRangeForGrounding.start,
+            section.oppositeRangeForGrounding.end
+        );
         
         if (groundedSegments.length > 0) {
             // Use ground-anchored spring for better physics
@@ -892,45 +933,43 @@ export default class DoubleWorm extends WormBase {
         this.showJumpTrajectory(type, segments.to, segments.from);
     }
     
-    checkDirectionalStickiness(section, stick) {
+    
+    updateStickinessSystemSections(sectionStickPairs) {
+        // Process each section systematically
+        sectionStickPairs.forEach(({ section, stick }) => {
+            const isActive = this.checkDirectionalStickinessSection(section, stick);
+            
+            if (isActive) {
+                this.activateStickiness(section.name);
+            } else {
+                this.deactivateStickiness(section.name);
+            }
+        });
+    }
+    
+    checkDirectionalStickinessSection(section, stick) {
         if (!this.segments || !this.segmentCollisions) return false;
         
-        // Get stick magnitude - need minimum input to activate
-        const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
+        // Get stick magnitude using base utility
+        const stickMagnitude = this.calculateStickMagnitude(stick);
         if (stickMagnitude < this.config.stickinessActivationThreshold) {
             return false;
         }
         
-        // Normalize stick direction vector
-        const stickDirection = {
-            x: stick.x / stickMagnitude,
-            y: stick.y / stickMagnitude
-        };
+        // Normalize stick direction using base utility
+        const stickDirection = this.normalizeStickDirection(stick);
         
-        // Determine segment range for this section
-        const isHead = section === 'head';
-        const segmentFraction = isHead ? 
-            this.config.headStickinessSegmentCount : 
-            this.config.tailStickinessSegmentCount;
-        
-        const totalSegments = this.segments.length;
-        const segmentCount = Math.floor(totalSegments * segmentFraction);
-        
-        let startIndex, endIndex;
-        if (isHead) {
-            startIndex = 0;
-            endIndex = segmentCount;
-        } else {
-            startIndex = totalSegments - segmentCount;
-            endIndex = totalSegments;
-        }
+        // Get segment range using section configuration
+        const { startIndex, endIndex } = this.getSegmentRange(
+            section.segmentRange.start, 
+            section.segmentRange.end
+        );
         
         // Check if any segment in range has collision where stick points toward surface
-        for (let i = startIndex; i < endIndex; i++) {
+        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
             const collision = this.segmentCollisions[i];
             if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
                 // Calculate if stick direction aligns with pushing into the surface
-                // Surface normal points away from surface, so we want opposite direction
                 const surfaceInwardDirection = {
                     x: -collision.surfaceNormal.x,
                     y: -collision.surfaceNormal.y
@@ -950,57 +989,18 @@ export default class DoubleWorm extends WormBase {
         return false;
     }
     
-    updateStickinessSystem(headActive, tailActive) {
-        // Update head stickiness
-        if (headActive) {
-            this.activateStickiness('head');
-        } else {
-            this.deactivateStickiness('head');
-        }
-        
-        // Update tail stickiness
-        if (tailActive) {
-            this.activateStickiness('tail');
-        } else {
-            this.deactivateStickiness('tail');
-        }
-    }
-    
-    activateStickiness(section) {
+    activateStickiness(sectionName) {
         if (!this.segments || !this.segmentCollisions) return;
         
-        // Determine segment range for this section
-        const isHead = section === 'head';
-        const segmentFraction = isHead ? 
-            this.config.headStickinessSegmentCount : 
-            this.config.tailStickinessSegmentCount;
-        
-        const totalSegments = this.segments.length;
-        const segmentCount = Math.floor(totalSegments * segmentFraction);
-        
-        let startIndex, endIndex;
-        if (isHead) {
-            startIndex = 0;
-            endIndex = segmentCount;
-        } else {
-            startIndex = totalSegments - segmentCount;
-            endIndex = totalSegments;
-        }
-        
-        // Get touching segments in this section
-        const touchingSegments = [];
-        for (let i = startIndex; i < endIndex; i++) {
-            if (this.segmentCollisions[i] && this.segmentCollisions[i].isColliding) {
-                touchingSegments.push({
-                    index: i,
-                    segment: this.segments[i],
-                    collision: this.segmentCollisions[i]
-                });
-            }
-        }
+        // Get section configuration and touching segments using base utilities
+        const section = this.sections[sectionName];
+        const touchingSegments = this.getTouchingSegments(
+            section.segmentRange.start, 
+            section.segmentRange.end
+        );
         
         // Create sticky constraints for new touching segments
-        const existingConstraints = this.stickyConstraints[section];
+        const existingConstraints = this.stickyConstraints[sectionName];
         const existingSegmentIndices = existingConstraints.map(c => c.segmentIndex);
         
         touchingSegments.forEach(touchingData => {
@@ -1030,7 +1030,7 @@ export default class DoubleWorm extends WormBase {
                 damping: this.config.stickinessConstraintDamping,
                 render: {
                     visible: this.config.showDebug,
-                    strokeStyle: section === 'head' ? '#ff6b6b' : '#74b9ff',
+                    strokeStyle: section.name === 'head' ? '#ff6b6b' : '#74b9ff',
                     lineWidth: 3
                 }
             });
@@ -1048,8 +1048,8 @@ export default class DoubleWorm extends WormBase {
         });
     }
     
-    deactivateStickiness(section) {
-        const constraints = this.stickyConstraints[section];
+    deactivateStickiness(sectionName) {
+        const constraints = this.stickyConstraints[sectionName];
         
         // Remove all constraints and circles for this section
         constraints.forEach(constraintData => {
@@ -1058,7 +1058,7 @@ export default class DoubleWorm extends WormBase {
         });
         
         // Clear the array
-        this.stickyConstraints[section] = [];
+        this.stickyConstraints[sectionName] = [];
     }
     
     cleanupInvalidStickyConstraints() {
@@ -1151,37 +1151,6 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
-    // Ground contact detection for jump spring anchoring
-    getGroundedSegmentsInRange(startPercent, endPercent) {
-        if (!this.segments || !this.segmentCollisions) {
-            return [];
-        }
-        
-        const totalSegments = this.segments.length;
-        const startIndex = Math.floor(totalSegments * startPercent);
-        const endIndex = Math.floor(totalSegments * endPercent);
-        
-        const groundedSegments = [];
-        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
-            const collision = this.segmentCollisions[i];
-            
-            if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
-                groundedSegments.push({
-                    index: i,
-                    segment: this.segments[i],
-                    collision: collision,
-                    // Distance from jumping end for prioritization
-                    distanceFromStart: Math.abs(i - startIndex)
-                });
-            }
-        }
-        
-        
-        // Sort by distance from range start (closest first for better leverage)
-        groundedSegments.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
-        
-        return groundedSegments;
-    }
     
     createGroundAnchoredSpring(jumpingSegment, groundedSegmentData, springLength, stiffness) {
         const { segment: groundedSegment, collision } = groundedSegmentData;
