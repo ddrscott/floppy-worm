@@ -11,7 +11,7 @@ export default class WormBase {
             baseRadius: 10,
             baseColor: 0xff6b6b,
             segmentSizes: [0.75, 1, 1, 0.90, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            segmentDensity: 0.03,
+            segmentDensity: 0.015,
             segmentFriction: 1,
             segmentFrictionStatic: 0.8,
             segmentRestitution: 0.0001,
