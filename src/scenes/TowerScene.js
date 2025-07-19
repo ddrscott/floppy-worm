@@ -57,7 +57,7 @@ export default class TowerScene extends Phaser.Scene {
         const levelHeight = levelRows.length * this.ROW_SPACING;
         
         // Set world bounds
-        this.matter.world.setBounds(0, 0, this.LEVEL_WIDTH, levelHeight);
+        this.matter.world.setBounds(0, 0, this.LEVEL_WIDTH, levelHeight, 1000);
         
         // Create grid background
         this.createGrid(levelHeight);
