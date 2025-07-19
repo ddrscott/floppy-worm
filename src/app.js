@@ -33,6 +33,7 @@ export const game = new Phaser.Game(
             positionIterations: 20,
             velocityIterations: 20,
             constraintIterations: 2,
+            enableSleeping: true
         }
     },
     input: {
