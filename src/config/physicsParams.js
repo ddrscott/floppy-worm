@@ -28,6 +28,11 @@ export const defaultPhysicsParams = {
     jumpIdle: 0.000001,
     jumpStiffness: 0.08, // Stiffness for jump constraint
 
+    // Compression spring parameters
+    baseCompressionStiffness: 0.005,
+    maxCompressionStiffness: 0.05,
+    compressionTriggerSensitivity: 1.0,
+
     // Debug
     showDebug: true,
     showGrid: true,
