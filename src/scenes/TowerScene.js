@@ -9,7 +9,7 @@ export default class TowerScene extends Phaser.Scene {
         
         // Level dimension constants - tweak these to adjust level size
         this.CHAR_WIDTH = 96;   // Width of each ASCII character in pixels
-        this.CHAR_HEIGHT = 24;  // Height of each ASCII character in pixels
+        this.CHAR_HEIGHT = 36;  // Height of each ASCII character in pixels
         this.ROW_SPACING = 96; // Vertical spacing between rows in pixels
         this.LEVEL_WIDTH = this.CHAR_WIDTH * 16; // width * number of characters per row
         
