@@ -31,8 +31,8 @@ export default class DoubleWorm extends WormBase {
             minDistanceThreshold: 0.1,
             
             // Anti-flying parameters
-            groundingForce: 0.03,
-            groundingSegments: 0.33,
+            groundingForce: 0.01,
+            groundingSegments: 0.2, // 50% of segments will receive grounding force
             groundingReactiveMultiplier: 0.5,
             groundingCenterWeight: 0.5,
             
@@ -45,12 +45,12 @@ export default class DoubleWorm extends WormBase {
             // Jump visual parameters
             jumpSpringLengthMultiplier: 1.5,
             jumpTriggerThreshold: 0.01,
-            jumpStiffness: 0.07,
+            jumpStiffness: 0.025,
 
             // laser guidance
             laserLineWidth: 4,
             laserGlowWidth: 8,
-            laserGlowAlpha: 0.3,
+            laserGlowAlpha: 0.5,
             laserLength: 200,
             laserArrowSize: 15,
             laserArrowOffset: 10,
@@ -520,6 +520,7 @@ export default class DoubleWorm extends WormBase {
     simulateStickFromKeyboard(stick, delta) {
         const keyboard = this.scene.input.keyboard;
         const state = this.keyboardState[stick];
+        const kc = Phaser.Input.Keyboard.KeyCodes;
         
         // Define key mappings
         const keyMap = stick === 'left' ? {
