@@ -15,26 +15,54 @@ export default class DoubleWorm extends WormBase {
             tailStrokeColor: 0x3498db,
             dotColor: 0x2c3e50,
             
-            // Anchor physics
-            anchorRadius: 45,
-            anchorStiffness: 0.15,
-            anchorDamping: 0.05,
-            anchorSensorRadius: 5,
-            anchorDensity: 0.0001,
+            // Anchor Physics - Controls how stick input translates to worm movement
+            anchorRadius: 50,              // Max distance stick can pull anchor from segment (pixels)
+                                          // Higher = wider movement range, more dramatic swings
+                                          // Lower = tighter control, smaller movements
+            anchorStiffness: 0.5,        // How strongly anchor pulls back to attached segment (0-1)
+                                          // Higher = snappier response, less lag, can cause jitter
+                                          // Lower = smoother but slower response, more fluid movement
+            anchorDamping: 0.05,          // How quickly anchor oscillations fade out (0-1)
+                                          // Higher = stops bouncing faster, more controlled
+                                          // Lower = more bouncy/springy feel, can cause instability
+            anchorSensorRadius: 5,        // Visual/collision size of anchor body (pixels) - debug only
+            anchorDensity: 0.0001,        // Mass density of anchor body (affects physics calculations)
+                                          // Higher = heavier anchors, different momentum behavior
+                                          // Lower = lighter anchors, more responsive
             
-            // Movement physics
-            velocityDamping: 0.1,
-            impulseMultiplier: 0.00175,
-            stickDeadzone: 0.05,
-            positionForceMagnitude: 0.0002,
-            minForceThreshold: 0.00001,
-            minDistanceThreshold: 0.1,
+            // Movement Physics - Controls dual force system (position + velocity)
+            velocityDamping: 0.2,          // How quickly stick velocity decays over time (0-1)
+                                          // Higher = velocity fades faster, less momentum carryover
+                                          // Lower = longer momentum, more "slippery" feel
+            impulseMultiplier: 0.0007,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+                                          // Higher = faster stick movements create stronger forces
+                                          // Lower = less responsive to quick stick flicks
+            stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
+                                          // Higher = larger dead zone, less sensitive to small inputs
+                                          // Lower = more sensitive, may cause drift or jitter
+            positionForceMagnitude: 0.00001, // Strength of position-based spring forces (0-0.001 typical)
+                                          // Higher = stronger pull toward stick position, more responsive
+                                          // Lower = gentler positioning, more natural feel
+            minForceThreshold: 0.00001,   // Minimum force required to apply impulse (prevents micro-movements)
+                                          // Higher = filters out tiny forces, cleaner movement
+                                          // Lower = more sensitive to small movements
+            minDistanceThreshold: 0.1,    // Minimum distance before position force activates (pixels)
+                                          // Higher = larger deadband around target position
+                                          // Lower = tighter position control
             
-            // Anti-flying parameters
-            groundingForce: 0.01,
-            groundingSegments: 0.2, // 50% of segments will receive grounding force
-            groundingReactiveMultiplier: 0.5,
-            groundingCenterWeight: 0.5,
+            // Anti-Flying Physics - Prevents unrealistic floating/flying behavior
+            groundingForce: 0.01,             // Base downward force applied to middle segments
+                                             // Higher = heavier feel, less airborne time
+                                             // Lower = more floaty, easier to get airborne
+            groundingSegments: 0.1,          // Fraction of segments receiving grounding (0-1)
+                                             // Higher = more segments grounded, stiffer feel
+                                             // Lower = fewer grounded segments, more flexible
+            groundingReactiveMultiplier: 0.8, // Extra grounding when upward forces detected
+                                             // Higher = stronger counter to upward movement
+                                             // Lower = allows more vertical movement
+            groundingCenterWeight: 0.5,      // Extra grounding bias toward center segments
+                                             // Higher = center stays down more, ends can lift
+                                             // Lower = more uniform grounding distribution
             
             // Visual parameters
             stickIndicatorRadius: 8,
@@ -42,10 +70,16 @@ export default class DoubleWorm extends WormBase {
             rangeIndicatorLineWidth: 1,
             connectionDotRadius: 0.4,
             
-            // Jump visual parameters
-            jumpSpringLengthMultiplier: 1,
-            jumpTriggerThreshold: 0.01,
-            jumpStiffness: 0.0375,
+            // Jump Spring Physics - Controls trigger-activated compression springs
+            jumpSpringLengthMultiplier: 1,   // How much longer jump springs are vs natural distance
+                                            // Higher = more compression potential, stronger jumps
+                                            // Lower = less compression, gentler spring effect
+            jumpTriggerThreshold: 0.01,     // Minimum trigger value to activate jump springs (0-1)
+                                            // Higher = harder to activate, requires fuller trigger press
+                                            // Lower = easier to activate, more sensitive triggers
+            jumpStiffness: 0.0375,          // Maximum stiffness of jump springs when fully activated
+                                            // Higher = more explosive jumps, stronger spring force
+                                            // Lower = gentler spring assistance, subtle effect
 
             // laser guidance
             laserLineWidth: 4,
@@ -80,10 +114,14 @@ export default class DoubleWorm extends WormBase {
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
         this.rightStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
         
-        // Keyboard simulation config
+        // Keyboard Simulation Physics - Controls how keyboard inputs simulate analog sticks
         this.keyboardConfig = {
-            maxDuration: 200, // milliseconds to reach full value
-            curve: 2, // exponential curve (1 = linear, 2 = quadratic, etc)
+            maxDuration: 200,             // Time to reach full stick deflection (milliseconds)
+                                         // Higher = slower ramp-up, more gradual acceleration
+                                         // Lower = faster response, more immediate full power
+            curve: 2,                    // Response curve shape (1 = linear, 2+ = exponential)
+                                         // Higher = more curved, slower start then rapid acceleration
+                                         // Lower = more linear, consistent acceleration rate
             ...config.keyboardConfig
         };
         
