@@ -306,6 +306,13 @@ export default class MapSelectScene extends Phaser.Scene {
         const selectedButton = this.mapButtons[this.selectedMapIndex];
         if (selectedButton && selectedButton.isUnlocked) {
             const mapKey = selectedButton.mapKey;
+            
+            // If scene is already active, stop it first to ensure clean restart
+            if (this.scene.manager.isActive(mapKey)) {
+                this.scene.stop(mapKey);
+            }
+            
+            // Start the scene fresh
             this.scene.start(mapKey);
         }
     }

@@ -46,8 +46,40 @@ export default class TextBaseScene extends Phaser.Scene {
         // Track gamepad button state for mini-map toggle
         this.buttonMWasPressed = false;
     }
+    
+    cleanup() {
+        // Destroy existing worm if it exists
+        if (this.worm) {
+            this.worm.destroy();
+            this.worm = null;
+        }
+        
+        // Reset victory state
+        this.victoryAchieved = false;
+        
+        // Clear platforms array
+        this.platforms = [];
+        
+        // Clear mini-map ignore list
+        this.minimapIgnoreList = [];
+        
+        // Cancel any existing timers
+        if (this.victoryReturnTimer) {
+            this.victoryReturnTimer.destroy();
+            this.victoryReturnTimer = null;
+        }
+        
+        // Remove mouse constraint if it exists
+        if (this.mouseConstraint) {
+            this.matter.world.removeConstraint(this.mouseConstraint);
+            this.mouseConstraint = null;
+        }
+    }
 
     create() {
+        // Clean up any existing worm and physics objects
+        this.cleanup();
+        
         // Turn off debug rendering for cleaner visuals
         this.matter.world.drawDebug = false;
         
@@ -109,6 +141,8 @@ export default class TextBaseScene extends Phaser.Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        this.mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
+        this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
         
         // M to toggle mini-map
         this.input.keyboard.on('keydown-M', () => {
@@ -124,7 +158,7 @@ export default class TextBaseScene extends Phaser.Scene {
         // Hidden magic keybinding for mouse constraint
         this.mouseConstraint = null;
         this.input.keyboard.on('keydown-SHIFT', () => {
-            if (this.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.M].isDown) {
+            if (this.mKey.isDown) {
                 this.toggleMouseConstraint();
             }
         });
@@ -648,8 +682,7 @@ export default class TextBaseScene extends Phaser.Scene {
             
             // Unlock next map
             const maps = [
-                'Map001', 'Map002', 'Map003', 'Map004', 'Map005',
-                'Map006', 'Map007', 'Map008', 'Map009', 'Map010'
+                'Map001', 'Map002', 'Map003', 'Map004', 'Map005'
             ];
             const currentIndex = maps.indexOf(this.scene.key);
             if (currentIndex !== -1 && currentIndex < maps.length - 1) {
