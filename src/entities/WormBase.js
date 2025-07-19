@@ -15,9 +15,9 @@ export default class WormBase {
             segmentFriction: 1,
             segmentFrictionStatic: 0.8,
             segmentRestitution: 0.0001,
-            constraintStiffness: 0.3,
-            constraintDamping: 0.08,
-            constraintLength: 3,
+            constraintStiffness: 1,
+            constraintDamping: 0.2,
+            constraintLength: 1,
             showDebug: true,
             ...config
         };
@@ -75,7 +75,8 @@ export default class WormBase {
         // Create connection dots at constraint points
         this.connectionDots = [];
 
-        // Create main constraints between segments
+        // Create main constraints between segments.
+        // Prevents rotation and keeps segments aligned
         for (let i = 0; i < segments.length - 1; i++) {
             const segA = segments[i];
             const segB = segments[i + 1];
@@ -112,7 +113,7 @@ export default class WormBase {
             this.connectionDots.push(dot);
         }
         
-        // Add minimum distance constraints
+        this.springs = [];
         for (let i = 0; i < segments.length - 1; i++) {
             const segA = segments[i];
             const segB = segments[i + 1];
@@ -127,10 +128,9 @@ export default class WormBase {
                 stiffness: 0.005,
                 damping: 0.9
             });
-        
-            this.Matter.World.add(this.matter.world.localWorld, spacingConstraint);
-            constraints.push(spacingConstraint);
+            this.springs.push(spacingConstraint);
         }
+        this.Matter.World.add(this.matter.world.localWorld, this.springs);
         
         // Store references
         this.segments = segments;
