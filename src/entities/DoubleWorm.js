@@ -522,27 +522,30 @@ export default class DoubleWorm extends WormBase {
         const state = this.keyboardState[stick];
         const kc = Phaser.Input.Keyboard.KeyCodes;
         
-        // Define key mappings
-        const keyMap = stick === 'left' ? {
-            up: 'W',
-            left: 'A', 
-            down: 'S',
-            right: 'D'
-        } : {
-            up: 'UP',
-            left: 'LEFT',
-            down: 'DOWN', 
-            right: 'RIGHT'
-        };
+        // Check each direction using proper Phaser key checking
+        let isUpPressed, isLeftPressed, isDownPressed, isRightPressed;
         
-        // Update key press durations
-        const keys = keyboard.keys;
-        
-        // Check each direction
-        const isUpPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.up]]?.isDown;
-        const isLeftPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.left]]?.isDown;
-        const isDownPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.down]]?.isDown;
-        const isRightPressed = keys[Phaser.Input.Keyboard.KeyCodes[keyMap.right]]?.isDown;
+        if (stick === 'left') {
+            // For WASD, try multiple ways to access the keys
+            isUpPressed = keyboard.keys[kc.W]?.isDown || 
+                         (this.scene.wasd && this.scene.wasd.W?.isDown) ||
+                         keyboard.checkDown(keyboard.addKey(kc.W));
+            isLeftPressed = keyboard.keys[kc.A]?.isDown || 
+                           (this.scene.wasd && this.scene.wasd.A?.isDown) ||
+                           keyboard.checkDown(keyboard.addKey(kc.A));
+            isDownPressed = keyboard.keys[kc.S]?.isDown || 
+                           (this.scene.wasd && this.scene.wasd.S?.isDown) ||
+                           keyboard.checkDown(keyboard.addKey(kc.S));
+            isRightPressed = keyboard.keys[kc.D]?.isDown || 
+                            (this.scene.wasd && this.scene.wasd.D?.isDown) ||
+                            keyboard.checkDown(keyboard.addKey(kc.D));
+        } else {
+            // Arrow keys work with standard method
+            isUpPressed = keyboard.keys[kc.UP]?.isDown;
+            isLeftPressed = keyboard.keys[kc.LEFT]?.isDown;
+            isDownPressed = keyboard.keys[kc.DOWN]?.isDown;
+            isRightPressed = keyboard.keys[kc.RIGHT]?.isDown;
+        }
         
         // Track if any key was just released
         let keyboardRelease = false;
