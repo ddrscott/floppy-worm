@@ -34,5 +34,5 @@ export const defaultPhysicsParams = {
     
     // Camera
     cameraFollowTail: true,
-    cameraZoom: 2
+    cameraZoom: 1
 };
