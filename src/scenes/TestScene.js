@@ -40,7 +40,7 @@ export default class TestScene extends Phaser.Scene {
         
         // Target platform on left side
         const vbar = this.matter.add.gameObject(
-            this.add.rectangle(300, 600, 5000, 48, 0xff6b6b), {
+            this.add.rectangle(300, 300, 500, 48, 0xff6b6b), {
             isStatic: true,
             friction: 1,
         });

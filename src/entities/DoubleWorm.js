@@ -90,6 +90,13 @@ export default class DoubleWorm extends WormBase {
             laserArrowOffset: 10,
             laserFadeDuration: 1000,
             
+            // Stickiness Physics - Constraint-based surface grip system
+            stickinessActivationThreshold: 0.3,  // Minimum downward stick input to activate
+            stickinessConstraintStiffness: 0.1,  // Strength of sticky constraints (0-1)
+            stickinessConstraintDamping: 0.5,    // Damping for sticky constraints  
+            headStickinessSegmentCount: 0.3,     // Fraction of head segments that can stick
+            tailStickinessSegmentCount: 0.3,     // Fraction of tail segments that can stick
+            
             // Attach points
             headAttachIndex: 1,
             tailAttachFromEnd: 2,
@@ -129,6 +136,12 @@ export default class DoubleWorm extends WormBase {
         this.keyboardState = {
             left: { w: 0, a: 0, s: 0, d: 0 }, // WASD for left stick
             right: { up: 0, left: 0, down: 0, right: 0 } // Arrows for right stick
+        };
+        
+        // Initialize stickiness system
+        this.stickyConstraints = {
+            head: [],  // Array of active sticky constraints for head section
+            tail: []   // Array of active sticky constraints for tail section
         };
         
         // Initialize anchor system
@@ -312,6 +325,15 @@ export default class DoubleWorm extends WormBase {
             }
         });
         
+        // Clean up sticky constraints
+        if (this.stickyConstraints) {
+            Object.values(this.stickyConstraints).forEach(constraints => {
+                constraints.forEach(constraintData => {
+                    this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
+                });
+            });
+        }
+        
         // Call parent destroy
         super.destroy();
     }
@@ -375,6 +397,14 @@ export default class DoubleWorm extends WormBase {
         // Right trigger or Q controls tail spring
         const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         this.handleJumpSpring('tail', tailTriggerValue);
+        
+        // Update stickiness system based on downward stick input
+        const headStickinessActive = leftStick.y > this.config.stickinessActivationThreshold;
+        const tailStickinessActive = rightStick.y > this.config.stickinessActivationThreshold;
+        this.updateStickinessSystem(headStickinessActive, tailStickinessActive);
+        
+        // Clean up invalid sticky constraints
+        this.cleanupInvalidStickyConstraints();
         
         // Apply grounding force to middle segments to prevent flying
         // Pass in the forces being applied to head and tail
@@ -748,5 +778,135 @@ export default class DoubleWorm extends WormBase {
     
     calculateStiffness(triggerValue) {
         return triggerValue * this.config.jumpStiffness;
+    }
+    
+    updateStickinessSystem(headActive, tailActive) {
+        // Update head stickiness
+        if (headActive) {
+            this.activateStickiness('head');
+        } else {
+            this.deactivateStickiness('head');
+        }
+        
+        // Update tail stickiness
+        if (tailActive) {
+            this.activateStickiness('tail');
+        } else {
+            this.deactivateStickiness('tail');
+        }
+    }
+    
+    activateStickiness(section) {
+        if (!this.segments || !this.segmentCollisions) return;
+        
+        // Determine segment range for this section
+        const isHead = section === 'head';
+        const segmentFraction = isHead ? 
+            this.config.headStickinessSegmentCount : 
+            this.config.tailStickinessSegmentCount;
+        
+        const totalSegments = this.segments.length;
+        const segmentCount = Math.floor(totalSegments * segmentFraction);
+        
+        let startIndex, endIndex;
+        if (isHead) {
+            startIndex = 0;
+            endIndex = segmentCount;
+        } else {
+            startIndex = totalSegments - segmentCount;
+            endIndex = totalSegments;
+        }
+        
+        // Get touching segments in this section
+        const touchingSegments = [];
+        for (let i = startIndex; i < endIndex; i++) {
+            if (this.segmentCollisions[i] && this.segmentCollisions[i].isColliding) {
+                touchingSegments.push({
+                    index: i,
+                    segment: this.segments[i],
+                    collision: this.segmentCollisions[i]
+                });
+            }
+        }
+        
+        // Create sticky constraints for new touching segments
+        const existingConstraints = this.stickyConstraints[section];
+        const existingSegmentIndices = existingConstraints.map(c => c.segmentIndex);
+        
+        touchingSegments.forEach(touchingData => {
+            const { index, segment, collision } = touchingData;
+            
+            // Skip if already has constraint
+            if (existingSegmentIndices.includes(index)) return;
+            
+            // Create pin constraint at contact point
+            // Calculate relative positions on both bodies
+            const segmentRelativePoint = {
+                x: collision.contactPoint.x - segment.position.x,
+                y: collision.contactPoint.y - segment.position.y
+            };
+            const surfaceRelativePoint = {
+                x: collision.contactPoint.x - collision.surfaceBody.position.x,
+                y: collision.contactPoint.y - collision.surfaceBody.position.y
+            };
+            
+            const constraint = this.Matter.Constraint.create({
+                bodyA: segment,
+                bodyB: collision.surfaceBody,
+                pointA: segmentRelativePoint,
+                pointB: surfaceRelativePoint,
+                length: 0,
+                stiffness: this.config.stickinessConstraintStiffness,
+                damping: this.config.stickinessConstraintDamping,
+                render: {
+                    visible: this.config.showDebug,
+                    strokeStyle: section === 'head' ? '#ff6b6b' : '#74b9ff',
+                    lineWidth: 3
+                }
+            });
+            
+            // Add to world and track
+            this.Matter.World.add(this.matter.world.localWorld, constraint);
+            existingConstraints.push({
+                constraint: constraint,
+                segmentIndex: index,
+                surfaceBody: collision.surfaceBody
+            });
+        });
+    }
+    
+    deactivateStickiness(section) {
+        const constraints = this.stickyConstraints[section];
+        
+        // Remove all constraints for this section
+        constraints.forEach(constraintData => {
+            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
+        });
+        
+        // Clear the array
+        this.stickyConstraints[section] = [];
+    }
+    
+    cleanupInvalidStickyConstraints() {
+        // Clean up constraints for segments no longer colliding
+        ['head', 'tail'].forEach(section => {
+            const constraints = this.stickyConstraints[section];
+            const validConstraints = [];
+            
+            constraints.forEach(constraintData => {
+                const { segmentIndex, constraint, surfaceBody } = constraintData;
+                const collision = this.segmentCollisions[segmentIndex];
+                
+                // Keep constraint if segment is still colliding with the same surface
+                if (collision && collision.isColliding && collision.surfaceBody === surfaceBody) {
+                    validConstraints.push(constraintData);
+                } else {
+                    // Remove invalid constraint
+                    this.Matter.World.remove(this.matter.world.localWorld, constraint);
+                }
+            });
+            
+            this.stickyConstraints[section] = validConstraints;
+        });
     }
 }
