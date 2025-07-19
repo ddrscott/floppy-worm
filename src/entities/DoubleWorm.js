@@ -51,10 +51,10 @@ export default class DoubleWorm extends WormBase {
                                           // Lower = tighter position control
             
             // Anti-Flying Physics - Prevents unrealistic floating/flying behavior
-            groundingForce: 0.01,             // Base downward force applied to middle segments
+            groundingForce: 0.02,             // Base downward force applied to middle segments
                                              // Higher = heavier feel, less airborne time
                                              // Lower = more floaty, easier to get airborne
-            groundingSegments: 0.1,          // Fraction of segments receiving grounding (0-1)
+            groundingSegments: 0.2,          // Fraction of segments receiving grounding (0-1)
                                              // Higher = more segments grounded, stiffer feel
                                              // Lower = fewer grounded segments, more flexible
             groundingReactiveMultiplier: 0.8, // Extra grounding when upward forces detected
@@ -499,6 +499,10 @@ export default class DoubleWorm extends WormBase {
     applyGroundingForce(headForces, tailForces) {
         // Calculate total upward force being applied
         const totalUpwardForce = Math.abs(Math.min(0, (headForces?.y || 0) + (tailForces?.y || 0)));
+        if (totalUpwardForce <= 0.01) {
+            // No upward forces detected, no grounding needed
+            return;
+        }
         
         // If no upward forces, apply minimal grounding
         const baseGrounding = this.groundingForce;
