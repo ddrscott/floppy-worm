@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Floppy Worm - Map Editor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        #game-container {
+            width: 100%;
+            height: 100%;
+            max-width: 1920px;
+            max-height: 1080px;
+            position: relative;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #4ecdc4;
+        }
+        
+        .info-panel ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .info-panel li {
+            margin: 5px 0;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+        }
+        
+        .shortcuts {
+            background: rgba(52, 73, 94, 0.9);
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 10px;
+        }
+        
+        .shortcuts h4 {
+            margin: 0 0 8px 0;
+            color: #f39c12;
+            font-size: 12px;
+        }
+        
+        .shortcuts ul {
+            margin: 0;
+            padding-left: 15px;
+            font-size: 11px;
+        }
+        
+        @media (max-width: 600px) {
+            .info-panel {
+                font-size: 12px;
+                padding: 10px;
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="loading">Loading Map Editor...</div>
+    </div>
+    
+
+    <script type="module">
+        import Phaser from 'phaser';
+        import * as dat from 'dat.gui';
+        import MapEditor from './scenes/MapEditor.js';
+        
+        // Make dat.GUI available globally
+        window.dat = dat;
+        
+        // Remove loading text when game starts
+        function removeLoading() {
+            const loading = document.querySelector('.loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+        
+        // Game configuration for map editor
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            backgroundColor: '#232333',
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: '100%',
+                height: '100%',
+            },
+            physics: {
+                default: 'matter',
+                matter: {
+                    gravity: { y: 1 },
+                    debug: {
+                        showBody: true,
+                        showStaticBody: true,
+                        showVelocity: false,
+                        bodyColor: 0xff0000
+                    },
+                    positionIterations: 20,
+                    velocityIterations: 20,
+                    constraintIterations: 2,
+                    enableSleeping: true
+                }
+            },
+            input: {
+                gamepad: true
+            },
+            scene: [MapEditor],
+            callbacks: {
+                postBoot: function() {
+                    removeLoading();
+                }
+            }
+        };
+        
+        // Create game instance
+        const game = new Phaser.Game(config);
+        
+        // Handle ESC key to reload page
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                if (confirm('Exit editor? Unsaved changes will be lost.')) {
+                    window.location.href = 'index.html';
+                }
+            }
+        });
+        
+        // Prevent accidental page refresh
+        window.addEventListener('beforeunload', (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        });
+    </script>
+</body>
+</html>
