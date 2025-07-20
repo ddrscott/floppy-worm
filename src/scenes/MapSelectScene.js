@@ -357,7 +357,7 @@ export function completeMap(mapKey) {
             // Find and unlock next map
             const maps = [
                 'Map001', 'Map002', 'Map003', 'Map004', 'Map005',
-                'Map006', 'Map007', 'Map008', 'Map009', 'Map010'
+                'Swinger'
             ];
             const currentIndex = maps.indexOf(mapKey);
             if (currentIndex !== -1 && currentIndex < maps.length - 1) {
