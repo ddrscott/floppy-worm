@@ -201,8 +201,13 @@ export default class MapSelectScene extends Phaser.Scene {
     updateSelection() {
         // Clear previous highlights
         this.mapButtons.forEach(button => {
-            button.background.setStrokeStyle(2, button.isUnlocked ? 
-                (this.userProgress[button.mapKey].completed ? 0x2ecc71 : 0x4ecdc4) : 0x34495e, 
+            // Use current progress state, not cached isUnlocked
+            const currentProgress = this.userProgress[button.mapKey];
+            const isUnlocked = currentProgress.unlocked;
+            const isCompleted = currentProgress.completed;
+            
+            button.background.setStrokeStyle(2, isUnlocked ? 
+                (isCompleted ? 0x2ecc71 : 0x4ecdc4) : 0x34495e, 
                 button.mapIndex === this.selectedMapIndex ? 1 : 0.8
             );
         });
@@ -304,16 +309,19 @@ export default class MapSelectScene extends Phaser.Scene {
     
     selectMap() {
         const selectedButton = this.mapButtons[this.selectedMapIndex];
-        if (selectedButton && selectedButton.isUnlocked) {
+        if (selectedButton) {
             const mapKey = selectedButton.mapKey;
+            const isUnlocked = this.userProgress[mapKey].unlocked;
             
-            // If scene is already active, stop it first to ensure clean restart
-            if (this.scene.manager.isActive(mapKey)) {
-                this.scene.stop(mapKey);
+            if (isUnlocked) {
+                // If scene is already active, stop it first to ensure clean restart
+                if (this.scene.manager.isActive(mapKey)) {
+                    this.scene.stop(mapKey);
+                }
+                
+                // Start the scene fresh
+                this.scene.start(mapKey);
             }
-            
-            // Start the scene fresh
-            this.scene.start(mapKey);
         }
     }
     
