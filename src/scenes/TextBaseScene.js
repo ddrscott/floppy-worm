@@ -83,9 +83,20 @@ export default class TextBaseScene extends Phaser.Scene {
         // Turn off debug rendering for cleaner visuals
         this.matter.world.drawDebug = false;
         
-        // Parse level to calculate height
+        // Parse level to calculate dimensions
         const levelRows = this.levelData.trim().split('\n').reverse().filter(row => row.trim().length > 0);
         const levelHeight = levelRows.length * this.ROW_SPACING;
+        
+        // Calculate actual level width from the widest row
+        const maxRowLength = Math.max(...levelRows.map(row => row.trim().length));
+        this.LEVEL_WIDTH = maxRowLength * this.CHAR_WIDTH;
+        
+        // Store level dimensions (before creating anything)
+        this.levelHeight = levelHeight;
+        this.levelWidth = this.LEVEL_WIDTH;
+
+        // Update mini-map size based on level proportions
+        this.updateMiniMapSize();
         
         // Set world bounds
         this.matter.world.setBounds(0, 0, this.LEVEL_WIDTH, levelHeight, 1000);
@@ -94,13 +105,6 @@ export default class TextBaseScene extends Phaser.Scene {
         this.createGrid(levelHeight);
         this.createBoundaryWalls(levelHeight);
         this.parseLevel(levelRows);
-        
-        // Store level dimensions
-        this.levelHeight = levelHeight;
-        this.levelWidth = this.LEVEL_WIDTH;
-
-        // Update mini-map size based on level proportions
-        this.updateMiniMapSize();
 
         // Create mini-map camera (after level is parsed)
         this.createMiniMap(levelHeight);
@@ -165,6 +169,7 @@ export default class TextBaseScene extends Phaser.Scene {
         
         // Track gamepad button states
         this.button0WasPressed = false;
+        this.button1WasPressed = false;
     }
     
     createGrid(height) {
@@ -526,26 +531,36 @@ export default class TextBaseScene extends Phaser.Scene {
         if (this.victoryAchieved) {
             const pad = this.input.gamepad.getPad(0);
             
-            // ESC key or gamepad button A (0) to return to map select
+            // SPACE key to go to next level (if available)
+            if (this.hasNextLevel && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+                this.scene.start(this.nextMapKey);
+                return;
+            }
+            
+            // ESC key to return to map select
             if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-                // Cancel auto-return timer
-                if (this.victoryReturnTimer) {
-                    this.victoryReturnTimer.destroy();
-                }
                 this.scene.start('MapSelectScene');
                 return;
             }
             
-            // Check gamepad button A (0) 
+            // Gamepad button A (0) for next level, B (1) for map select
             if (pad && pad.buttons[0] && pad.buttons[0].pressed && !this.button0WasPressed) {
-                // Cancel auto-return timer
-                if (this.victoryReturnTimer) {
-                    this.victoryReturnTimer.destroy();
+                if (this.hasNextLevel) {
+                    this.scene.start(this.nextMapKey);
+                } else {
+                    this.scene.start('MapSelectScene');
                 }
+                return;
+            }
+            
+            // Gamepad button B (1) for map select
+            if (pad && pad.buttons[1] && pad.buttons[1].pressed && !this.button1WasPressed) {
                 this.scene.start('MapSelectScene');
                 return;
             }
+            
             this.button0WasPressed = pad && pad.buttons[0] && pad.buttons[0].pressed;
+            this.button1WasPressed = pad && pad.buttons[1] && pad.buttons[1].pressed;
             
             // Don't process normal game logic during victory
             return;
@@ -615,47 +630,134 @@ export default class TextBaseScene extends Phaser.Scene {
         // Set victory flag to handle input differently
         this.victoryAchieved = true;
         
-        const victoryText = this.add.text(500, 300, 'VICTORY!', {
-            fontSize: '64px',
+        // Create dark overlay
+        const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.8);
+        overlay.setScrollFactor(0);
+        overlay.setDepth(1000);
+        
+        // Victory dialog background
+        const dialogBg = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, 500, 350, 0x2c3e50, 0.95);
+        dialogBg.setScrollFactor(0);
+        dialogBg.setDepth(1001);
+        dialogBg.setStrokeStyle(4, 0x4ecdc4, 1);
+        
+        const victoryText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 120, 'LEVEL COMPLETE!', {
+            fontSize: '48px',
             color: '#ffd700',
             stroke: '#000000',
-            strokeThickness: 8
-        }).setOrigin(0.5).setScrollFactor(0);
+            strokeThickness: 6
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
         
-        const completionText = this.add.text(500, 380, `Level Completed!`, {
-            fontSize: '32px',
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5).setScrollFactor(0);
+        const completionText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 60, `Well done!`, {
+            fontSize: '24px',
+            color: '#ffffff'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
         
-        const menuText = this.add.text(500, 450, 'Press ESC or Button A to return to map select', {
-            fontSize: '20px',
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 20, y: 10 }
-        }).setOrigin(0.5).setScrollFactor(0);
+        // Determine if there's a next level
+        const maps = ['Map001', 'Map002', 'Map003', 'Map004', 'Map005'];
+        const currentIndex = maps.indexOf(this.scene.key);
+        const hasNextLevel = currentIndex !== -1 && currentIndex < maps.length - 1;
+        const nextMapKey = hasNextLevel ? maps[currentIndex + 1] : null;
         
-        if (this.minimap) {
-            this.minimap.ignore(victoryText);
-            this.minimap.ignore(completionText);
-            this.minimap.ignore(menuText);
+        // Button styling
+        const buttonWidth = 180;
+        const buttonHeight = 50;
+        const buttonY = this.scale.height / 2 + 20;
+        
+        // Next Level button (if available)
+        if (hasNextLevel) {
+            const nextButton = this.add.rectangle(this.scale.width / 2 - 100, buttonY, buttonWidth, buttonHeight, 0x27ae60);
+            nextButton.setScrollFactor(0).setDepth(1002);
+            nextButton.setStrokeStyle(2, 0x2ecc71, 1);
+            nextButton.setInteractive();
+            
+            const nextText = this.add.text(this.scale.width / 2 - 100, buttonY, 'Next Level', {
+                fontSize: '20px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
+            
+            nextButton.on('pointerdown', () => {
+                this.scene.start(nextMapKey);
+            });
+            
+            nextButton.on('pointerover', () => {
+                nextButton.setFillStyle(0x2ecc71);
+            });
+            
+            nextButton.on('pointerout', () => {
+                nextButton.setFillStyle(0x27ae60);
+            });
+            
+            this.nextButton = nextButton;
+            this.nextText = nextText;
         }
         
-        // Auto-return to map select after a delay
-        this.victoryReturnTimer = this.time.delayedCall(3000, () => {
+        // Menu button
+        const menuButtonX = hasNextLevel ? this.scale.width / 2 + 100 : this.scale.width / 2;
+        const menuButton = this.add.rectangle(menuButtonX, buttonY, buttonWidth, buttonHeight, 0x3498db);
+        menuButton.setScrollFactor(0).setDepth(1002);
+        menuButton.setStrokeStyle(2, 0x4ecdc4, 1);
+        menuButton.setInteractive();
+        
+        const menuText = this.add.text(menuButtonX, buttonY, 'Map Select', {
+            fontSize: '20px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
+        
+        menuButton.on('pointerdown', () => {
             this.scene.start('MapSelectScene');
         });
         
+        menuButton.on('pointerover', () => {
+            menuButton.setFillStyle(0x4ecdc4);
+        });
+        
+        menuButton.on('pointerout', () => {
+            menuButton.setFillStyle(0x3498db);
+        });
+        
+        // Instructions
+        const instructions = hasNextLevel ? 
+            'SPACE: Next Level • ESC: Map Select' : 
+            'ESC: Map Select';
+            
+        const instructionText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 90, instructions, {
+            fontSize: '16px',
+            color: '#95a5a6'
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
+        
+        // Store references for input handling
+        this.menuButton = menuButton;
+        this.menuText = menuText;
+        this.hasNextLevel = hasNextLevel;
+        this.nextMapKey = nextMapKey;
+        
+        // Hide from minimap
+        if (this.minimap) {
+            this.minimap.ignore(overlay);
+            this.minimap.ignore(dialogBg);
+            this.minimap.ignore(victoryText);
+            this.minimap.ignore(completionText);
+            this.minimap.ignore(menuButton);
+            this.minimap.ignore(menuText);
+            this.minimap.ignore(instructionText);
+            if (this.nextButton) {
+                this.minimap.ignore(this.nextButton);
+                this.minimap.ignore(this.nextText);
+            }
+        }
+        
         // Celebration effect
-        for (let i = 0; i < 20; i++) {
-            this.time.delayedCall(i * 50, () => {
+        for (let i = 0; i < 15; i++) {
+            this.time.delayedCall(i * 100, () => {
                 const star = this.add.star(
-                    Phaser.Math.Between(100, 900),
-                    Phaser.Math.Between(100, 500),
-                    5, 10, 20,
+                    Phaser.Math.Between(200, this.scale.width - 200),
+                    Phaser.Math.Between(100, this.scale.height - 100),
+                    5, 8, 15,
                     Phaser.Display.Color.RandomRGB().color
-                ).setScrollFactor(0);
+                ).setScrollFactor(0).setDepth(999);
                 
                 if (this.minimap) {
                     this.minimap.ignore(star);
@@ -664,8 +766,9 @@ export default class TextBaseScene extends Phaser.Scene {
                 this.tweens.add({
                     targets: star,
                     alpha: 0,
-                    scale: 2,
-                    duration: 1000,
+                    scale: 1.5,
+                    rotation: Math.PI * 2,
+                    duration: 2000,
                     onComplete: () => star.destroy()
                 });
             });
