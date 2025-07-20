@@ -11,6 +11,7 @@ export default class MapSelectScene extends Phaser.Scene {
             { key: 'Map003', title: 'Step Up', difficulty: 2 },
             { key: 'Map004', title: 'Zigzag Challenge', difficulty: 3 },
             { key: 'Map005', title: 'The Wall', difficulty: 3 },
+            { key: 'Swinger', title: 'Swing Away', difficulty: 1 },
         ];
         
         this.selectedMapIndex = 0;
@@ -59,22 +60,30 @@ export default class MapSelectScene extends Phaser.Scene {
     
     getUserProgress() {
         const savedProgress = localStorage.getItem('floppyWormProgress');
+        let progress = {};
+        
         if (savedProgress) {
-            return JSON.parse(savedProgress);
+            progress = JSON.parse(savedProgress);
         }
         
-        // Default progress - only first map unlocked
-        const defaultProgress = {};
+        // Ensure all current maps have entries in progress (for new maps added after save)
+        let needsSave = false;
         this.maps.forEach((map, index) => {
-            defaultProgress[map.key] = {
-                unlocked: index === 0,
-                completed: false,
-                bestTime: null
-            };
+            if (!progress[map.key]) {
+                progress[map.key] = {
+                    unlocked: index === 0, // Unlock only first map by default
+                    completed: false,
+                    bestTime: null
+                };
+                needsSave = true;
+            }
         });
         
-        this.saveUserProgress(defaultProgress);
-        return defaultProgress;
+        if (needsSave) {
+            this.saveUserProgress(progress);
+        }
+        
+        return progress;
     }
     
     saveUserProgress(progress = this.userProgress) {

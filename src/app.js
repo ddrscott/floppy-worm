@@ -10,6 +10,9 @@ import Map002 from './scenes/maps/map_002';
 import Map003 from './scenes/maps/map_003';
 import Map004 from './scenes/maps/map_004';
 import Map005 from './scenes/maps/map_005';
+import MapEditor from './scenes/MapEditor';
+import JsonMapBase from './scenes/JsonMapBase';
+import SwingMap from './scenes/maps/json/SwingMap';
 
 // Make dat.GUI available globally for compatibility with the TestScene
 window.dat = dat;
@@ -51,6 +54,8 @@ export const game = new Phaser.Game(
         TestScene,
         LevelsScene,
         GamepadTest,
+        MapEditor,
+        SwingMap,
         Map001,
         Map002,
         Map003,
