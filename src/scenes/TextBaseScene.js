@@ -106,14 +106,14 @@ export default class TextBaseScene extends Phaser.Scene {
         this.createBoundaryWalls(levelHeight);
         this.parseLevel(levelRows);
 
-        // Create mini-map camera (after level is parsed)
-        this.createMiniMap(levelHeight);
-        
         // Create UI
         this.createUI();
         
         // Set up controls
         this.setupControls();
+
+        // Create mini-map camera (after level is parsed)
+        this.createMiniMap(levelHeight);
     }
     
     updateMiniMapSize() {
@@ -400,18 +400,7 @@ export default class TextBaseScene extends Phaser.Scene {
         if (!isTouchDevice) {
             this.controlsDisplay = new ControlsDisplay(this, 20, 60);
             this.minimapIgnoreList.push(this.controlsDisplay.elements);
-
         }
-        
-        // Add mini-map controls instruction
-        const minimapText = this.add.text(20, this.scale.height - 40, 'M: Toggle Mini-map', {
-            fontSize: '14px',
-            color: '#95a5a6',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 8, y: 4 }
-        }).setScrollFactor(0);
-        
-        this.minimapIgnoreList.push(minimapText);
     }
     
     createMiniMap(levelHeight) {
