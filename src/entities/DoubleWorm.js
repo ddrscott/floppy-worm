@@ -50,55 +50,62 @@ export default class DoubleWorm extends WormBase {
                                           // Higher = larger deadband around target position
                                           // Lower = tighter position control
             
-            // Anti-Flying Physics - Prevents unrealistic floating/flying behavior
-            groundingForce: 0.02,             // Base downward force applied to middle segments
-                                             // Higher = heavier feel, less airborne time
-                                             // Lower = more floaty, easier to get airborne
-            groundingSegments: 0.2,          // Fraction of segments receiving grounding (0-1)
-                                             // Higher = more segments grounded, stiffer feel
-                                             // Lower = fewer grounded segments, more flexible
-            groundingReactiveMultiplier: 0.8, // Extra grounding when upward forces detected
-                                             // Higher = stronger counter to upward movement
-                                             // Lower = allows more vertical movement
-            groundingCenterWeight: 0.5,      // Extra grounding bias toward center segments
-                                             // Higher = center stays down more, ends can lift
-                                             // Lower = more uniform grounding distribution
+            // Ground Physics - Prevents unrealistic floating/flying behavior
+            ground: {
+                force: 0.02,                    // Base downward force applied to middle segments
+                                               // Higher = heavier feel, less airborne time
+                                               // Lower = more floaty, easier to get airborne
+                segments: 0.2,                 // Fraction of segments receiving grounding (0-1)
+                                               // Higher = more segments grounded, stiffer feel
+                                               // Lower = fewer grounded segments, more flexible
+                reactiveMultiplier: 0.8,       // Extra grounding when upward forces detected
+                                               // Higher = stronger counter to upward movement
+                                               // Lower = allows more vertical movement
+                centerWeight: 0.5              // Extra grounding bias toward center segments
+                                               // Higher = center stays down more, ends can lift
+                                               // Lower = more uniform grounding distribution
+            },
             
             // Visual parameters
             stickIndicatorRadius: 8,
             rangeIndicatorAlpha: 0.4,
             rangeIndicatorLineWidth: 1,
             
-            // Jump Spring Physics - Controls trigger-activated compression springs
-            jumpSpringLengthMultiplier: 1,   // How much longer jump springs are vs natural distance
-                                            // Higher = more compression potential, stronger jumps
-                                            // Lower = less compression, gentler spring effect
-            jumpTriggerThreshold: 0.01,     // Minimum trigger value to activate jump springs (0-1)
-                                            // Higher = harder to activate, requires fuller trigger press
-                                            // Lower = easier to activate, more sensitive triggers
-            jumpStiffness: 0.0375,          // Maximum stiffness of jump springs when fully activated
-                                            // Higher = more explosive jumps, stronger spring force
-                                            // Lower = gentler spring assistance, subtle effect
+            // Jump Physics - Controls trigger-activated compression springs and body tension
+            jump: {
+                // Spring Physics
+                springLengthMultiplier: 1,       // How much longer jump springs are vs natural distance
+                                                 // Higher = more compression potential, stronger jumps
+                                                 // Lower = less compression, gentler spring effect
+                triggerThreshold: 0.01,          // Minimum trigger value to activate jump springs (0-1)
+                                                 // Higher = harder to activate, requires fuller trigger press
+                                                 // Lower = easier to activate, more sensitive triggers
+                stiffness: 0.0375,               // Maximum stiffness of jump springs when fully activated
+                                                 // Higher = more explosive jumps, stronger spring force
+                                                 // Lower = gentler spring assistance, subtle effect
 
-            // Compression Spring Physics - Controls trigger-responsive body tension
-            baseCompressionStiffness: 0.005,    // Base stiffness when no triggers pressed
-                                                // Higher = stiffer baseline body, less flexibility
-                                                // Lower = more flexible baseline, looser feel
-            maxCompressionStiffness: 0.5,      // Maximum stiffness at full trigger activation
-                                                // Higher = very rigid body when tensed, precise control
-                                                // Lower = moderate stiffening, maintains some flexibility
-            compressionTriggerSensitivity: 1.0, // How responsive compression is to trigger input (0-2 typical)
-                                                // Higher = more dramatic stiffness changes per trigger input
-                                                // Lower = subtle stiffness changes, more gradual response
+                // Compression Spring Physics - Controls trigger-responsive body tension
+                baseCompressionStiffness: 0.005,    // Base stiffness when no triggers pressed
+                                                    // Higher = stiffer baseline body, less flexibility
+                                                    // Lower = more flexible baseline, looser feel
+                maxCompressionStiffness: 0.5,      // Maximum stiffness at full trigger activation
+                                                    // Higher = very rigid body when tensed, precise control
+                                                    // Lower = moderate stiffening, maintains some flexibility
+                compressionTriggerSensitivity: 1.0, // How responsive compression is to trigger input (0-2 typical)
+                                                    // Higher = more dramatic stiffness changes per trigger input
+                                                    // Lower = subtle stiffness changes, more gradual response
 
-            // laser guidance
-            laserLineWidth: 4,
-            laserGlowWidth: 8,
-            laserGlowAlpha: 0.5,
-            laserLength: 200,
-            laserArrowSize: 15,
-            laserArrowOffset: 10,
-            laserFadeDuration: 1000,
+                // Laser guidance visuals
+                laser: {
+                    lineWidth: 4,
+                    glowWidth: 8,
+                    glowAlpha: 0.5,
+                    length: 200,
+                    arrowSize: 15,
+                    arrowOffset: 10,
+                    fadeDuration: 1000
+                }
+            },
             
             // Grab Physics - Constraint-based surface grip system when pressing into walls
             grab: {
@@ -137,8 +144,8 @@ export default class DoubleWorm extends WormBase {
         this.anchorDamping = swingConfig.anchorDamping;
         this.velocityDamping = swingConfig.velocityDamping;
         this.impulseMultiplier = swingConfig.impulseMultiplier;
-        this.groundingForce = swingConfig.groundingForce;
-        this.groundingSegments = swingConfig.groundingSegments;
+        this.groundingForce = swingConfig.ground.force;
+        this.groundingSegments = swingConfig.ground.segments;
         
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
@@ -329,13 +336,13 @@ export default class DoubleWorm extends WormBase {
         if (this.segments.length > 2) {
             const segA = this.segments[0];
             const segB = this.segments[this.segments.length - 2];
-            this.jumpSprings.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
+            this.jumpSprings.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jump.springLengthMultiplier;
         }
         
         if (this.segments.length > 2) {
             const segA = this.segments[1];
             const segB = this.segments[this.segments.length - 1];
-            this.jumpSprings.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jumpSpringLengthMultiplier;
+            this.jumpSprings.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jump.springLengthMultiplier;
         }
     }
 
@@ -481,9 +488,9 @@ export default class DoubleWorm extends WormBase {
         
         // Update compression spring stiffness based on trigger values
         const maxTriggerValue = Math.max(headTriggerValue, tailTriggerValue);
-        const compressionStiffness = this.config.baseCompressionStiffness + 
-            (maxTriggerValue * this.config.compressionTriggerSensitivity * 
-             (this.config.maxCompressionStiffness - this.config.baseCompressionStiffness));
+        const compressionStiffness = this.config.jump.baseCompressionStiffness + 
+            (maxTriggerValue * this.config.jump.compressionTriggerSensitivity * 
+             (this.config.jump.maxCompressionStiffness - this.config.jump.baseCompressionStiffness));
         this.updateCompressionStiffness(compressionStiffness);
         
         // Update stickiness system using section-based processing
@@ -510,7 +517,7 @@ export default class DoubleWorm extends WormBase {
         
         // If no upward forces, apply minimal grounding
         const baseGrounding = this.groundingForce;
-        const reactiveGrounding = totalUpwardForce * this.config.groundingReactiveMultiplier;
+        const reactiveGrounding = totalUpwardForce * this.config.ground.reactiveMultiplier;
         
         // Calculate which segments are in the middle
         const totalSegments = this.segments.length;
@@ -530,7 +537,7 @@ export default class DoubleWorm extends WormBase {
             const totalGrounding = baseGrounding + reactiveGrounding;
             const force = { 
                 x: 0, 
-                y: totalGrounding * (this.config.groundingCenterWeight + centerWeight * this.config.groundingCenterWeight)
+                y: totalGrounding * (this.config.ground.centerWeight + centerWeight * this.config.ground.centerWeight)
             };
             
             this.matter.body.applyForce(segment, segment.position, force);
@@ -788,7 +795,7 @@ export default class DoubleWorm extends WormBase {
             const laserLength = springLength * (compressionRatio * 1.3);
             
             // Draw laser beam
-            laser.lineStyle(this.config.laserLineWidth, color, 1);
+            laser.lineStyle(this.config.jump.laser.lineWidth, color, 1);
             laser.beginPath();
             laser.moveTo(fromSegment.position.x, fromSegment.position.y);
             laser.lineTo(
@@ -798,7 +805,7 @@ export default class DoubleWorm extends WormBase {
             laser.strokePath();
             
             // Add glow effect
-            laser.lineStyle(this.config.laserGlowWidth, color, this.config.laserGlowAlpha);
+            laser.lineStyle(this.config.jump.laser.glowWidth, color, this.config.jump.laser.glowAlpha);
             laser.beginPath();
             laser.moveTo(fromSegment.position.x, fromSegment.position.y);
             laser.lineTo(
@@ -808,9 +815,9 @@ export default class DoubleWorm extends WormBase {
             laser.strokePath();
             
             // Add arrow head at the end pointing in the direction of force
-            const arrowSize = this.config.laserArrowSize;
-            const arrowX = fromSegment.position.x + dirX * (laserLength - this.config.laserArrowOffset);
-            const arrowY = fromSegment.position.y + dirY * (laserLength - this.config.laserArrowOffset);
+            const arrowSize = this.config.jump.laser.arrowSize;
+            const arrowX = fromSegment.position.x + dirX * (laserLength - this.config.jump.laser.arrowOffset);
+            const arrowY = fromSegment.position.y + dirY * (laserLength - this.config.jump.laser.arrowOffset);
             
             laser.fillStyle(color, 1);
             laser.beginPath();
@@ -825,7 +832,7 @@ export default class DoubleWorm extends WormBase {
             this.scene.tweens.add({
                 targets: laser,
                 alpha: 0,
-                duration: this.config.laserFadeDuration,
+                duration: this.config.jump.laser.fadeDuration,
                 ease: 'Linear',
                 onComplete: () => {
                     laser.clear();
@@ -835,7 +842,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     handleJumpSpring(type, triggerValue) {
-        const threshold = this.config.jumpTriggerThreshold;
+        const threshold = this.config.jump.triggerThreshold;
         const isActive = triggerValue > threshold;
         
         const springData = this.jumpSprings[type];
@@ -862,7 +869,7 @@ export default class DoubleWorm extends WormBase {
             section.oppositeRangeForGrounding.end
         );
         
-        if (groundedSegments.length > 0) {
+        if (false && groundedSegments.length > 0) {
             // Use ground-anchored spring for better physics
             const jumpingSegment = segments.from;
             const bestGroundContact = groundedSegments[0]; // Already sorted by distance
@@ -932,7 +939,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     calculateStiffness(triggerValue) {
-        return triggerValue * this.config.jumpStiffness;
+        return triggerValue * this.config.jump.stiffness;
     }
     
     convertToSegmentSpring(type, triggerValue) {
