@@ -68,7 +68,6 @@ export default class DoubleWorm extends WormBase {
             stickIndicatorRadius: 8,
             rangeIndicatorAlpha: 0.4,
             rangeIndicatorLineWidth: 1,
-            connectionDotRadius: 0.4,
             
             // Jump Spring Physics - Controls trigger-activated compression springs
             jumpSpringLengthMultiplier: 1,   // How much longer jump springs are vs natural distance
@@ -101,22 +100,24 @@ export default class DoubleWorm extends WormBase {
             laserArrowOffset: 10,
             laserFadeDuration: 1000,
             
-            // Stickiness Physics - Constraint-based surface grip system
-            stickinessActivationThreshold: 0.3,  // Minimum stick input magnitude to activate
-            stickinessConstraintStiffness: 0.3,  // Strength of sticky constraints (0-1)
-            stickinessConstraintDamping: 0.5,    // Damping for sticky constraints  
-            headStickinessSegmentCount: 0.3,     // Fraction of head segments that can stick
-            tailStickinessSegmentCount: 0.3,     // Fraction of tail segments that can stick
-            
-            // Stickiness Visual Effects - Pulsating circles at grip points
-            stickinessVisualConfig: {
-                circleRadius: 25,                    // Base radius of pulsating circle
-                pulseScale: 0.25,                    // How much bigger it gets when pulsing
-                pulseDuration: 1000,                 // Time for one pulse cycle (ms)
-                circleColor: 0x3bff2b,              // Red color for grip indication
-                circleAlpha: 0.9,                   // Base transparency
-                // strokeWidth: 2,                     // Circle outline thickness
-                // strokeColor: 0xFF0000               // White outline for contrast
+            // Grab Physics - Constraint-based surface grip system when pressing into walls
+            grab: {
+                activationThreshold: 0.3,        // Minimum stick input magnitude to activate
+                constraintStiffness: 0.3,        // Strength of sticky constraints (0-1)
+                constraintDamping: 0.5,          // Damping for sticky constraints  
+                headSegmentCount: 0.3,           // Fraction of head segments that can stick
+                tailSegmentCount: 0.3,           // Fraction of tail segments that can stick
+                
+                // Visual Effects - Pulsating circles at grip points
+                visual: {
+                    circleRadius: 25,            // Base radius of pulsating circle
+                    pulseScale: 0.25,            // How much bigger it gets when pulsing
+                    pulseDuration: 1000,         // Time for one pulse cycle (ms)
+                    circleColor: 0x3bff2b,      // Green color for grip indication
+                    circleAlpha: 0.9,           // Base transparency
+                    // strokeWidth: 2,             // Circle outline thickness
+                    // strokeColor: 0xFF0000       // White outline for contrast
+                }
             },
             
             // Attach points
@@ -205,8 +206,8 @@ export default class DoubleWorm extends WormBase {
                 stick: this.leftStickState,
                 anchor: this.anchors.head,
                 springData: null, // Will be set after jump springs are initialized
-                segmentRange: { start: 0, end: this.config.headStickinessSegmentCount },
-                stickinessSegmentCount: this.config.headStickinessSegmentCount,
+                segmentRange: { start: 0, end: this.config.grab.headSegmentCount },
+                stickinessSegmentCount: this.config.grab.headSegmentCount,
                 color: this.config.headColor,
                 strokeColor: this.config.headStrokeColor,
                 oppositeRangeForGrounding: { start: 0.7, end: 1.0 }
@@ -216,8 +217,8 @@ export default class DoubleWorm extends WormBase {
                 stick: this.rightStickState,
                 anchor: this.anchors.tail,
                 springData: null, // Will be set after jump springs are initialized
-                segmentRange: { start: 1 - this.config.tailStickinessSegmentCount, end: 1 },
-                stickinessSegmentCount: this.config.tailStickinessSegmentCount,
+                segmentRange: { start: 1 - this.config.grab.tailSegmentCount, end: 1 },
+                stickinessSegmentCount: this.config.grab.tailSegmentCount,
                 color: this.config.tailColor,
                 strokeColor: this.config.tailStrokeColor,
                 oppositeRangeForGrounding: { start: 0.0, end: 0.3 }
@@ -418,6 +419,9 @@ export default class DoubleWorm extends WormBase {
         const pad = this.scene?.input?.gamepad?.getPad(0);
         const deltaSeconds = delta / 1000; // Convert to seconds
         
+        this.leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
+        this.rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
+
         let leftStick, rightStick;
         
         if (pad) {
@@ -484,8 +488,8 @@ export default class DoubleWorm extends WormBase {
         
         // Update stickiness system using section-based processing
         this.updateStickinessSystemSections([
-            { section: this.sections.head, stick: leftStick },
-            { section: this.sections.tail, stick: rightStick }
+            { section: this.sections.head, stick: leftStick, active: this.leftGrab > 0 },
+            { section: this.sections.tail, stick: rightStick, active: this.rightGrab > 0 }
         ]);
         
         // Clean up invalid sticky constraints
@@ -958,10 +962,10 @@ export default class DoubleWorm extends WormBase {
     
     updateStickinessSystemSections(sectionStickPairs) {
         // Process each section systematically
-        sectionStickPairs.forEach(({ section, stick }) => {
-            const isActive = this.checkDirectionalStickinessSection(section, stick);
+        sectionStickPairs.forEach(({ section, stick, active }) => {
+            // const isActive = this.checkDirectionalStickinessSection(section, stick);
             
-            if (isActive) {
+            if (active) {
                 this.activateStickiness(section.name);
             } else {
                 this.deactivateStickiness(section.name);
@@ -974,7 +978,7 @@ export default class DoubleWorm extends WormBase {
         
         // Get stick magnitude using base utility
         const stickMagnitude = this.calculateStickMagnitude(stick);
-        if (stickMagnitude < this.config.stickinessActivationThreshold) {
+        if (stickMagnitude < this.config.grab.activationThreshold) {
             return false;
         }
         
@@ -1048,8 +1052,8 @@ export default class DoubleWorm extends WormBase {
                 pointA: segmentRelativePoint,
                 pointB: surfaceRelativePoint,
                 length: 0,
-                stiffness: this.config.stickinessConstraintStiffness,
-                damping: this.config.stickinessConstraintDamping,
+                stiffness: this.config.grab.constraintStiffness,
+                damping: this.config.grab.constraintDamping,
                 render: {
                     visible: this.config.showDebug,
                     strokeStyle: section.name === 'head' ? '#ff6b6b' : '#74b9ff',
@@ -1108,7 +1112,7 @@ export default class DoubleWorm extends WormBase {
     }
     
     createStickinessCircle(constraint, contactPoint) {
-        const config = this.config.stickinessVisualConfig;
+        const config = this.config.grab.visual;
         
         // Create a graphics object for the pulsating circle
         const circle = this.scene.add.graphics();
