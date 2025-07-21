@@ -34,7 +34,7 @@ export default class DoubleWorm extends WormBase {
             velocityDamping: 0.4,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.001,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.0017,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
@@ -95,6 +95,7 @@ export default class DoubleWorm extends WormBase {
                                                     // Higher = more dramatic stiffness changes per trigger input
                                                     // Lower = subtle stiffness changes, more gradual response
 
+                useGroundAnchor: false,          //  Whether to use ground anchor for jump springs
                 // Laser guidance visuals
                 laser: {
                     lineWidth: 4,
@@ -127,6 +128,15 @@ export default class DoubleWorm extends WormBase {
                 }
             },
             
+            // Frame-rate Independence - Ensures consistent physics across different refresh rates
+            targetFrameRate: 60,          // Target frame rate for physics calculations (fps)
+                                         // All time-based calculations normalized to this rate
+                                         // Higher = more precise but potentially more expensive
+                                         // Lower = less precise but more compatible
+            maxDeltaTime: 33.33,         // Maximum allowed delta time (milliseconds)
+                                         // Prevents physics instability from frame drops
+                                         // Should be ~1.5x target frame time (1000/60 * 1.5)
+            
             // Attach points
             headAttachIndex: 1,
             tailAttachFromEnd: 2,
@@ -146,6 +156,10 @@ export default class DoubleWorm extends WormBase {
         this.impulseMultiplier = swingConfig.impulseMultiplier;
         this.groundingForce = swingConfig.ground.force;
         this.groundingSegments = swingConfig.ground.segments;
+        
+        // Frame-rate independence constants
+        this.targetFrameTime = 1000 / swingConfig.targetFrameRate; // Target time per frame (ms)
+        this.maxDeltaTime = swingConfig.maxDeltaTime;
         
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
@@ -424,13 +438,14 @@ export default class DoubleWorm extends WormBase {
     updateMovement(delta) {
         this.updateStickDisplay();
         const pad = this.scene?.input?.gamepad?.getPad(0);
+        
         const deltaSeconds = delta / 1000; // Convert to seconds
         
         this.leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
         this.rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
 
         let leftStick, rightStick;
-        
+
         if (pad) {
             // Use gamepad if available
             leftStick = pad.leftStick;
@@ -649,10 +664,13 @@ export default class DoubleWorm extends WormBase {
         const deltaX = stickState.x - stickState.prevX;
         const deltaY = stickState.y - stickState.prevY;
         
-        // Velocity is change per second - but not on keyboard releases
+        // Velocity is change per second - normalized to target frame rate
         if (deltaSeconds > 0 && !isKeyboardRelease) {
-            stickState.velocity.x = deltaX / deltaSeconds;
-            stickState.velocity.y = deltaY / deltaSeconds;
+            // Normalize velocity calculation to target frame rate
+            const targetDeltaSeconds = this.targetFrameTime / 1000;
+            const velocityScale = deltaSeconds / targetDeltaSeconds;
+            stickState.velocity.x = (deltaX / deltaSeconds) * velocityScale;
+            stickState.velocity.y = (deltaY / deltaSeconds) * velocityScale;
         } else if (isKeyboardRelease) {
             // On keyboard release, zero out velocity to prevent snapback
             stickState.velocity.x = 0;
@@ -660,7 +678,9 @@ export default class DoubleWorm extends WormBase {
         }
         
         // Apply damping to velocity (exponential decay over time)
-        const dampingFactor = Math.pow(this.velocityDamping, deltaSeconds);
+        // Normalize damping to target frame rate for consistent behavior
+        const normalizedDeltaSeconds = deltaSeconds * (this.config.targetFrameRate / 60);
+        const dampingFactor = Math.pow(this.velocityDamping, normalizedDeltaSeconds);
         stickState.velocity.x *= dampingFactor;
         stickState.velocity.y *= dampingFactor;
         
@@ -869,7 +889,7 @@ export default class DoubleWorm extends WormBase {
             section.oppositeRangeForGrounding.end
         );
         
-        if (false && groundedSegments.length > 0) {
+        if (this.config.jump.useGroundAnchor && groundedSegments.length > 0) {
             // Use ground-anchored spring for better physics
             const jumpingSegment = segments.from;
             const bestGroundContact = groundedSegments[0]; // Already sorted by distance
