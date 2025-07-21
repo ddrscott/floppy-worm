@@ -31,10 +31,10 @@ export default class DoubleWorm extends WormBase {
                                           // Lower = lighter anchors, more responsive
             
             // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 0.4,          // How quickly stick velocity decays over time (0-1)
+            velocityDamping: 0.5,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.0017,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.002,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
@@ -133,9 +133,6 @@ export default class DoubleWorm extends WormBase {
                                          // All time-based calculations normalized to this rate
                                          // Higher = more precise but potentially more expensive
                                          // Lower = less precise but more compatible
-            maxDeltaTime: 33.33,         // Maximum allowed delta time (milliseconds)
-                                         // Prevents physics instability from frame drops
-                                         // Should be ~1.5x target frame time (1000/60 * 1.5)
             
             // Attach points
             headAttachIndex: 1,
@@ -159,7 +156,6 @@ export default class DoubleWorm extends WormBase {
         
         // Frame-rate independence constants
         this.targetFrameTime = 1000 / swingConfig.targetFrameRate; // Target time per frame (ms)
-        this.maxDeltaTime = swingConfig.maxDeltaTime;
         
         // Stick tracking for momentum
         this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
