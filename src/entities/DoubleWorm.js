@@ -103,7 +103,7 @@ export default class DoubleWorm extends WormBase {
             // Grab Physics - Constraint-based surface grip system when pressing into walls
             grab: {
                 activationThreshold: 0.3,        // Minimum stick input magnitude to activate
-                constraintStiffness: 0.3,        // Strength of sticky constraints (0-1)
+                constraintStiffness: 0.5,        // Strength of sticky constraints (0-1)
                 constraintDamping: 0.5,          // Damping for sticky constraints  
                 headSegmentCount: 0.3,           // Fraction of head segments that can stick
                 tailSegmentCount: 0.3,           // Fraction of tail segments that can stick
@@ -1088,20 +1088,24 @@ export default class DoubleWorm extends WormBase {
     }
     
     cleanupInvalidStickyConstraints() {
-        // Clean up constraints for segments no longer colliding
+        // Only clean up constraints when buttons are released
+        // Constraints should persist even if contact is lost while button is held
+        
         ['head', 'tail'].forEach(section => {
             const constraints = this.stickyConstraints[section];
             const validConstraints = [];
             
+            // Check if the grab button for this section is still pressed
+            const isGrabActive = section === 'head' ? this.leftGrab > 0 : this.rightGrab > 0;
+            
             constraints.forEach(constraintData => {
-                const { segmentIndex, constraint, surfaceBody } = constraintData;
-                const collision = this.segmentCollisions[segmentIndex];
+                const { constraint } = constraintData;
                 
-                // Keep constraint if segment is still colliding with the same surface
-                if (collision && collision.isColliding && collision.surfaceBody === surfaceBody) {
+                // Keep constraint if grab button is still pressed
+                if (isGrabActive) {
                     validConstraints.push(constraintData);
                 } else {
-                    // Remove invalid constraint and its circle
+                    // Only remove constraint when button is released
                     this.Matter.World.remove(this.matter.world.localWorld, constraint);
                     this.removeStickinessCircle(constraint);
                 }
