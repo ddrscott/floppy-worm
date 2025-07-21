@@ -110,11 +110,11 @@ export default class DoubleWorm extends WormBase {
             
             // Stickiness Visual Effects - Pulsating circles at grip points
             stickinessVisualConfig: {
-                circleRadius: 8,                    // Base radius of pulsating circle
-                pulseScale: 0.5,                    // How much bigger it gets when pulsing
+                circleRadius: 25,                    // Base radius of pulsating circle
+                pulseScale: 0.25,                    // How much bigger it gets when pulsing
                 pulseDuration: 1000,                 // Time for one pulse cycle (ms)
-                circleColor: 0xff6b6b,              // Red color for grip indication
-                circleAlpha: 0.8,                   // Base transparency
+                circleColor: 0x3bff2b,              // Red color for grip indication
+                circleAlpha: 0.9,                   // Base transparency
                 // strokeWidth: 2,                     // Circle outline thickness
                 // strokeColor: 0xFF0000               // White outline for contrast
             },
