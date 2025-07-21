@@ -31,10 +31,10 @@ export default class DoubleWorm extends WormBase {
                                           // Lower = lighter anchors, more responsive
             
             // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 0.3,          // How quickly stick velocity decays over time (0-1)
+            velocityDamping: 0.4,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.0008,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.001,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
