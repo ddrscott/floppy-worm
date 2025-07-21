@@ -9,7 +9,7 @@ export default class WormBase {
         // Default configuration for structure and appearance
         this.config = {
             baseRadius: 10,
-            baseColor: 0xff6b6b,
+            baseColor: 0xffa502,
             segmentSizes: [0.75, 1, 1, 0.90, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.015,
             segmentFriction: 1,
