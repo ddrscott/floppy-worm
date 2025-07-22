@@ -910,7 +910,13 @@ export default class DoubleWorm extends WormBase {
             section.oppositeRangeForGrounding.end
         );
         
-        if (this.config.jump.useGroundAnchor && groundedSegments.length > 0) {
+        // Check if any segments in the grounding range are on ice (prevents anchoring)
+        const hasIceInGrip = this.hasIceInRange(
+            section.oppositeRangeForGrounding.start,
+            section.oppositeRangeForGrounding.end
+        );
+        
+        if (this.config.jump.useGroundAnchor && groundedSegments.length > 0 && !hasIceInGrip) {
             // Use ground-anchored spring for better physics
             const jumpingSegment = segments.from;
             const bestGroundContact = groundedSegments[0]; // Already sorted by distance
@@ -1066,8 +1072,24 @@ export default class DoubleWorm extends WormBase {
     activateStickiness(sectionName) {
         if (!this.segments || !this.segmentCollisions) return;
         
+        // Skip if grab system is temporarily disabled (during reset)
+        if (this.grabDisabled) return;
+        
         // Get section configuration and touching segments using base utilities
         const section = this.sections[sectionName];
+        
+        // Check if any segments in this section are on ice (prevents stickiness)
+        const hasIceInSection = this.hasIceInRange(
+            section.segmentRange.start, 
+            section.segmentRange.end
+        );
+        
+        // Can't stick to ice - deactivate and return early
+        if (hasIceInSection) {
+            this.deactivateStickiness(sectionName);
+            return;
+        }
+        
         const touchingSegments = this.getTouchingSegments(
             section.segmentRange.start, 
             section.segmentRange.end
@@ -1262,5 +1284,85 @@ export default class DoubleWorm extends WormBase {
             groundBody: collision.surfaceBody,
             groundedSegment: groundedSegment
         };
+    }
+    
+    /**
+     * Reset all dynamic constraints and states when worm is reset
+     * Called by BaseLevelScene.resetWorm()
+     */
+    resetState() {
+        // Temporarily disable grab system to prevent immediate re-creation of constraints
+        this.grabDisabled = true;
+        setTimeout(() => {
+            this.grabDisabled = false;
+        }, 100); // 100ms disable period
+        
+        // Force clear all sticky constraints immediately (ignore button state)
+        if (this.stickyConstraints) {
+            Object.keys(this.stickyConstraints).forEach(sectionName => {
+                const constraints = this.stickyConstraints[sectionName];
+                // Force remove all constraints regardless of button state
+                constraints.forEach(constraintData => {
+                    this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
+                    this.removeStickinessCircle(constraintData.constraint);
+                });
+                // Clear the array
+                this.stickyConstraints[sectionName] = [];
+            });
+        }
+        
+        // Clear any currently active jump springs (but keep the jump system intact)
+        if (this.jumpSprings) {
+            Object.values(this.jumpSprings).forEach(springData => {
+                if (springData.spring) {
+                    // Only remove currently active springs, preserve the system
+                    this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
+                    springData.spring = null;
+                    springData.attached = false; // Critical: reset attached state
+                    // Reset ground anchoring state but keep the capability
+                    springData.isGroundAnchored = false;
+                    springData.groundBody = null;
+                    springData.groundedSegment = null;
+                    // Note: We keep springData itself and other properties for future jumping
+                }
+            });
+        }
+        
+        // Reset anchor positions to segment positions to prevent pulling
+        if (this.anchors) {
+            Object.values(this.anchors).forEach(anchorData => {
+                if (anchorData.body && anchorData.attachIndex < this.segments.length) {
+                    const attachSegment = this.segments[anchorData.attachIndex];
+                    this.Matter.Body.setPosition(anchorData.body, {
+                        x: attachSegment.position.x,
+                        y: attachSegment.position.y
+                    });
+                    this.Matter.Body.setVelocity(anchorData.body, { x: 0, y: 0 });
+                    
+                    // Reset rest position
+                    anchorData.restPos.x = attachSegment.position.x;
+                    anchorData.restPos.y = attachSegment.position.y;
+                    
+                    // Reset stick state
+                    anchorData.stickState = { x: 0, y: 0 };
+                }
+            });
+        }
+        
+        // Reset input processing state (only stick positions, not triggers)
+        this.processedInputs = {
+            leftStick: { x: 0, y: 0 },
+            rightStick: { x: 0, y: 0 },
+            leftTrigger: false,
+            rightTrigger: false
+        };
+        
+        // Reset segment friction to default values (in case segments were on ice)
+        if (this.segments) {
+            this.segments.forEach(segment => {
+                segment.friction = this.config.segmentFriction;
+                segment.frictionStatic = this.config.segmentFrictionStatic;
+            });
+        }
     }
 }

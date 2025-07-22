@@ -27,7 +27,27 @@ class WhooshSynthesizer {
     initAudio() {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.pendingStart = false;
+            
+            // Set up listener for audio context state changes
+            this.audioContext.addEventListener('statechange', () => {
+                if (this.audioContext.state === 'running' && this.pendingStart) {
+                    this.pendingStart = false;
+                    this.createAudioNodes();
+                }
+            });
         }
+        
+        // Try to resume if suspended and we have user interaction
+        if (this.audioContext.state === 'suspended') {
+            // Attempt resume, but don't block if it fails
+            this.audioContext.resume().catch(() => {
+                // Silent fail - will retry on next user interaction
+            });
+            return false;
+        }
+        
+        return this.audioContext.state === 'running';
     }
 
     // Create white noise buffer
@@ -45,8 +65,17 @@ class WhooshSynthesizer {
 
     // Start the continuous whoosh sound
     start() {
-        this.initAudio();
-
+        if (!this.initAudio()) {
+            // Audio context is suspended due to autoplay policy
+            // Store that we want to start and wait for user interaction
+            this.pendingStart = true;
+            return;
+        }
+        
+        this.createAudioNodes();
+    }
+    
+    createAudioNodes() {
         if (this.nodes) {
             this.stop();
         }
@@ -191,6 +220,13 @@ class WhooshSynthesizer {
 
     // Update sound parameters based on worm state
     update(volume, frequency) {
+        // If audio context is suspended, try to resume on update (user interaction)
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {
+                // Silent fail - audio will start when context becomes available
+            });
+        }
+        
         if (!this.nodes || !this.isPlaying) return;
 
         // Clamp values to 0-1 range

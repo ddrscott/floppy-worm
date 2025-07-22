@@ -425,13 +425,26 @@ export default class WormBase {
                 { x: collision.normal.x, y: collision.normal.y } : 
                 { x: -collision.normal.x, y: -collision.normal.y };
             
+            // Check if colliding with ice platform
+            const isIcePlatform = otherBody.isIcePlatform || false;
+            
             // Update collision data
             this.segmentCollisions[segmentIndex] = {
                 isColliding: true,
                 contactPoint: contactPoint,
                 surfaceBody: otherBody,
-                surfaceNormal: normal
+                surfaceNormal: normal,
+                isOnIce: isIcePlatform
             };
+            
+            // Call platform's collision handler if it exists
+            if (otherBody.platformInstance && typeof otherBody.platformInstance.onCollision === 'function') {
+                otherBody.platformInstance.onCollision(segment, {
+                    contactPoint: contactPoint,
+                    normal: normal,
+                    surfaceBody: otherBody
+                });
+            }
         });
     }
     
@@ -451,12 +464,20 @@ export default class WormBase {
             // Only track static body collisions
             if (!otherBody.isStatic) return;
             
+            // Call platform's collision end handler if it exists
+            if (otherBody.platformInstance && typeof otherBody.platformInstance.onCollisionEnd === 'function') {
+                otherBody.platformInstance.onCollisionEnd(segment, {
+                    surfaceBody: otherBody
+                });
+            }
+            
             // Clear collision data
             this.segmentCollisions[segmentIndex] = {
                 isColliding: false,
                 contactPoint: { x: 0, y: 0 },
                 surfaceBody: null,
-                surfaceNormal: { x: 0, y: 1 }
+                surfaceNormal: { x: 0, y: 1 },
+                isOnIce: false
             };
         });
     }
@@ -516,6 +537,32 @@ export default class WormBase {
         return touchingSegments;
     }
     
+    // Get segments on ice platforms in range
+    getIceSegmentsInRange(startPercent, endPercent) {
+        if (!this.segments || !this.segmentCollisions) return [];
+        
+        const { startIndex, endIndex } = this.getSegmentRange(startPercent, endPercent);
+        const iceSegments = [];
+        
+        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
+            const collision = this.segmentCollisions[i];
+            if (collision && collision.isColliding && collision.isOnIce) {
+                iceSegments.push({
+                    index: i,
+                    segment: this.segments[i],
+                    collision: collision
+                });
+            }
+        }
+        
+        return iceSegments;
+    }
+    
+    // Check if any segments in a range are on ice (for grab prevention)
+    hasIceInRange(startPercent, endPercent) {
+        return this.getIceSegmentsInRange(startPercent, endPercent).length > 0;
+    }
+    
     // Get segments with static body collisions in range (for ground detection)
     getGroundedSegmentsInRange(startPercent, endPercent) {
         if (!this.segments || !this.segmentCollisions) return [];
@@ -558,7 +605,6 @@ export default class WormBase {
     
     applyInitialImpulse() {
         // Apply a small random force to prevent perfectly stacked worms
-        // Use setTimeout to delay slightly (equivalent to scene.time.delayedCall)
         setTimeout(() => {
             if (this.segments && this.segments.length > 0) {
                 const middleIndex = Math.floor(this.segments.length / 2);
@@ -566,16 +612,14 @@ export default class WormBase {
                 
                 if (targetSegment && targetSegment.position) {
                     const randomForceX = (Math.random() - 0.5) * 0.004;
-                    const randomForceY = (Math.random() - 0.5) * 0.002; // Smaller Y force to avoid too much vertical movement
+                    const randomForceY = (Math.random() - 0.5) * 0.002;
                     
                     this.scene.matter.body.applyForce(targetSegment, targetSegment.position, {
                         x: randomForceX,
                         y: randomForceY
                     });
-                    
-                    console.log(`Applied initial impulse to worm: (${randomForceX.toFixed(6)}, ${randomForceY.toFixed(6)})`);
                 }
             }
-        }, 5); // 5ms delay, equivalent to the original scene timer
+        }, 5);
     }
 }
