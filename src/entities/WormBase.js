@@ -142,6 +142,9 @@ export default class WormBase {
         this.segments = segments;
         this.constraints = constraints;
         this.segmentRadii = segmentRadii;
+        
+        // Add small initial impulse to prevent perfectly stacked worms
+        this.applyInitialImpulse();
     }
     
     update(delta) {
@@ -447,5 +450,28 @@ export default class WormBase {
             x: stick.x / magnitude,
             y: stick.y / magnitude
         };
+    }
+    
+    applyInitialImpulse() {
+        // Apply a small random force to prevent perfectly stacked worms
+        // Use setTimeout to delay slightly (equivalent to scene.time.delayedCall)
+        setTimeout(() => {
+            if (this.segments && this.segments.length > 0) {
+                const middleIndex = Math.floor(this.segments.length / 2);
+                const targetSegment = this.segments[middleIndex];
+                
+                if (targetSegment && targetSegment.position) {
+                    const randomForceX = (Math.random() - 0.5) * 0.004;
+                    const randomForceY = (Math.random() - 0.5) * 0.002; // Smaller Y force to avoid too much vertical movement
+                    
+                    this.scene.matter.body.applyForce(targetSegment, targetSegment.position, {
+                        x: randomForceX,
+                        y: randomForceY
+                    });
+                    
+                    console.log(`Applied initial impulse to worm: (${randomForceX.toFixed(6)}, ${randomForceY.toFixed(6)})`);
+                }
+            }
+        }, 5); // 5ms delay, equivalent to the original scene timer
     }
 }

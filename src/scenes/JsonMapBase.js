@@ -453,19 +453,7 @@ export default class JsonMapBase extends Phaser.Scene {
             showDebug: false
         });
 
-        // Add a random impulse to make the worm start with some movement
-        this.time.delayedCall(5, () => {
-            if (this.worm && this.worm.segments) {
-                const middleIndex = Math.floor(this.worm.segments.length / 2);
-                const targetSegment = this.worm.segments[middleIndex];
-                const randomForceX = (Math.random() - 0.5) * 0.004;
-                
-                this.matter.body.applyForce(targetSegment, targetSegment.position, {
-                    x: randomForceX,
-                    y: randomForceX
-                });
-            }
-        });
+        // Initial impulse is now handled automatically in WormBase
         
         // Create camera target
         this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 0);

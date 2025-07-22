@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 import * as dat from 'dat.gui';
 import JsonMapBase from './JsonMapBase';
 import DoubleWorm from '../entities/DoubleWorm';
+import PlatformBase from '../entities/PlatformBase';
+import IcePlatform from '../entities/IcePlatform';
+import BouncyPlatform from '../entities/BouncyPlatform';
+import ElectricPlatform from '../entities/ElectricPlatform';
+import FirePlatform from '../entities/FirePlatform';
 
 export default class MapEditor extends Phaser.Scene {
     constructor() {
@@ -526,7 +531,7 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-P', () => this.selectedTool = 'polygon');
         this.input.keyboard.on('keydown-T', () => this.selectedTool = 'trapezoid');
         this.input.keyboard.on('keydown-V', () => this.selectedTool = 'custom');
-        this.input.keyboard.on('keydown-SPACE', () => this.toggleTestMode());
+        this.input.keyboard.on('keydown-TAB', () => this.toggleTestMode());
         this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
         
         // Set up worm controls for test mode
@@ -889,21 +894,57 @@ export default class MapEditor extends Phaser.Scene {
             showDebug: false
         });
         
-        // Create physics bodies for platforms
+        // Create physics bodies and special platforms for testing
         this.testPlatformBodies = [];
+        this.testSpecialPlatforms = [];
+        this.testPlatformVisuals = [];
         this.platforms.forEach(platform => {
-            const body = this.createPhysicsBodyForPlatform(platform.data);
-            if (body) {
-                this.testPlatformBodies.push(body);
+            const platformData = platform.data;
+            const { platformType = 'standard' } = platformData;
+            
+            if (platformType !== 'standard') {
+                // Create special platform with all properties
+                const specialPlatform = this.createSpecialPlatformForTest(platformData);
+                if (specialPlatform) {
+                    this.testSpecialPlatforms.push(specialPlatform);
+                }
+            } else {
+                // Create regular physics body and visual
+                const { body, visual } = this.createStandardPlatformForTest(platformData);
+                if (body) {
+                    this.testPlatformBodies.push(body);
+                }
+                if (visual) {
+                    console.log(`Created test visual for ${platformData.type} platform:`, visual.type || 'unknown', 'at', visual.x, visual.y);
+                    this.testPlatformVisuals.push(visual);
+                } else {
+                    console.warn(`Failed to create visual for ${platformData.type} platform`);
+                }
             }
         });
+        
+        // Set up collision detection for special platforms
+        this.setupSpecialPlatformCollisions();
+        
+        // Add mouse constraint for debugging physics in test mode
+        this.setupMouseConstraint();
+        
+        // Set up camera to follow worm
+        this.setupTestModeCamera();
         
         // Hide editor entity sprites during test (but keep goal visible)
         this.wormSprite.setVisible(false);
         // Keep goal sprite visible during test mode so player can see the target
         
+        // Hide all editor platform visuals during test mode
+        this.platforms.forEach(platform => {
+            if (platform.container) {
+                platform.container.setVisible(false);
+            }
+        });
+        
         // Show test mode indicator
-        this.testModeText = this.add.text(20, 20, 'TEST MODE - Press SPACE to exit', {
+        this.testModeText = this.add.text(20, 20, 'TEST MODE - Press TAB to exit', {
             fontSize: '20px',
             color: '#ff0000',
             backgroundColor: 'rgba(0,0,0,0.8)',
@@ -928,9 +969,62 @@ export default class MapEditor extends Phaser.Scene {
             this.testPlatformBodies = [];
         }
         
+        // Destroy special platforms
+        if (this.testSpecialPlatforms) {
+            this.testSpecialPlatforms.forEach(platform => {
+                if (platform && platform.destroy) {
+                    platform.destroy();
+                }
+            });
+            this.testSpecialPlatforms = [];
+        }
+        
+        // Remove mouse constraint
+        if (this.mouseConstraint) {
+            this.matter.world.removeConstraint(this.mouseConstraint);
+            this.mouseConstraint = null;
+        }
+        
+        // Reset camera
+        this.resetEditorCamera();
+        
+        // Remove test platform visuals
+        if (this.testPlatformVisuals) {
+            console.log(`Cleaning up ${this.testPlatformVisuals.length} test platform visuals`);
+            this.testPlatformVisuals.forEach((visual, index) => {
+                if (visual && visual.destroy) {
+                    console.log(`Destroying visual ${index}:`, visual.type || 'unknown');
+                    visual.destroy();
+                } else {
+                    console.warn(`Visual ${index} is null or has no destroy method:`, visual);
+                }
+            });
+            this.testPlatformVisuals = [];
+        }
+        
+        // Additional cleanup: Remove any remaining test mode objects
+        // This catches any visuals that might not have been properly tracked
+        this.children.getChildren().forEach(child => {
+            // Look for objects that might be test platform visuals based on their properties
+            if (child && child.depth === 10 && 
+                (child.type === 'Rectangle' || child.type === 'Circle' || child.type === 'Polygon') &&
+                child !== this.wormSprite && child !== this.goalSprite && 
+                !this.platforms.some(p => p.visual === child)) {
+                console.log(`Cleaning up orphaned test visual:`, child.type, child.x, child.y);
+                child.destroy();
+            }
+        });
+        
         // Show entity sprites
         this.wormSprite.setVisible(true);
         this.goalSprite.setVisible(true);
+        
+        // Show all editor platform visuals when returning to editor mode
+        this.platforms.forEach(platform => {
+            if (platform.container) {
+                platform.container.setVisible(true);
+            }
+        });
         
         // Remove test mode indicator
         if (this.testModeText) {
@@ -1007,6 +1101,229 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         return body;
+    }
+    
+    createStandardPlatformForTest(platformData) {
+        // Create both physics body and visual representation for standard platforms
+        const body = this.createPhysicsBodyForPlatform(platformData);
+        const visual = this.createTestPlatformVisual(platformData);
+        
+        return { body, visual };
+    }
+    
+    createTestPlatformVisual(platformData) {
+        const { type, color } = platformData;
+        const colorValue = parseInt(color.replace('#', '0x'));
+        
+        let visual;
+        
+        switch (type) {
+            case 'rectangle':
+                const { x, y, width, height } = platformData;
+                // Position visual at top-left corner (matching physics body positioning)
+                visual = this.add.rectangle(x + width/2, y + height/2, width, height, colorValue);
+                visual.setStrokeStyle(2, 0x000000, 0.8);
+                break;
+                
+            case 'circle':
+                const { x: circleX, y: circleY, radius } = platformData;
+                visual = this.add.circle(circleX, circleY, radius, colorValue);
+                visual.setStrokeStyle(2, 0x000000, 0.8);
+                break;
+                
+            case 'polygon':
+                const { x: polyX, y: polyY, sides, radius: polyRadius, rotation = 0 } = platformData;
+                const vertices = [];
+                for (let i = 0; i < sides; i++) {
+                    const angle = (2 * Math.PI * i / sides) + rotation;
+                    vertices.push({
+                        x: polyX + polyRadius * Math.cos(angle),
+                        y: polyY + polyRadius * Math.sin(angle)
+                    });
+                }
+                visual = this.add.polygon(polyX, polyY, vertices, colorValue);
+                visual.setStrokeStyle(2, 0x000000, 0.8);
+                break;
+                
+            case 'trapezoid':
+                const { x: trapX, y: trapY, width: trapWidth, height: trapHeight, slope = 0 } = platformData;
+                const halfWidth = trapWidth / 2;
+                const halfHeight = trapHeight / 2;
+                const slopeOffset = slope * halfHeight;
+                const trapVertices = [
+                    { x: trapX - halfWidth + slopeOffset, y: trapY - halfHeight },
+                    { x: trapX + halfWidth - slopeOffset, y: trapY - halfHeight },
+                    { x: trapX + halfWidth, y: trapY + halfHeight },
+                    { x: trapX - halfWidth, y: trapY + halfHeight }
+                ];
+                visual = this.add.polygon(trapX, trapY, trapVertices, colorValue);
+                visual.setStrokeStyle(2, 0x000000, 0.8);
+                break;
+                
+            case 'custom':
+                const { vertices: customVertices } = platformData;
+                const centerX = customVertices.reduce((sum, v) => sum + v.x, 0) / customVertices.length;
+                const centerY = customVertices.reduce((sum, v) => sum + v.y, 0) / customVertices.length;
+                visual = this.add.polygon(centerX, centerY, customVertices, colorValue);
+                visual.setStrokeStyle(2, 0x000000, 0.8);
+                break;
+        }
+        
+        if (visual) {
+            visual.setDepth(10);
+        }
+        
+        return visual;
+    }
+    
+    createSpecialPlatformForTest(platformData) {
+        const { type, platformType, x, y, width, height, radius, physics = {}, color } = platformData;
+        
+        // Adjust coordinates for top-left origin (like regular physics bodies)
+        let centerX, centerY;
+        
+        if (type === 'rectangle') {
+            // For rectangles with top-left origin, center is at x + width/2, y + height/2
+            centerX = x + width / 2;
+            centerY = y + height / 2;
+        } else if (type === 'circle') {
+            // For circles, x,y is already the center
+            centerX = x;
+            centerY = y;
+        } else {
+            // For other shapes, assume x,y is center for now
+            centerX = x;
+            centerY = y;
+        }
+        
+        // Apply physics from JSON with proper defaults
+        const config = {
+            color: parseInt((color || '#ff6b6b').replace('#', '0x')),
+            shape: type, // Pass the shape type (rectangle, circle, etc.)
+            ...physics,
+        };
+        
+        // Determine platform dimensions based on shape type
+        let platformWidth, platformHeight;
+        
+        if (type === 'rectangle') {
+            platformWidth = width;
+            platformHeight = height;
+        } else if (type === 'circle') {
+            // For circles, use diameter as both width and height
+            platformWidth = radius * 2;
+            platformHeight = radius * 2;
+        } else {
+            // For other shapes, use bounding box approach
+            platformWidth = width || radius * 2 || 100;
+            platformHeight = height || radius * 2 || 100;
+        }
+        
+        console.log(`Creating special platform ${platformType} ${type} at (${centerX}, ${centerY}) size: ${platformWidth}x${platformHeight}`);
+        
+        switch(platformType) {
+            case 'ice':
+                return new IcePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'bouncy':
+                return new BouncyPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'electric':
+                return new ElectricPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'fire':
+                return new FirePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            default:
+                console.warn(`Unknown special platform type: ${platformType}`);
+                return null;
+        }
+    }
+    
+    setupSpecialPlatformCollisions() {
+        // Set up Matter.js collision events for special platforms
+        this.matter.world.on('collisionstart', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                
+                // Check if one body is a worm segment and the other is a special platform
+                const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
+                const platformBody = wormSegment === bodyA ? bodyB : bodyA;
+                
+                if (wormSegment && platformBody.platformInstance) {
+                    const platform = platformBody.platformInstance;
+                    if (platform.onCollision) {
+                        platform.onCollision(wormSegment, pair.collision);
+                    }
+                }
+            });
+        });
+        
+        this.matter.world.on('collisionend', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                
+                const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
+                const platformBody = wormSegment === bodyA ? bodyB : bodyA;
+                
+                if (wormSegment && platformBody.platformInstance) {
+                    const platform = platformBody.platformInstance;
+                    if (platform.onCollisionEnd) {
+                        platform.onCollisionEnd(wormSegment);
+                    }
+                }
+            });
+        });
+    }
+    
+    isWormSegment(body) {
+        // Check if this body belongs to the test worm
+        return this.testWorm && this.testWorm.segments && this.testWorm.segments.includes(body);
+    }
+    
+    setupMouseConstraint() {
+        // Add mouse constraint for dragging physics bodies in test mode
+        this.mouseConstraint = this.matter.add.mouseSpring({
+            length: 0.01,
+            stiffness: 0.8,
+            damping: 0
+        });
+    }
+    
+    setupTestModeCamera() {
+        // Create camera target if it doesn't exist
+        if (!this.cameraTarget) {
+            const wormX = this.entities.wormStart.x;
+            const wormY = this.entities.wormStart.y;
+            this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 0);
+        }
+        
+        // Set camera to follow the target with smooth movement
+        this.cameras.main.startFollow(this.cameraTarget, true);
+        
+        // Use compatible camera methods
+        if (this.cameras.main.setLerpFactor) {
+            this.cameras.main.setLerpFactor(0.1, 0.1); // Smooth following if available
+        }
+        if (this.cameras.main.setDeadzone) {
+            this.cameras.main.setDeadzone(100, 100); // Dead zone for smoother movement
+        }
+        this.cameras.main.setZoom(1); // Reset zoom to 1:1
+    }
+    
+    resetEditorCamera() {
+        // Stop following and reset camera to editor mode
+        this.cameras.main.stopFollow();
+        this.cameras.main.setZoom(0.8); // Back to editor zoom
+        this.cameras.main.centerOn(this.mapData.dimensions.width / 2, this.mapData.dimensions.height / 2);
+        
+        // Use compatible camera methods - only call if they exist
+        if (this.cameras.main.setLerpFactor) {
+            this.cameras.main.setLerpFactor(1, 1); // Instant movement in editor
+        }
+        if (this.cameras.main.setDeadzone) {
+            this.cameras.main.setDeadzone(0, 0); // No deadzone in editor
+        }
     }
     
     saveMapToLibrary() {
@@ -1341,9 +1658,9 @@ TOOLS (or use keyboard):
 • Custom (V) - Click to draw vertices
 
 TESTING:
-• Press SPACE to test your level
-• Control worm with WASD/arrows
-• Press SPACE again to return to editing
+• Press TAB to test your level
+• Control worm with WASD/arrows + SPACE to jump
+• Press TAB again to return to editing
 
 SHORTCUTS:
 • DELETE - Remove selected platform
@@ -1361,7 +1678,7 @@ T - Trapezoid tool
 V - Custom polygon tool
 
 ACTIONS:
-SPACE - Toggle test mode
+TAB - Toggle test mode
 DELETE - Remove selected platform
 ESC - Exit editor (with confirmation)
 
@@ -1438,6 +1755,25 @@ TESTING TIPS:
     update(time, delta) {
         if (this.isTestMode && this.testWorm) {
             this.testWorm.update(delta);
+            
+            // Update special platforms during test mode
+            if (this.testSpecialPlatforms) {
+                this.testSpecialPlatforms.forEach(platform => {
+                    if (platform && platform.update) {
+                        platform.update(delta);
+                    }
+                });
+            }
+            
+            // Update camera target to follow worm center
+            if (this.cameraTarget && this.testWorm.segments) {
+                const head = this.testWorm.getHead();
+                const tail = this.testWorm.getTail();
+                if (head && tail) {
+                    this.cameraTarget.x = (head.position.x + tail.position.x) / 2;
+                    this.cameraTarget.y = (head.position.y + tail.position.y) / 2;
+                }
+            }
             
             // Check goal collision during test mode
             this.checkGoalCollision();
