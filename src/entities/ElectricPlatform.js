@@ -145,15 +145,17 @@ export default class ElectricPlatform extends PlatformBase {
         const currentTime = this.scene.time.now;
         if (currentTime - this.lastShockTime < this.rechargeDuration) return;
         
-        // Apply electric shock
-        this.applyElectricShock(segment);
+        // Visual feedback first
+        this.triggerShockEffect();
+        
+        // Reset worm to start position (skip shock force since we're teleporting)
+        if (this.scene.resetWorm && typeof this.scene.resetWorm === 'function') {
+            this.scene.resetWorm();
+        }
         
         // Trigger recharge cycle
         this.isCharged = false;
         this.lastShockTime = currentTime;
-        
-        // Visual feedback
-        this.triggerShockEffect();
         
         // Recharge after duration
         this.scene.time.delayedCall(this.rechargeDuration, () => {
