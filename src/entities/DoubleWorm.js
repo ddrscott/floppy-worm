@@ -74,7 +74,7 @@ export default class DoubleWorm extends WormBase {
             // Jump Physics - Controls trigger-activated compression springs and body tension
             jump: {
                 // Spring Physics
-                springLengthMultiplier: 1,       // How much longer jump springs are vs natural distance
+                springLengthMultiplier: 1.2,       // How much longer jump springs are vs natural distance
                                                  // Higher = more compression potential, stronger jumps
                                                  // Lower = less compression, gentler spring effect
                 triggerThreshold: 0.01,          // Minimum trigger value to activate jump springs (0-1)
@@ -85,10 +85,10 @@ export default class DoubleWorm extends WormBase {
                                                  // Lower = gentler spring assistance, subtle effect
 
                 // Compression Spring Physics - Controls trigger-responsive body tension
-                baseCompressionStiffness: 0.005,    // Base stiffness when no triggers pressed
+                baseCompressionStiffness: 0.05,    // Base stiffness when no triggers pressed
                                                     // Higher = stiffer baseline body, less flexibility
                                                     // Lower = more flexible baseline, looser feel
-                maxCompressionStiffness: 0.5,      // Maximum stiffness at full trigger activation
+                maxCompressionStiffness: 0.7,      // Maximum stiffness at full trigger activation
                                                     // Higher = very rigid body when tensed, precise control
                                                     // Lower = moderate stiffening, maintains some flexibility
                 compressionTriggerSensitivity: 1.0, // How responsive compression is to trigger input (0-2 typical)
@@ -139,6 +139,8 @@ export default class DoubleWorm extends WormBase {
             tailAttachFromEnd: 2,
             tailSpringAttachPercent: 0.4,
             
+            // Control swapping - when true, left stick controls tail, right stick controls head
+            swapControls: false,
             
             ...config
         };
@@ -198,7 +200,7 @@ export default class DoubleWorm extends WormBase {
                 stickIndicator: null,
                 color: this.config.headColor,
                 strokeColor: this.config.headStrokeColor,
-                stickState: this.leftStickState
+                stickState: swingConfig.swapControls ? this.rightStickState : this.leftStickState
             },
             tail: {
                 body: null,
@@ -209,7 +211,7 @@ export default class DoubleWorm extends WormBase {
                 stickIndicator: null,
                 color: this.config.tailColor,
                 strokeColor: this.config.tailStrokeColor,
-                stickState: this.rightStickState
+                stickState: swingConfig.swapControls ? this.leftStickState : this.rightStickState
             }
         };
         
@@ -220,7 +222,7 @@ export default class DoubleWorm extends WormBase {
         this.sections = {
             head: {
                 name: 'head',
-                stick: this.leftStickState,
+                stick: swingConfig.swapControls ? this.rightStickState : this.leftStickState,
                 anchor: this.anchors.head,
                 springData: null, // Will be set after jump springs are initialized
                 segmentRange: { start: 0, end: this.config.grab.headSegmentCount },
@@ -231,7 +233,7 @@ export default class DoubleWorm extends WormBase {
             },
             tail: {
                 name: 'tail',
-                stick: this.rightStickState,
+                stick: swingConfig.swapControls ? this.leftStickState : this.rightStickState,
                 anchor: this.anchors.tail,
                 springData: null, // Will be set after jump springs are initialized
                 segmentRange: { start: 1 - this.config.grab.tailSegmentCount, end: 1 },
@@ -485,10 +487,14 @@ export default class DoubleWorm extends WormBase {
         this.updateStickState(this.leftStickState, leftStick, deltaSeconds);
         this.updateStickState(this.rightStickState, rightStick, deltaSeconds);
         
+        // Determine which sticks control which sections based on swapControls
+        const headStick = this.config.swapControls ? rightStick : leftStick;
+        const tailStick = this.config.swapControls ? leftStick : rightStick;
+        
         // Update anchor positions using section-based processing
         const sectionForces = this.updateSectionAnchors([
-            { section: this.sections.head, stick: leftStick },
-            { section: this.sections.tail, stick: rightStick }
+            { section: this.sections.head, stick: headStick },
+            { section: this.sections.tail, stick: tailStick }
         ]);
         
         // Handle triggers to attach/detach and stiffen springs
@@ -501,12 +507,15 @@ export default class DoubleWorm extends WormBase {
         const slashPressed = keyboard.keys[191]?.isDown ||
             keyboard.keys[Phaser.Input.Keyboard.KeyCodes.QUESTION_MARK]?.isDown || (keyboard.addKey && keyboard.addKey(191).isDown);
         
-        // Left trigger or spacebar controls head spring
-        const headTriggerValue = Math.max(leftTrigger, spacePressed ? 1.0 : 0);
+        // Determine which triggers control which sections based on swapControls
+        const headTriggerValue = this.config.swapControls ? 
+            Math.max(rightTrigger, slashPressed ? 1.0 : 0) : 
+            Math.max(leftTrigger, spacePressed ? 1.0 : 0);
+        const tailTriggerValue = this.config.swapControls ? 
+            Math.max(leftTrigger, spacePressed ? 1.0 : 0) : 
+            Math.max(rightTrigger, slashPressed ? 1.0 : 0);
+            
         this.handleJumpSpring('head', headTriggerValue);
-        
-        // Right trigger or Q controls tail spring
-        const tailTriggerValue = Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         this.handleJumpSpring('tail', tailTriggerValue);
         
         // Update compression spring stiffness based on trigger values
@@ -516,10 +525,14 @@ export default class DoubleWorm extends WormBase {
              (this.config.jump.maxCompressionStiffness - this.config.jump.baseCompressionStiffness));
         this.updateCompressionStiffness(compressionStiffness);
         
+        // Determine which grab buttons control which sections based on swapControls
+        const headGrabActive = this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0;
+        const tailGrabActive = this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0;
+        
         // Update stickiness system using section-based processing
         this.updateStickinessSystemSections([
-            { section: this.sections.head, stick: leftStick, active: this.leftGrab > 0 },
-            { section: this.sections.tail, stick: rightStick, active: this.rightGrab > 0 }
+            { section: this.sections.head, stick: headStick, active: headGrabActive },
+            { section: this.sections.tail, stick: tailStick, active: tailGrabActive }
         ]);
         
         // Clean up invalid sticky constraints
@@ -981,7 +994,7 @@ export default class DoubleWorm extends WormBase {
         // Create new segment-to-segment spring
         const segments = springData.getSegments();
         const stiffness = this.calculateStiffness(triggerValue);
-        
+
         springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
         this.Matter.World.add(this.matter.world.localWorld, springData.spring);
         
@@ -1130,8 +1143,10 @@ export default class DoubleWorm extends WormBase {
             const constraints = this.stickyConstraints[section];
             const validConstraints = [];
             
-            // Check if the grab button for this section is still pressed
-            const isGrabActive = section === 'head' ? this.leftGrab > 0 : this.rightGrab > 0;
+            // Check if the grab button for this section is still pressed (respect swapControls)
+            const isGrabActive = section === 'head' ? 
+                (this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0) :
+                (this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0);
             
             constraints.forEach(constraintData => {
                 const { constraint } = constraintData;

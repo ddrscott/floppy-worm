@@ -15,7 +15,7 @@ export default class WormBase {
             segmentFriction: 1,
             segmentFrictionStatic: 0.8,
             segmentRestitution: 0.0001,
-            constraintStiffness: 1,
+            constraintStiffness: 0.8,
             constraintDamping: 0.2,
             constraintLength: 1,
             showDebug: true,
