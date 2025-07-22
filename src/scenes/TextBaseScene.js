@@ -310,6 +310,9 @@ export default class TextBaseScene extends BaseLevelScene {
             }
         });
         
+        // Store start position for resets
+        this.wormStartPosition = { x: wormStartX, y: wormStartY };
+        
         // Create worm at start position
         this.worm = new DoubleWorm(this, wormStartX, wormStartY, {
             baseRadius: 15,

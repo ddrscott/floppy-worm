@@ -14,6 +14,9 @@ export default class BaseLevelScene extends Phaser.Scene {
         
         // Worm reference - should be set by subclasses
         this.worm = null;
+        
+        // Store initial worm position for resets
+        this.wormStartPosition = { x: 0, y: 0 };
     }
     
     create() {
@@ -55,6 +58,39 @@ export default class BaseLevelScene extends Phaser.Scene {
         if (this.worm) {
             this.worm.destroy();
             this.worm = null;
+        }
+    }
+    
+    /**
+     * Reset worm to start position (used by electric platforms, death zones, etc.)
+     */
+    resetWorm() {
+        if (!this.worm) return;
+        
+        console.log('Resetting worm to start position:', this.wormStartPosition);
+        
+        // Reset all worm segments to start position
+        this.worm.segments.forEach((segment, index) => {
+            // Position segments vertically spaced from start position
+            const yOffset = index * (this.worm.segmentRadii[index] * 2 + 2);
+            this.matter.body.setPosition(segment, {
+                x: this.wormStartPosition.x,
+                y: this.wormStartPosition.y + yOffset
+            });
+            
+            // Completely zero all velocities for instant stop
+            this.matter.body.setVelocity(segment, { x: 0, y: 0 });
+            this.matter.body.setAngularVelocity(segment, 0);
+            
+            // Also reset forces to prevent momentum carryover
+            segment.force.x = 0;
+            segment.force.y = 0;
+            segment.torque = 0;
+        });
+        
+        // Reset any worm-specific state if needed
+        if (typeof this.worm.resetState === 'function') {
+            this.worm.resetState();
         }
     }
     

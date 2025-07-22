@@ -436,6 +436,9 @@ export default class JsonMapBase extends BaseLevelScene {
         const wormX = wormStart.x;
         const wormY = wormStart.y;
         
+        // Store start position for resets
+        this.wormStartPosition = { x: wormX, y: wormY };
+        
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
