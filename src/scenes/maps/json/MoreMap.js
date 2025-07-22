@@ -33,8 +33,8 @@ export default class MoreMap extends JsonMapBase {
       "id": "platform_1753149843320",
       "type": "circle",
       "platformType": "bouncy",
-      "x": 221,
-      "y": 575,
+      "x": 1021,
+      "y": 275,
       "radius": 96,
       "color": "#ff9800",
       "physics": {

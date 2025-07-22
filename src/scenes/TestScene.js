@@ -52,6 +52,11 @@ export default class TestScene extends Phaser.Scene {
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
         });
         
+        // Audio will auto-initialize, but add click handler to retry after user interaction
+        this.input.once('pointerdown', () => {
+            this.worm.retryAudioInit();
+        });
+        
         // Create camera target - a Phaser object that follows the swing weight
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0); // Invisible rectangle
 
@@ -122,8 +127,15 @@ export default class TestScene extends Phaser.Scene {
         // Virtual controls (joystick + buttons)
         this.virtualControls = new VirtualControls(this);
         
-        // Clean up GUI when scene shuts down
+        // Clean up when scene shuts down
         this.events.on('shutdown', () => {
+            // Clean up worm
+            if (this.worm) {
+                this.worm.destroy();
+                this.worm = null;
+            }
+            
+            // Clean up GUI
             if (this.gui && this.gui.domElement && this.gui.domElement.parentElement) {
                 try {
                     this.gui.destroy();
@@ -348,4 +360,5 @@ export default class TestScene extends Phaser.Scene {
             });
         }
     }
+    
 }

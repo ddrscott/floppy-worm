@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
+import BaseLevelScene from './BaseLevelScene';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
 
-export default class TextBaseScene extends Phaser.Scene {
+export default class TextBaseScene extends BaseLevelScene {
     constructor(config = {}) {
         super(config);
         
@@ -48,26 +49,14 @@ export default class TextBaseScene extends Phaser.Scene {
     }
     
     cleanup() {
-        // Destroy existing worm if it exists
-        if (this.worm) {
-            this.worm.destroy();
-            this.worm = null;
-        }
-        
-        // Reset victory state
-        this.victoryAchieved = false;
+        // Call parent cleanup (handles worm, victory state, timers)
+        super.cleanup();
         
         // Clear platforms array
         this.platforms = [];
         
         // Clear mini-map ignore list
         this.minimapIgnoreList = [];
-        
-        // Cancel any existing timers
-        if (this.victoryReturnTimer) {
-            this.victoryReturnTimer.destroy();
-            this.victoryReturnTimer = null;
-        }
         
         // Remove mouse constraint if it exists
         if (this.mouseConstraint) {
@@ -77,8 +66,8 @@ export default class TextBaseScene extends Phaser.Scene {
     }
 
     create() {
-        // Clean up any existing worm and physics objects
-        this.cleanup();
+        // Call parent create (handles cleanup and shutdown event)
+        super.create();
         
         // Turn off debug rendering for cleaner visuals
         this.matter.world.drawDebug = false;
@@ -490,9 +479,12 @@ export default class TextBaseScene extends Phaser.Scene {
     handleResize() {
         const width = this.scale.width;
         
-        this.cameras.main.startFollow(this.cameraTarget, true);
-        this.cameras.main.setZoom(1);
-        this.cameras.main.setDeadzone(100, 100);
+        // Safety check for camera existence
+        if (this.cameras && this.cameras.main && this.cameraTarget) {
+            this.cameras.main.startFollow(this.cameraTarget, true);
+            this.cameras.main.setZoom(1);
+            this.cameras.main.setDeadzone(100, 100);
+        }
         
         if (this.minimap) {
             const mapX = width - this.miniMapConfig.width - this.miniMapConfig.padding;
@@ -601,11 +593,11 @@ export default class TextBaseScene extends Phaser.Scene {
     }
     
     victory() {
+        // Call parent victory (handles worm cleanup and victory state)
+        super.victory();
+        
         // Update progress system
         this.updateProgress();
-        
-        // Set victory flag to handle input differently
-        this.victoryAchieved = true;
         
         // Create dark overlay
         const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.8);
