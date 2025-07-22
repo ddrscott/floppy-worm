@@ -110,17 +110,17 @@ export default class DoubleWorm extends WormBase {
             
             // Grab Physics - Constraint-based surface grip system when pressing into walls
             grab: {
-                activationThreshold: 0.3,        // Minimum stick input magnitude to activate
-                constraintStiffness: 0.5,        // Strength of sticky constraints (0-1)
+                activationThreshold: 0.2,        // Minimum stick input magnitude to activate
+                constraintStiffness: 0.2,        // Strength of sticky constraints (0-1)
                 constraintDamping: 0.5,          // Damping for sticky constraints  
                 headSegmentCount: 0.3,           // Fraction of head segments that can stick
                 tailSegmentCount: 0.3,           // Fraction of tail segments that can stick
                 
                 // Visual Effects - Pulsating circles at grip points
                 visual: {
-                    circleRadius: 25,            // Base radius of pulsating circle
+                    circleRadius: 15,            // Base radius of pulsating circle
                     pulseScale: 0.25,            // How much bigger it gets when pulsing
-                    pulseDuration: 1000,         // Time for one pulse cycle (ms)
+                    pulseDuration: 2500,         // Time for one pulse cycle (ms)
                     circleColor: 0x3bff2b,      // Green color for grip indication
                     circleAlpha: 0.9,           // Base transparency
                     // strokeWidth: 2,             // Circle outline thickness
@@ -477,7 +477,7 @@ export default class DoubleWorm extends WormBase {
         const sectionForces = this.updateSectionAnchors([
             { section: this.sections.head, stick: leftStick },
             { section: this.sections.tail, stick: rightStick }
-        ], deltaSeconds);
+        ]);
         
         // Handle triggers to attach/detach and stiffen springs
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
@@ -567,18 +567,18 @@ export default class DoubleWorm extends WormBase {
         });
     }
     
-    updateSectionAnchors(sectionStickPairs, deltaSeconds) {
+    updateSectionAnchors(sectionStickPairs) {
         const forces = {};
         
         // Process each section systematically
-        sectionStickPairs.forEach(({ section, stick }) => {
-            forces[section.name] = this.updateAnchorPositionSection(section, stick, deltaSeconds);
+        sectionStickPairs.forEach(({ section }) => {
+            forces[section.name] = this.updateAnchorPositionSection(section);
         });
         
         return forces;
     }
     
-    updateAnchorPositionSection(section, stick, deltaSeconds) {
+    updateAnchorPositionSection(section) {
         const anchorData = section.anchor;
         if (!anchorData.body) return { x: 0, y: 0 };
         
