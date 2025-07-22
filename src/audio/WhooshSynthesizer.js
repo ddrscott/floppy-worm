@@ -1,15 +1,16 @@
 class WhooshSynthesizer {
     constructor(settings = {}) {
-        // Default settings
+        // Default settings - tuned for sharp swish sounds
         this.settings = {
-            pitch: 0.7,
-            filterBase: 200,
-            resonance: 4.5,
-            attack: 23,
-            release: 630,
-            lowBoost: 0.3,
-            dynamics: 0.5,
-            reverb: 0.2,
+            pitch: 1.2,           // Higher pitch for sharper sound
+            filterBase: 800,      // Much higher base frequency for crisp swish
+            resonance: 8.0,       // Higher resonance for more pronounced filter sweep
+            attack: 5,            // Faster attack for sharp onset
+            release: 150,         // Faster release for cleaner cutoff
+            lowBoost: 0.1,        // Less low end, more mid/high focus
+            dynamics: 0.8,        // More compression for consistent swish
+            reverb: 0.05,         // Minimal reverb for dry, direct sound
+            swishFactor: 0.7,     // New parameter for swish characteristics
             ...settings // Override with provided settings
         };
 
@@ -57,17 +58,17 @@ class WhooshSynthesizer {
         noiseSource.loop = true;
         noiseSource.playbackRate.value = this.settings.pitch;
 
-        // Create main filter
+        // Create main filter - bandpass for focused swish frequency range
         const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
+        filter.type = 'bandpass';
         filter.frequency.value = this.settings.filterBase;
         filter.Q.value = this.settings.resonance;
 
-        // Create secondary filter for character
+        // Create high-pass filter to remove rumble and focus on swish
         const filter2 = this.audioContext.createBiquadFilter();
-        filter2.type = 'bandpass';
-        filter2.frequency.value = 150 * this.settings.pitch;
-        filter2.Q.value = 1.5;
+        filter2.type = 'highpass';
+        filter2.frequency.value = 400 * this.settings.pitch;
+        filter2.Q.value = 2.0;
 
         // Low frequency boost
         const lowShelf = this.audioContext.createBiquadFilter();
@@ -196,15 +197,21 @@ class WhooshSynthesizer {
         this.volume = Math.max(0, Math.min(1, volume));
         this.frequency = Math.max(0, Math.min(1, frequency));
 
-        // Update frequency (0-1 mapped to base frequency + 0-2000Hz)
-        const targetFreq = (this.settings.filterBase + (this.frequency * 2000)) * this.settings.pitch;
-        this.nodes.filter.frequency.value = targetFreq;
+        // Create dramatic frequency sweep for swish effect
+        // Higher speeds create higher pitched, more focused swish
+        const swishFreq = this.settings.filterBase + (this.frequency * 3000 * this.settings.swishFactor);
+        this.nodes.filter.frequency.value = swishFreq * this.settings.pitch;
 
-        // Update secondary filter based on frequency
-        this.nodes.filter2.frequency.value = (150 + this.frequency * 300) * this.settings.pitch;
+        // High-pass filter follows the swish to maintain focus
+        const highPassFreq = (400 + this.frequency * 800) * this.settings.pitch;
+        this.nodes.filter2.frequency.value = highPassFreq;
 
-        // Update volume
-        this.nodes.gain.gain.value = this.volume * 0.8;
+        // Update Q factor for more pronounced swish at higher speeds
+        const dynamicQ = this.settings.resonance + (this.frequency * 4);
+        this.nodes.filter.Q.value = Math.min(dynamicQ, 15);
+
+        // Volume with sharper envelope
+        this.nodes.gain.gain.value = this.volume * 0.9;
     }
 
     // Update settings on the fly
