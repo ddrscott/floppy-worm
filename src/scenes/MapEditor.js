@@ -314,6 +314,29 @@ export default class MapEditor extends Phaser.Scene {
                 }
             }
         });
+        
+        // Ensure pixel-perfect positioning when drag ends
+        this.input.on('dragend', (pointer, gameObject) => {
+            if (!this.isTestMode && (gameObject === this.wormSprite || gameObject === this.goalSprite)) {
+                // Round positions to pixels
+                const roundedX = Math.round(gameObject.x);
+                const roundedY = Math.round(gameObject.y);
+                
+                gameObject.x = roundedX;
+                gameObject.y = roundedY;
+                
+                // Update entity data with rounded positions
+                if (gameObject === this.wormSprite) {
+                    this.entities.wormStart = { x: roundedX, y: roundedY };
+                    if (this.wormText) {
+                        this.wormText.setPosition(roundedX, roundedY);
+                    }
+                } else if (gameObject === this.goalSprite) {
+                    this.entities.goal = { x: roundedX, y: roundedY };
+                }
+                this.autoSave();
+            }
+        });
     }
     
     setupPlatformDragging() {
@@ -370,10 +393,32 @@ export default class MapEditor extends Phaser.Scene {
                 this.resizeStartData = null;
                 this.justFinishedResizing = true; // Prevent platform selection
                 
-                // Update handle positions to their correct locations after resize
+                // Round platform dimensions to pixels after resize
                 const platform = this.platforms.find(p => p.data === gameObject.platformData);
                 if (platform) {
+                    const data = platform.data;
+                    
+                    // Round all dimensions to pixels
+                    if (data.width !== undefined) data.width = Math.round(data.width);
+                    if (data.height !== undefined) data.height = Math.round(data.height);
+                    if (data.radius !== undefined) data.radius = Math.round(data.radius);
+                    
+                    // Update visual and handle positions
+                    this.updatePlatformVisual(platform);
                     this.updateHandlePositions(platform);
+                    this.autoSave();
+                }
+            } else if (gameObject.platformData) {
+                // Round platform position to pixels after drag
+                const platform = this.platforms.find(p => p.container === gameObject);
+                if (platform) {
+                    platform.data.x = Math.round(platform.data.x);
+                    platform.data.y = Math.round(platform.data.y);
+                    
+                    // Update container position to match rounded data
+                    gameObject.x = platform.data.x;
+                    gameObject.y = platform.data.y;
+                    this.autoSave();
                 }
             }
         });
