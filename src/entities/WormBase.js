@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import WhooshSynthesizer from '../audio/WhooshSynthesizer.js';
 
 export default class WormBase {
     constructor(scene, x, y, config = {}) {
@@ -24,6 +25,9 @@ export default class WormBase {
         
         // Initialize collision tracking for stickiness system
         this.segmentCollisions = [];
+        
+        // Initialize audio system
+        this.initializeAudio();
         
         // Create the worm structure
         this.create(x, y);
@@ -148,6 +152,7 @@ export default class WormBase {
     }
     
     update(delta) {
+        
         this.updateMovement(delta);
 
         // Update segment graphics
@@ -169,10 +174,88 @@ export default class WormBase {
                 dot.y = (segA.position.y + segB.position.y) / 2;
             }
         });
+        
+        // Update audio based on flight physics
+        this.updateAudio(delta);
     }
 
     updateMovement(delta) {
         console.error('WormBase.updateMovement() not implemented');
+    }
+    
+    updateAudio(delta) {
+        if (!this.whooshSynthesizer && !this.audioInitAttempted) {
+            this.audioInitAttempted = true;
+            try {
+                this.whooshSynthesizer = new WhooshSynthesizer({
+                    pitch: 0.8,
+                    filterBase: 180,
+                    resonance: 8.5,
+                    lowBoost: 0.8,
+                    reverb: 0.15
+                });
+                this.whooshSynthesizer.start();
+            } catch (error) {
+                // Audio initialization failed (likely no user interaction yet)
+                return;
+            }
+        }
+        
+        if (!this.whooshSynthesizer) return;
+        
+        // Calculate airborne ratio (0-1)
+        const airborneCount = this.segments.filter((_, i) => 
+            !this.segmentCollisions[i].isColliding
+        ).length;
+        const airborneRatio = airborneCount / this.segments.length;
+        
+        // Calculate average velocity magnitude
+        let totalVelocity = 0;
+        this.segments.forEach(segment => {
+            const vel = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
+            totalVelocity += vel;
+        });
+        const avgVelocity = totalVelocity / this.segments.length;
+        
+        // Calculate volume (0-1): louder when airborne and fast
+        const maxVelocity = 20; // Adjust based on typical worm speeds
+        const velocityRatio = Math.min(avgVelocity / maxVelocity, 1);
+        const volume = airborneRatio * velocityRatio * 0.8; // Cap at 80%
+        
+        // Calculate frequency (0-1): higher pitch for speed + height
+        const head = this.getHead();
+        const groundLevel = 600; // Adjust based on your scene
+        const heightRatio = Math.max(0, Math.min(1, (groundLevel - head.position.y) / 400));
+        const frequency = velocityRatio * 0.7 + heightRatio * 0.3;
+        
+        
+        // Update the synthesizer
+        this.whooshSynthesizer.update(volume, frequency);
+    }
+    
+    initializeAudio() {
+        // Audio will be initialized automatically on first update
+        this.whooshSynthesizer = null;
+        this.audioInitAttempted = false;
+    }
+    
+    startAudio(audioSettings = {}) {
+        if (!this.whooshSynthesizer) {
+            this.whooshSynthesizer = new WhooshSynthesizer(audioSettings);
+        }
+        this.whooshSynthesizer.start();
+    }
+    
+    stopAudio() {
+        if (this.whooshSynthesizer) {
+            this.whooshSynthesizer.stop();
+            this.whooshSynthesizer = null;
+        }
+    }
+    
+    retryAudioInit() {
+        // Reset the attempt flag so audio will try to initialize again
+        this.audioInitAttempted = false;
     }
     
     // Utility methods
@@ -235,7 +318,6 @@ export default class WormBase {
     
     // Cleanup
     destroy() {
-        console.log(`WormBase.destroy() - Cleaning up worm with ${this.segments?.length || 0} segments, ${this.constraints?.length || 0} constraints, ${this.compressionSprings?.length || 0} compression springs`);
         
         // Remove all bodies and constraints
         if (this.segments) {
@@ -245,14 +327,12 @@ export default class WormBase {
                 }
                 this.matter.world.remove(segment);
             });
-            console.log(`Removed ${this.segments.length} segment bodies`);
         }
         
         if (this.constraints) {
             this.constraints.forEach((constraint, index) => {
                 this.matter.world.remove(constraint);
             });
-            console.log(`Removed ${this.constraints.length} main constraints`);
         }
         
         // Clean up compression springs
@@ -260,7 +340,6 @@ export default class WormBase {
             this.compressionSprings.forEach((spring, index) => {
                 this.matter.world.remove(spring);
             });
-            console.log(`Removed ${this.compressionSprings.length} compression spring constraints`);
         }
         
         // Clean up connection dots
@@ -275,7 +354,8 @@ export default class WormBase {
         // Clean up collision detection
         this.cleanupCollisionDetection();
         
-        console.log('WormBase.destroy() completed');
+        // Clean up audio
+        this.stopAudio();
     }
     
     // Collision Detection System for Stickiness
