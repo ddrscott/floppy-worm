@@ -67,8 +67,6 @@ export default class BaseLevelScene extends Phaser.Scene {
     resetWorm() {
         if (!this.worm) return;
         
-        console.log('Resetting worm to start position:', this.wormStartPosition);
-        
         // Reset all worm segments to start position
         this.worm.segments.forEach((segment, index) => {
             // Position segments vertically spaced from start position
