@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
+import PlatformBase from '../entities/PlatformBase';
+import IcePlatform from '../entities/IcePlatform';
+import BouncyPlatform from '../entities/BouncyPlatform';
+import ElectricPlatform from '../entities/ElectricPlatform';
+import FirePlatform from '../entities/FirePlatform';
 
 export default class JsonMapBase extends Phaser.Scene {
     constructor(config = {}) {
@@ -84,6 +89,13 @@ export default class JsonMapBase extends Phaser.Scene {
         // Reset victory state
         this.victoryAchieved = false;
         
+        // Cleanup special platforms
+        this.platforms.forEach(platform => {
+            if (platform.isSpecial && platform.instance && platform.instance.destroy) {
+                platform.instance.destroy();
+            }
+        });
+        
         // Clear platforms array
         this.platforms = [];
         
@@ -153,8 +165,23 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createPlatformFromJSON(platformData) {
-        const { type, physics = {}, color, id } = platformData;
+        const { type, platformType = 'standard', physics = {}, color, id } = platformData;
         
+        // Check if this is a special platform type
+        if (platformType && platformType !== 'standard') {
+            const platformInstance = this.createSpecialPlatform(platformData);
+            if (platformInstance) {
+                this.platforms.push({ 
+                    instance: platformInstance,
+                    data: platformData, 
+                    id: id || `platform_${this.platforms.length}`,
+                    isSpecial: true
+                });
+                return;
+            }
+        }
+        
+        // Handle standard platforms (existing logic)
         let body, visual;
         
         switch(type) {
@@ -203,6 +230,100 @@ export default class JsonMapBase extends Phaser.Scene {
         this.platforms.push({ 
             body, visual, data: platformData, id: id || `platform_${this.platforms.length}`
         });
+    }
+    
+    createSpecialPlatform(platformData) {
+        const { type, platformType, x, y, width, height, radius, physics = {}, color } = platformData;
+        
+        // Use the same coordinate transformations as regular platforms
+        const centerX = x;
+        const centerY = y;
+        
+        // Apply physics from JSON with proper defaults
+        const config = {
+            color: parseInt((color || '#ff6b6b').replace('#', '0x')),
+            shape: type, // Pass the shape type (rectangle, circle, etc.)
+            ...physics,
+        };
+        
+        // Determine platform dimensions based on shape type
+        let platformWidth, platformHeight;
+        
+        if (type === 'rectangle') {
+            platformWidth = width;
+            platformHeight = height;
+        } else if (type === 'circle') {
+            // For circles, use diameter as both width and height
+            platformWidth = radius * 2;
+            platformHeight = radius * 2;
+        } else {
+            // For other shapes, use bounding box approach
+            platformWidth = width || radius * 2 || 100;
+            platformHeight = height || radius * 2 || 100;
+        }
+        
+        // Debug logging to understand coordinate issues
+        console.log(`Creating special platform ${platformType} ${type} at (${centerX}, ${centerY}) size: ${platformWidth}x${platformHeight}`);
+        console.log(`Level bounds: ${this.levelWidth}x${this.levelHeight}`);
+        
+        switch(platformType) {
+            case 'ice':
+                return new IcePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'bouncy':
+                return new BouncyPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'electric':
+                return new ElectricPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'fire':
+                return new FirePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            default:
+                console.warn(`Unknown special platform type: ${platformType}`);
+                return null;
+        }
+    }
+    
+    setupSpecialPlatformCollisions() {
+        // Set up Matter.js collision events for special platforms
+        this.matter.world.on('collisionstart', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                
+                // Check if one body is a worm segment and the other is a special platform
+                const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
+                const platformBody = wormSegment === bodyA ? bodyB : bodyA;
+                
+                if (wormSegment && platformBody.platformInstance) {
+                    const platform = platformBody.platformInstance;
+                    if (platform.onCollision) {
+                        platform.onCollision(wormSegment, pair.collision);
+                    }
+                }
+            });
+        });
+        
+        this.matter.world.on('collisionend', (event) => {
+            event.pairs.forEach(pair => {
+                const { bodyA, bodyB } = pair;
+                
+                const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
+                const platformBody = wormSegment === bodyA ? bodyB : bodyA;
+                
+                if (wormSegment && platformBody.platformInstance) {
+                    const platform = platformBody.platformInstance;
+                    if (platform.onCollisionEnd) {
+                        platform.onCollisionEnd(wormSegment);
+                    }
+                }
+            });
+        });
+    }
+    
+    isWormSegment(body) {
+        // Check if this body belongs to the worm
+        return this.worm && this.worm.segments && this.worm.segments.includes(body);
     }
     
     createRectanglePlatform(platformData) {
@@ -368,6 +489,9 @@ export default class JsonMapBase extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelHeight);
         this.handleResize();
         this.scale.on('resize', this.handleResize, this);
+        
+        // Set up collision detection for special platforms
+        this.setupSpecialPlatformCollisions();
     }
     
     // Import grid, boundary walls, UI, controls, and other methods from TextBaseScene
@@ -524,16 +648,6 @@ export default class JsonMapBase extends Phaser.Scene {
             this.controlsDisplay = new ControlsDisplay(this, 20, 60);
             this.minimapIgnoreList.push(this.controlsDisplay.elements);
         }
-        
-        // Add mini-map controls instruction
-        const minimapText = this.add.text(20, this.scale.height - 40, 'M: Toggle Mini-map', {
-            fontSize: '14px',
-            color: '#95a5a6',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 8, y: 4 }
-        }).setScrollFactor(0);
-        
-        this.minimapIgnoreList.push(minimapText);
     }
     
     createMiniMap(levelHeight) {
@@ -695,6 +809,13 @@ export default class JsonMapBase extends Phaser.Scene {
         }
         
         this.worm.update(delta);
+        
+        // Update special platforms
+        this.platforms.forEach(platform => {
+            if (platform.isSpecial && platform.instance && platform.instance.update) {
+                platform.instance.update(delta);
+            }
+        });
         
         // Check for gamepad button M to toggle mini-map
         const pad = this.input.gamepad.getPad(0);

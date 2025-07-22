@@ -11,20 +11,17 @@ export default class MapEditor extends Phaser.Scene {
         this.isTestMode = false;
         this.selectedTool = 'rectangle';
         this.selectedPlatform = null;
-        this.isDragging = false;
-        this.dragStart = { x: 0, y: 0 };
         this.platforms = [];
         this.entities = {
             wormStart: { x: 200, y: 900 },
             goal: { x: 1700, y: 200 }
         };
         
-        // Transform handles
-        this.transformHandles = [];
-        this.activeHandle = null;
-        this.transformMode = 'move'; // 'move', 'resize', 'rotate'
-        this.isTransforming = false;
-        this.originalTransform = null;
+        // Simple selection and resize handles
+        this.selectedPlatform = null;
+        this.resizeHandles = [];
+        this.isResizing = false;
+        this.activeResizeHandle = null;
         
         // Grid settings
         this.CHAR_WIDTH = 96;
@@ -50,6 +47,7 @@ export default class MapEditor extends Phaser.Scene {
         // Tool settings
         this.toolSettings = {
             platformColor: "#ff6b6b",
+            platformType: "standard",
             friction: 0.8,
             frictionStatic: 1.0,
             restitution: 0,
@@ -58,9 +56,7 @@ export default class MapEditor extends Phaser.Scene {
             trapezoidSlope: 0.3
         };
         
-        // Preview objects
-        this.previewGraphics = null;
-        this.previewVertices = [];
+        // Input will be set up in create() method
         
         // UI elements
         this.wormSprite = null;
@@ -109,6 +105,31 @@ export default class MapEditor extends Phaser.Scene {
         // Setup input
         this.setupInput();
         
+        // Simple click selection (not drag-based)
+        this.input.on('pointerup', (pointer) => {
+            // Don't process platform selection if we just finished resizing
+            if (this.justFinishedResizing) {
+                this.justFinishedResizing = false;
+                return;
+            }
+            
+            if (this.isTestMode) return;
+            
+            const worldX = pointer.worldX;
+            const worldY = pointer.worldY;
+            
+            // Check if clicking on platform container
+            const clickedPlatform = this.platforms.find(p => 
+                this.isContainerAtPosition(p, worldX, worldY)
+            );
+            
+            if (clickedPlatform) {
+                this.selectPlatform(clickedPlatform);
+            } else {
+                this.selectPlatform(null);
+            }
+        });
+        
         // Setup camera
         this.cameras.main.setBounds(0, 0, levelWidth, levelHeight);
         this.cameras.main.setZoom(0.8);
@@ -116,10 +137,6 @@ export default class MapEditor extends Phaser.Scene {
         
         // Create GUI
         this.setupGUI();
-        
-        // Create preview graphics
-        this.previewGraphics = this.add.graphics();
-        this.previewGraphics.setDepth(100);
     }
     
     getSavedMaps() {
@@ -279,10 +296,9 @@ export default class MapEditor extends Phaser.Scene {
                 gameObject.x = dragX;
                 gameObject.y = dragY;
                 
-                // Update entity positions using pixel coordinates
+                // Update entity positions
                 if (gameObject === this.wormSprite) {
                     this.entities.wormStart = { x: dragX, y: dragY };
-                    // Update text position to follow sprite
                     if (this.wormText) {
                         this.wormText.setPosition(dragX, dragY);
                     }
@@ -295,12 +311,215 @@ export default class MapEditor extends Phaser.Scene {
         });
     }
     
-    setupInput() {
-        // Mouse controls for platform creation
-        this.input.on('pointerdown', this.onPointerDown, this);
-        this.input.on('pointermove', this.onPointerMove, this);
-        this.input.on('pointerup', this.onPointerUp, this);
+    setupPlatformDragging() {
+        // Platform drag events
+        this.input.on('dragstart', (pointer, gameObject) => {
+            if (this.isTestMode) return;
+            
+            // Check if dragging a resize handle
+            if (gameObject.handleType) {
+                this.isResizing = true;
+                this.resizeStartData = { ...gameObject.platformData };
+                return;
+            }
+            
+            // Bring dragged platform container to top
+            if (gameObject.platformData) {
+                this.children.bringToTop(gameObject);
+                this.selectPlatform(this.platforms.find(p => p.container === gameObject));
+            }
+        });
         
+        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            if (this.isTestMode) return;
+            
+            // Handle resize operations (key fix: don't recreate handles during resize)
+            if (gameObject.handleType && this.isResizing) {
+                this.handleResize(gameObject, dragX, dragY);
+                return;
+            }
+            
+            // Handle platform movement
+            if (gameObject.platformData && !gameObject.handleType) {
+                if (this.gridSnapEnabled) {
+                    dragX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
+                    dragY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
+                }
+                
+                gameObject.x = dragX;
+                gameObject.y = dragY;
+                
+                // Update platform data (no handle recreation here)
+                const platform = this.platforms.find(p => p.container === gameObject);
+                if (platform) {
+                    platform.data.x = dragX;
+                    platform.data.y = dragY;
+                    this.autoSave();
+                }
+            }
+        });
+        
+        this.input.on('dragend', (pointer, gameObject) => {
+            if (gameObject.handleType) {
+                this.isResizing = false;
+                this.resizeStartData = null;
+                this.justFinishedResizing = true; // Prevent platform selection
+                
+                // Update handle positions to their correct locations after resize
+                const platform = this.platforms.find(p => p.data === gameObject.platformData);
+                if (platform) {
+                    this.updateHandlePositions(platform);
+                }
+            }
+        });
+    }
+    
+    handleResize(handle, dragX, dragY) {
+        const platform = this.platforms.find(p => p.data === handle.platformData);
+        if (!platform) return;
+        
+        const data = platform.data;
+        const original = this.resizeStartData;
+        
+        // The dragX, dragY are the handle's new position relative to its container
+        // Since handles are inside the container, dragX/dragY are container-relative coordinates
+        let relativeX = dragX;
+        let relativeY = dragY;
+        
+        if (this.gridSnapEnabled) {
+            relativeX = Math.round(relativeX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
+            relativeY = Math.round(relativeY / this.ROW_SPACING) * this.ROW_SPACING;
+        }
+        
+        if (data.type === 'rectangle' || data.type === 'trapezoid') {
+            this.resizeRectangleFromHandle(data, original, handle.handleType, relativeX, relativeY);
+        } else if (data.type === 'circle') {
+            this.resizeCircleFromHandle(data, original, handle.handleType, relativeX, relativeY);
+        }
+        
+        // During resize: ONLY update visual, don't touch handles
+        this.updatePlatformVisual(platform);
+        this.autoSave();
+    }
+    
+    resizeRectangleFromHandle(data, original, handleType, relativeX, relativeY) {
+        const minSize = 20;
+        
+        // With top-left origin, relativeX and relativeY are the handle's position from (0,0)
+        switch (handleType) {
+            case 'nw':
+                // Top-left handle: this is the new (0,0) position
+                data.width = Math.max(minSize, original.width - relativeX);
+                data.height = Math.max(minSize, original.height - relativeY);
+                break;
+            case 'ne':
+                // Top-right handle: width = relativeX, height shrinks from top
+                data.width = Math.max(minSize, relativeX);
+                data.height = Math.max(minSize, original.height - relativeY);
+                break;
+            case 'sw':
+                // Bottom-left handle: width shrinks from left, height = relativeY
+                data.width = Math.max(minSize, original.width - relativeX);
+                data.height = Math.max(minSize, relativeY);
+                break;
+            case 'se':
+                // Bottom-right handle: width = relativeX, height = relativeY
+                data.width = Math.max(minSize, relativeX);
+                data.height = Math.max(minSize, relativeY);
+                break;
+        }
+        
+        console.log(`New size: ${data.width}x${data.height}`);
+    }
+    
+    resizeCircleFromHandle(data, original, handleType, relativeX, relativeY) {
+        const minRadius = 10;
+        let newRadius;
+        
+        // Handle positions relative to container center:
+        // n: (0, -radius), e: (+radius, 0), s: (0, +radius), w: (-radius, 0)
+        
+        switch (handleType) {
+            case 'n':
+                // North handle: dragging changes Y distance from center
+                newRadius = Math.max(minRadius, Math.abs(relativeY));
+                break;
+            case 'e':
+                // East handle: dragging changes X distance from center  
+                newRadius = Math.max(minRadius, Math.abs(relativeX));
+                break;
+            case 's':
+                // South handle: dragging changes Y distance from center
+                newRadius = Math.max(minRadius, Math.abs(relativeY));
+                break;
+            case 'w':
+                // West handle: dragging changes X distance from center
+                newRadius = Math.max(minRadius, Math.abs(relativeX));
+                break;
+        }
+        
+        data.radius = newRadius;
+        console.log(`New radius: ${newRadius}`);
+    }
+    
+    updatePlatformVisual(platform) {
+        // Remove old visual from container
+        if (platform.visual) {
+            platform.container.remove(platform.visual);
+            platform.visual.destroy();
+        }
+        
+        // Create new visual
+        platform.visual = this.createPlatformVisual(platform.data);
+        platform.visual.setPosition(0, 0); // Center in container
+        
+        // Add back to container
+        platform.container.add(platform.visual);
+        
+        // Reapply selection highlighting
+        if (this.selectedPlatform === platform) {
+            platform.visual.setStrokeStyle(4, 0x00ff00, 1);
+        }
+    }
+    
+    updateHandlePositions(platform) {
+        if (!platform.handles) return;
+        
+        // Update handle positions based on current platform size
+        // Handles are inside the container, so use container-relative coordinates
+        const { width, height, radius, type } = platform.data;
+        
+        platform.handles.forEach((handle, index) => {
+            if (type === 'rectangle' || type === 'trapezoid') {
+                const positions = [
+                    { x: 0, y: 0 },          // nw
+                    { x: width, y: 0 },      // ne
+                    { x: 0, y: height },     // sw
+                    { x: width, y: height }  // se
+                ];
+                if (positions[index]) {
+                    handle.setPosition(positions[index].x, positions[index].y);
+                }
+            } else if (type === 'circle') {
+                const positions = [
+                    { x: 0, y: -radius },     // n
+                    { x: radius, y: 0 },      // e
+                    { x: 0, y: radius },      // s
+                    { x: -radius, y: 0 }      // w
+                ];
+                if (positions[index]) {
+                    handle.setPosition(positions[index].x, positions[index].y);
+                }
+            }
+        });
+    }
+    
+    updateHandles(platform) {
+        this.clearHandlesFromContainer(platform);
+        this.addHandlesToPlatform(platform);
+    }
+    
+    setupInput() {
         // Keyboard shortcuts
         this.input.keyboard.on('keydown-R', () => this.selectedTool = 'rectangle');
         this.input.keyboard.on('keydown-C', () => this.selectedTool = 'circle');
@@ -317,9 +536,7 @@ export default class MapEditor extends Phaser.Scene {
         // Camera controls - scroll to pan camera
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
             const camera = this.cameras.main;
-            const panSpeed = 50 / camera.zoom; // Adjust pan speed based on zoom level
-            
-            // Pan camera based on scroll direction
+            const panSpeed = 50 / camera.zoom;
             camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
         });
         
@@ -331,160 +548,35 @@ export default class MapEditor extends Phaser.Scene {
                 camera.scrollY -= pointer.velocity.y / camera.zoom;
             }
         });
-    }
-    
-    onPointerDown(pointer) {
-        if (this.isTestMode) return;
         
-        const worldX = pointer.worldX;
-        const worldY = pointer.worldY;
-        
-        // Check if clicking on draggable entities (worm/star) first
-        const clickedOnEntity = this.isClickOnEntity(worldX, worldY);
-        if (clickedOnEntity) {
-            // Let Phaser's built-in drag system handle entity dragging
-            return;
-        }
-        
-        // Check if clicking on transform handle
-        const clickedHandle = this.getHandleAtPosition(worldX, worldY);
-        if (clickedHandle) {
-            this.startTransform(clickedHandle, worldX, worldY);
-            return;
-        }
-        
-        // Check if clicking on existing platform
-        const clickedPlatform = this.platforms.find(p => {
-            return this.isPlatformAtPosition(p, worldX, worldY);
+        // Double-click to create platforms (manual detection)
+        let lastClickTime = 0;
+        this.input.on('pointerup', (pointer) => {
+            const now = Date.now();
+            if (now - lastClickTime < 400) { // 400ms double-click threshold
+                this.createPlatformAtPointer(pointer);
+            }
+            lastClickTime = now;
         });
         
-        if (clickedPlatform) {
-            if (this.selectedPlatform === clickedPlatform) {
-                // Start dragging if clicking on already selected platform
-                this.startPlatformDrag(worldX, worldY);
-            } else {
-                // Select different platform
-                this.selectPlatform(clickedPlatform);
-            }
+        // Setup drag events for platforms
+        this.setupPlatformDragging();
+    }
+    
+    createPlatformAtPointer(pointer) {
+        if (this.isTestMode) return;
+        
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        
+        // Check if clicking on existing objects first
+        if (this.isClickOnEntity(worldX, worldY) || 
+            this.platforms.some(p => this.isContainerAtPosition(p, worldX, worldY))) {
             return;
         }
         
-        // Deselect if clicking on empty space
-        if (this.selectedPlatform) {
-            this.selectPlatform(null);
-        }
-        
-        // Start creating new platform
-        this.isDragging = true;
-        this.dragStart = { x: worldX, y: worldY };
-        
-        if (this.gridSnapEnabled) {
-            this.dragStart.x = Math.round(worldX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            this.dragStart.y = Math.round(worldY / this.ROW_SPACING) * this.ROW_SPACING;
-        }
-        
-        if (this.selectedTool === 'custom') {
-            this.startCustomPolygon(this.dragStart);
-        }
-    }
-    
-    onPointerMove(pointer) {
-        if (this.isTestMode) return;
-        
-        const worldX = pointer.worldX;
-        const worldY = pointer.worldY;
-        
-        if (this.isTransforming) {
-            this.updateTransform(worldX, worldY);
-        } else if (this.isDragging && this.selectedTool !== 'custom') {
-            this.updatePreview(worldX, worldY);
-        }
-        
-        // Update cursor based on what's under the mouse
-        this.updateCursor(worldX, worldY);
-    }
-    
-    onPointerUp(pointer) {
-        if (this.isTestMode) return;
-        
-        const worldX = pointer.worldX;
-        const worldY = pointer.worldY;
-        
-        if (this.isTransforming) {
-            this.endTransform();
-        } else if (this.isDragging && this.selectedTool !== 'custom') {
-            this.createPlatform(worldX, worldY);
-            this.isDragging = false;
-            this.clearPreview();
-        }
-    }
-    
-    updatePreview(worldX, worldY) {
-        this.clearPreview();
-        
-        let snapX = worldX, snapY = worldY;
-        if (this.gridSnapEnabled) {
-            snapX = Math.round(worldX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            snapY = Math.round(worldY / this.ROW_SPACING) * this.ROW_SPACING;
-        }
-        
-        this.previewGraphics.lineStyle(2, 0x00ff00, 0.8);
-        this.previewGraphics.fillStyle(parseInt(this.toolSettings.platformColor.replace('#', '0x')), 0.3);
-        
-        switch (this.selectedTool) {
-            case 'rectangle':
-                const width = Math.abs(snapX - this.dragStart.x);
-                const height = Math.abs(snapY - this.dragStart.y);
-                const rectX = Math.min(this.dragStart.x, snapX);
-                const rectY = Math.min(this.dragStart.y, snapY);
-                this.previewGraphics.fillRect(rectX, rectY, width, height);
-                this.previewGraphics.strokeRect(rectX, rectY, width, height);
-                break;
-                
-            case 'circle':
-                const radius = Phaser.Math.Distance.Between(this.dragStart.x, this.dragStart.y, snapX, snapY);
-                this.previewGraphics.fillCircle(this.dragStart.x, this.dragStart.y, radius);
-                this.previewGraphics.strokeCircle(this.dragStart.x, this.dragStart.y, radius);
-                break;
-                
-            case 'polygon':
-                const polyRadius = Phaser.Math.Distance.Between(this.dragStart.x, this.dragStart.y, snapX, snapY);
-                const vertices = this.generatePolygonVertices(this.dragStart.x, this.dragStart.y, polyRadius, this.toolSettings.polygonSides);
-                this.previewGraphics.fillPoints(vertices);
-                this.previewGraphics.strokePoints(vertices, true);
-                break;
-        }
-    }
-    
-    clearPreview() {
-        if (this.previewGraphics) {
-            this.previewGraphics.clear();
-        }
-    }
-    
-    createPlatform(worldX, worldY) {
-        let snapX = worldX, snapY = worldY;
-        if (this.gridSnapEnabled) {
-            snapX = Math.round(worldX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            snapY = Math.round(worldY / this.ROW_SPACING) * this.ROW_SPACING;
-        }
-        
-        let platformData;
-        
-        switch (this.selectedTool) {
-            case 'rectangle':
-                platformData = this.createRectangleData(snapX, snapY);
-                break;
-            case 'circle':
-                platformData = this.createCircleData(snapX, snapY);
-                break;
-            case 'polygon':
-                platformData = this.createPolygonData(snapX, snapY);
-                break;
-            case 'trapezoid':
-                platformData = this.createTrapezoidData(snapX, snapY);
-                break;
-        }
+        // Create platform at pointer location with default size
+        let platformData = this.createDefaultPlatform(worldX, worldY);
         
         if (platformData) {
             this.addPlatformToScene(platformData);
@@ -492,22 +584,29 @@ export default class MapEditor extends Phaser.Scene {
         }
     }
     
-    createRectangleData(worldX, worldY) {
-        const width = Math.abs(worldX - this.dragStart.x);
-        const height = Math.abs(worldY - this.dragStart.y);
+    createDefaultPlatform(x, y) {
+        let snapX = x, snapY = y;
+        if (this.gridSnapEnabled) {
+            snapX = Math.round(x / this.CHAR_WIDTH) * this.CHAR_WIDTH;
+            snapY = Math.round(y / this.ROW_SPACING) * this.ROW_SPACING;
+        }
         
-        if (width < 20 || height < 20) return null;
+        const defaultSizes = {
+            rectangle: { width: 96, height: 48 },
+            circle: { radius: 40 },
+            polygon: { radius: 40, sides: this.toolSettings.polygonSides },
+            trapezoid: { width: 96, height: 48, slope: this.toolSettings.trapezoidSlope }
+        };
         
-        const centerX = (this.dragStart.x + worldX) / 2;
-        const centerY = (this.dragStart.y + worldY) / 2;
+        const size = defaultSizes[this.selectedTool];
+        if (!size) return null;
         
-        return {
+        const baseData = {
             id: `platform_${Date.now()}`,
-            type: 'rectangle',
-            x: centerX,
-            y: centerY,
-            width: width,
-            height: height,
+            type: this.selectedTool,
+            platformType: this.toolSettings.platformType,
+            x: snapX,
+            y: snapY,
             color: this.toolSettings.platformColor,
             physics: {
                 friction: this.toolSettings.friction,
@@ -515,84 +614,44 @@ export default class MapEditor extends Phaser.Scene {
                 restitution: this.toolSettings.restitution
             }
         };
+        
+        return { ...baseData, ...size };
     }
     
-    createCircleData(worldX, worldY) {
-        const radius = Phaser.Math.Distance.Between(this.dragStart.x, this.dragStart.y, worldX, worldY);
-        
-        if (radius < 10) return null;
-        
-        return {
-            id: `platform_${Date.now()}`,
-            type: 'circle',
-            x: this.dragStart.x,
-            y: this.dragStart.y,
-            radius: radius,
-            color: this.toolSettings.platformColor,
-            physics: {
-                friction: this.toolSettings.friction,
-                frictionStatic: this.toolSettings.frictionStatic,
-                restitution: this.toolSettings.restitution
-            }
-        };
-    }
     
-    createPolygonData(worldX, worldY) {
-        const radius = Phaser.Math.Distance.Between(this.dragStart.x, this.dragStart.y, worldX, worldY);
-        
-        if (radius < 10) return null;
-        
-        return {
-            id: `platform_${Date.now()}`,
-            type: 'polygon',
-            x: this.dragStart.x,
-            y: this.dragStart.y,
-            sides: this.toolSettings.polygonSides,
-            radius: radius,
-            rotation: 0,
-            color: this.toolSettings.platformColor,
-            physics: {
-                friction: this.toolSettings.friction,
-                frictionStatic: this.toolSettings.frictionStatic,
-                restitution: this.toolSettings.restitution
-            }
-        };
-    }
-    
-    createTrapezoidData(worldX, worldY) {
-        const width = Math.abs(worldX - this.dragStart.x);
-        const height = Math.abs(worldY - this.dragStart.y);
-        
-        if (width < 20 || height < 20) return null;
-        
-        const centerX = (this.dragStart.x + worldX) / 2;
-        const centerY = (this.dragStart.y + worldY) / 2;
-        
-        return {
-            id: `platform_${Date.now()}`,
-            type: 'trapezoid',
-            x: centerX,
-            y: centerY,
-            width: width,
-            height: height,
-            slope: this.toolSettings.trapezoidSlope,
-            color: this.toolSettings.platformColor,
-            physics: {
-                friction: this.toolSettings.friction,
-                frictionStatic: this.toolSettings.frictionStatic,
-                restitution: this.toolSettings.restitution
-            }
-        };
-    }
     
     addPlatformToScene(platformData) {
-        // Create visual representation
+        // Create container for platform + handles
+        const container = this.add.container(platformData.x, platformData.y);
+        
+        // Create visual representation (centered in container)
         const visual = this.createPlatformVisual(platformData);
+        visual.setPosition(0, 0); // Center in container
+        
+        // Add visual to container
+        container.add(visual);
+        
+        // Make container draggable with proper size based on platform type
+        if (platformData.type === 'rectangle' || platformData.type === 'trapezoid') {
+            // For rectangles with top-left origin, set interactive area to match visual size
+            container.setSize(platformData.width, platformData.height);
+        } else if (platformData.type === 'circle') {
+            const diameter = platformData.radius * 2;
+            container.setSize(diameter, diameter);
+        } else {
+            // Default fallback
+            container.setSize(100, 100);
+        }
+        container.setInteractive();
+        this.input.setDraggable(container);
+        container.platformData = platformData;
         
         const platform = {
             data: platformData,
+            container: container,
             visual: visual,
-            id: platformData.id
+            id: platformData.id,
+            handles: []
         };
         
         this.platforms.push(platform);
@@ -607,33 +666,38 @@ export default class MapEditor extends Phaser.Scene {
         
         switch (type) {
             case 'rectangle':
-                const { x, y, width, height } = platformData;
-                visual = this.add.rectangle(x, y, width, height, colorValue);
+                const { width, height } = platformData;
+                visual = this.add.rectangle(0, 0, width, height, colorValue);
+                visual.setOrigin(0, 0);
                 break;
                 
             case 'circle':
-                visual = this.add.circle(platformData.x, platformData.y, platformData.radius, colorValue);
+                visual = this.add.circle(0, 0, platformData.radius, colorValue);
                 break;
                 
             case 'polygon':
-                const vertices = this.generatePolygonVertices(platformData.x, platformData.y, platformData.radius, platformData.sides);
-                visual = this.add.polygon(platformData.x, platformData.y, vertices, colorValue);
+                const vertices = this.generatePolygonVertices(0, 0, platformData.radius, platformData.sides);
+                visual = this.add.polygon(0, 0, vertices, colorValue);
                 break;
                 
             case 'trapezoid':
-                const trapVertices = this.generateTrapezoidVertices(platformData.x, platformData.y, platformData.width, platformData.height, platformData.slope);
-                visual = this.add.polygon(platformData.x, platformData.y, trapVertices, colorValue);
+                const trapVertices = this.generateTrapezoidVertices(0, 0, platformData.width, platformData.height, platformData.slope);
+                visual = this.add.polygon(0, 0, trapVertices, colorValue);
                 break;
                 
             case 'custom':
+                // For custom, center the vertices around (0,0)
                 const centerX = platformData.vertices.reduce((sum, v) => sum + v.x, 0) / platformData.vertices.length;
                 const centerY = platformData.vertices.reduce((sum, v) => sum + v.y, 0) / platformData.vertices.length;
-                visual = this.add.polygon(centerX, centerY, platformData.vertices, colorValue);
+                const centeredVertices = platformData.vertices.map(v => ({
+                    x: v.x - centerX,
+                    y: v.y - centerY
+                }));
+                visual = this.add.polygon(0, 0, centeredVertices, colorValue);
                 break;
         }
         
         if (visual) {
-            visual.setInteractive();
             visual.setStrokeStyle(2, 0x000000, 0.5);
             visual.setDepth(10);
         }
@@ -670,28 +734,115 @@ export default class MapEditor extends Phaser.Scene {
         // Deselect previous platform
         if (this.selectedPlatform && this.selectedPlatform.visual) {
             this.selectedPlatform.visual.setStrokeStyle(2, 0x000000, 0.5);
+            this.clearHandlesFromContainer(this.selectedPlatform);
         }
-        
-        // Clear existing transform handles
-        this.clearTransformHandles();
         
         // Select new platform
         this.selectedPlatform = platform;
         if (platform && platform.visual) {
             platform.visual.setStrokeStyle(4, 0x00ff00, 1);
-            // Create transform handles for selected platform
-            this.createTransformHandles(platform);
+            // Add resize handles
+            this.addHandlesToPlatform(platform);
         }
+    }
+    
+    clearHandlesFromContainer(platform) {
+        if (platform.handles) {
+            platform.handles.forEach(handle => {
+                platform.container.remove(handle);
+                handle.destroy();
+            });
+            platform.handles = [];
+        }
+    }
+    
+    addHandlesToPlatform(platform) {
+        const data = platform.data;
         
-        // Update GUI to show platform properties
-        this.updateGUIForSelectedPlatform();
+        // Only create resize handles for rectangles and circles for simplicity
+        if (data.type === 'rectangle' || data.type === 'trapezoid') {
+            this.createRectangleHandles(platform);
+        } else if (data.type === 'circle') {
+            this.createCircleHandles(platform);
+        }
+    }
+    
+    createRectangleHandles(platform) {
+        const { width, height } = platform.data;
+        
+        // Corner handles relative to top-left origin
+        const handlePositions = [
+            { x: 0, y: 0, type: 'nw' },
+            { x: width, y: 0, type: 'ne' },
+            { x: 0, y: height, type: 'sw' },
+            { x: width, y: height, type: 'se' }
+        ];
+        
+        handlePositions.forEach(pos => {
+            const handle = this.add.rectangle(pos.x, pos.y, 12, 12, 0x00ffff);
+            handle.setStrokeStyle(2, 0x0088aa);
+            handle.setInteractive();
+            handle.handleType = pos.type;
+            handle.platformData = platform.data;
+            handle.setDepth(300); // High depth so they're on top
+            
+            // Use Phaser's drag system
+            this.input.setDraggable(handle);
+            
+            // Visual feedback
+            handle.on('pointerover', () => handle.setFillStyle(0xffff88));
+            handle.on('pointerout', () => handle.setFillStyle(0x00ffff));
+            
+            // Add to container and track it
+            platform.container.add(handle);
+            platform.handles.push(handle);
+            
+            console.log('Created handle:', pos.type, 'interactive:', handle.input.enabled);
+        });
+    }
+    
+    createCircleHandles(platform) {
+        const { radius } = platform.data;
+        
+        // Four resize handles around the circle relative to container center
+        const handlePositions = [
+            { x: 0, y: -radius, type: 'n' },
+            { x: radius, y: 0, type: 'e' },
+            { x: 0, y: radius, type: 's' },
+            { x: -radius, y: 0, type: 'w' }
+        ];
+        
+        handlePositions.forEach(pos => {
+            const handle = this.add.circle(pos.x, pos.y, 6, 0x00ffff);
+            handle.setStrokeStyle(2, 0x0088aa);
+            handle.setInteractive();
+            handle.handleType = pos.type;
+            handle.platformData = platform.data;
+            handle.setDepth(300); // High depth so they're on top
+            
+            // Use Phaser's drag system
+            this.input.setDraggable(handle);
+            
+            // Visual feedback
+            handle.on('pointerover', () => handle.setFillStyle(0xffff88));
+            handle.on('pointerout', () => handle.setFillStyle(0x00ffff));
+            
+            // Add to container and track it
+            platform.container.add(handle);
+            platform.handles.push(handle);
+            
+            console.log('Created circle handle:', pos.type, 'interactive:', handle.input.enabled);
+        });
     }
     
     deleteSelectedPlatform() {
         if (this.selectedPlatform) {
-            // Remove visual
-            if (this.selectedPlatform.visual) {
-                this.selectedPlatform.visual.destroy();
+            // Clear resize handles first
+            this.clearHandlesFromContainer(this.selectedPlatform);
+            
+            // Remove container (which removes visual and handles)
+            if (this.selectedPlatform.container) {
+                this.selectedPlatform.container.destroy();
             }
             
             // Remove from platforms array
@@ -803,8 +954,8 @@ export default class MapEditor extends Phaser.Scene {
         switch (type) {
             case 'rectangle':
                 const { x, y, width, height } = platformData;
-                // Use pixel coordinates directly
-                body = this.matter.add.rectangle(x, y, width, height, appliedPhysics);
+                // Position physics body so its top-left corner matches the visual
+                body = this.matter.add.rectangle(x + width/2, y + height/2, width, height, appliedPhysics);
                 break;
                 
             case 'circle':
@@ -831,19 +982,17 @@ export default class MapEditor extends Phaser.Scene {
             case 'trapezoid':
                 const { x: trapX, y: trapY, width: trapWidth, height: trapHeight, slope = 0 } = platformData;
                 
-                // Calculate trapezoid vertices based on slope
-                const halfWidth = trapWidth / 2;
-                const halfHeight = trapHeight / 2;
-                const slopeOffset = slope * halfHeight;
-                
+                // Calculate trapezoid vertices with top-left origin
+                const slopeOffset = slope * trapHeight / 2;
                 const trapVertices = [
-                    { x: trapX - halfWidth + slopeOffset, y: trapY - halfHeight },  // top left
-                    { x: trapX + halfWidth - slopeOffset, y: trapY - halfHeight },  // top right
-                    { x: trapX + halfWidth, y: trapY + halfHeight },                // bottom right
-                    { x: trapX - halfWidth, y: trapY + halfHeight }                 // bottom left
+                    { x: trapX + slopeOffset, y: trapY },                    // top left
+                    { x: trapX + trapWidth - slopeOffset, y: trapY },       // top right  
+                    { x: trapX + trapWidth, y: trapY + trapHeight },        // bottom right
+                    { x: trapX, y: trapY + trapHeight }                     // bottom left
                 ];
                 
-                body = this.matter.add.fromVertices(trapX, trapY, trapVertices, appliedPhysics);
+                // Position physics body at center of trapezoid bounds
+                body = this.matter.add.fromVertices(trapX + trapWidth/2, trapY + trapHeight/2, trapVertices, appliedPhysics);
                 break;
                 
             case 'custom':
@@ -1106,6 +1255,24 @@ export default class MapEditor extends Phaser.Scene {
         // Shape Tools folder
         const toolsFolder = this.gui.addFolder('Shape Tools');
         toolsFolder.add(this, 'selectedTool', ['rectangle', 'circle', 'polygon', 'trapezoid', 'custom']).name('Tool Mode');
+        toolsFolder.add(this.toolSettings, 'platformType', {
+            'Standard': 'standard',
+            'Ice (Slippery)': 'ice', 
+            'Bouncy': 'bouncy',
+            'Electric (Shock)': 'electric',
+            'Fire (Burning)': 'fire'
+        }).name('Platform Type').onChange((value) => {
+            // Update color to match platform type
+            const colors = {
+                'standard': '#ff6b6b',
+                'ice': '#b3e5fc',
+                'bouncy': '#ff9800', 
+                'electric': '#9c27b0',
+                'fire': '#f44336'
+            };
+            this.toolSettings.platformColor = colors[value] || '#ff6b6b';
+            this.gui.updateDisplay();
+        });
         toolsFolder.addColor(this.toolSettings, 'platformColor').name('Platform Color');
         toolsFolder.add(this, 'gridSnapEnabled').name('Snap to Grid');
         toolsFolder.open();
@@ -1329,35 +1496,31 @@ TESTING TIPS:
         });
     }
     
-    // Platform detection and transform methods
-    isPlatformAtPosition(platform, x, y) {
-        if (!platform.visual) return false;
+    // Platform detection methods
+    isContainerAtPosition(platform, x, y) {
+        if (!platform.container) return false;
         
         const { type } = platform.data;
+        const containerX = platform.container.x;
+        const containerY = platform.container.y;
         
         switch (type) {
             case 'rectangle':
             case 'trapezoid':
-                if (platform.visual.getBounds) {
-                    const bounds = platform.visual.getBounds();
-                    return Phaser.Geom.Rectangle.Contains(bounds, x, y);
-                }
-                break;
+                const halfW = platform.data.width / 2;
+                const halfH = platform.data.height / 2;
+                return (x >= containerX - halfW && x <= containerX + halfW &&
+                        y >= containerY - halfH && y <= containerY + halfH);
                 
             case 'circle':
-                const distance = Phaser.Math.Distance.Between(
-                    platform.visual.x, platform.visual.y, x, y
-                );
+                const distance = Phaser.Math.Distance.Between(containerX, containerY, x, y);
                 return distance <= platform.data.radius;
                 
             case 'polygon':
             case 'custom':
-                // Use bounds check for now - could implement proper polygon containment
-                if (platform.visual.getBounds) {
-                    const bounds = platform.visual.getBounds();
-                    return Phaser.Geom.Rectangle.Contains(bounds, x, y);
-                }
-                break;
+                // Simple radius check for now
+                const distance2 = Phaser.Math.Distance.Between(containerX, containerY, x, y);
+                return distance2 <= (platform.data.radius || 50);
         }
         
         return false;
@@ -1387,409 +1550,4 @@ TESTING TIPS:
         return false;
     }
     
-    createTransformHandles(platform) {
-        this.clearTransformHandles();
-        
-        if (!platform.visual) return;
-        
-        const { type } = platform.data;
-        const visual = platform.visual;
-        
-        // Create different handles based on platform type
-        switch (type) {
-            case 'rectangle':
-            case 'trapezoid':
-                this.createRectangleHandles(visual, platform.data);
-                break;
-                
-            case 'circle':
-                this.createCircleHandles(visual, platform.data);
-                break;
-                
-            case 'polygon':
-                this.createPolygonHandles(visual, platform.data);
-                break;
-                
-            case 'custom':
-                this.createCustomHandles(visual, platform.data);
-                break;
-        }
-    }
-    
-    createRectangleHandles(visual, data) {
-        const { x, y, width, height } = data;
-        const halfWidth = width / 2;
-        const halfHeight = height / 2;
-        
-        // Corner handles for resizing
-        const handles = [
-            { type: 'resize', position: 'nw', x: x - halfWidth, y: y - halfHeight },
-            { type: 'resize', position: 'ne', x: x + halfWidth, y: y - halfHeight },
-            { type: 'resize', position: 'sw', x: x - halfWidth, y: y + halfHeight },
-            { type: 'resize', position: 'se', x: x + halfWidth, y: y + halfHeight },
-            // Edge handles for resizing
-            { type: 'resize', position: 'n', x: x, y: y - halfHeight },
-            { type: 'resize', position: 's', x: x, y: y + halfHeight },
-            { type: 'resize', position: 'w', x: x - halfWidth, y: y },
-            { type: 'resize', position: 'e', x: x + halfWidth, y: y },
-        ];
-        
-        handles.forEach(handleData => {
-            const handle = this.add.rectangle(handleData.x, handleData.y, 12, 12, 0x00ffff);
-            handle.setStrokeStyle(2, 0x0088aa);
-            handle.setInteractive();
-            handle.setDepth(200);
-            handle.handleData = handleData;
-            this.transformHandles.push(handle);
-        });
-    }
-    
-    createCircleHandles(visual, data) {
-        const { x, y, radius } = data;
-        
-        // Radius handles
-        const handles = [
-            { type: 'resize', position: 'n', x: x, y: y - radius },
-            { type: 'resize', position: 's', x: x, y: y + radius },
-            { type: 'resize', position: 'e', x: x + radius, y: y },
-            { type: 'resize', position: 'w', x: x - radius, y: y },
-        ];
-        
-        handles.forEach(handleData => {
-            const handle = this.add.circle(handleData.x, handleData.y, 6, 0x00ffff);
-            handle.setStrokeStyle(2, 0x0088aa);
-            handle.setInteractive();
-            handle.setDepth(200);
-            handle.handleData = handleData;
-            this.transformHandles.push(handle);
-        });
-    }
-    
-    createPolygonHandles(visual, data) {
-        const { x, y, radius } = data;
-        
-        // Simple radius handles for regular polygons
-        const handles = [
-            { type: 'resize', position: 'n', x: x, y: y - radius },
-            { type: 'resize', position: 's', x: x, y: y + radius },
-            { type: 'resize', position: 'e', x: x + radius, y: y },
-            { type: 'resize', position: 'w', x: x - radius, y: y },
-        ];
-        
-        handles.forEach(handleData => {
-            const handle = this.add.polygon(handleData.x, handleData.y, 
-                [[-6, -6], [6, -6], [6, 6], [-6, 6]], 0x00ffff);
-            handle.setStrokeStyle(2, 0x0088aa);
-            handle.setInteractive();
-            handle.setDepth(200);
-            handle.handleData = handleData;
-            this.transformHandles.push(handle);
-        });
-    }
-    
-    createCustomHandles(visual, data) {
-        // Create vertex handles for custom polygons
-        data.vertices.forEach((vertex, index) => {
-            const handle = this.add.circle(vertex.x, vertex.y, 6, 0xffff00);
-            handle.setStrokeStyle(2, 0xcc8800);
-            handle.setInteractive();
-            handle.setDepth(200);
-            handle.handleData = { 
-                type: 'vertex', 
-                position: index, 
-                x: vertex.x, 
-                y: vertex.y 
-            };
-            this.transformHandles.push(handle);
-        });
-    }
-    
-    clearTransformHandles() {
-        this.transformHandles.forEach(handle => {
-            handle.destroy();
-        });
-        this.transformHandles = [];
-    }
-    
-    getHandleAtPosition(x, y) {
-        return this.transformHandles.find(handle => {
-            if (handle.handleData.type === 'vertex') {
-                const distance = Phaser.Math.Distance.Between(handle.x, handle.y, x, y);
-                return distance <= 8;
-            } else {
-                const bounds = handle.getBounds();
-                return Phaser.Geom.Rectangle.Contains(bounds, x, y);
-            }
-        });
-    }
-    
-    startTransform(handle, startX, startY) {
-        this.isTransforming = true;
-        this.activeHandle = handle;
-        this.originalTransform = {
-            startX: startX,
-            startY: startY,
-            platformData: { ...this.selectedPlatform.data }
-        };
-    }
-    
-    startPlatformDrag(startX, startY) {
-        this.isTransforming = true;
-        this.transformMode = 'move';
-        this.originalTransform = {
-            startX: startX,
-            startY: startY,
-            platformData: { ...this.selectedPlatform.data }
-        };
-    }
-    
-    updateTransform(currentX, currentY) {
-        if (!this.isTransforming || !this.selectedPlatform) return;
-        
-        const deltaX = currentX - this.originalTransform.startX;
-        const deltaY = currentY - this.originalTransform.startY;
-        
-        if (this.gridSnapEnabled) {
-            // Snap deltas to grid
-            const snappedDeltaX = Math.round(deltaX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            const snappedDeltaY = Math.round(deltaY / this.ROW_SPACING) * this.ROW_SPACING;
-            this.applyTransform(snappedDeltaX, snappedDeltaY);
-        } else {
-            this.applyTransform(deltaX, deltaY);
-        }
-    }
-    
-    applyTransform(deltaX, deltaY) {
-        const platform = this.selectedPlatform;
-        const original = this.originalTransform.platformData;
-        
-        if (this.activeHandle) {
-            const handleData = this.activeHandle.handleData;
-            
-            if (handleData.type === 'resize') {
-                this.applyResize(platform, original, handleData, deltaX, deltaY);
-            } else if (handleData.type === 'vertex') {
-                this.applyVertexMove(platform, original, handleData, deltaX, deltaY);
-            }
-        } else if (this.transformMode === 'move') {
-            this.applyMove(platform, original, deltaX, deltaY);
-        }
-        
-        // Update visual and handles
-        this.updatePlatformVisual(platform);
-        this.createTransformHandles(platform);
-    }
-    
-    applyMove(platform, original, deltaX, deltaY) {
-        const newData = { ...original };
-        
-        switch (platform.data.type) {
-            case 'rectangle':
-            case 'circle':
-            case 'polygon':
-            case 'trapezoid':
-                newData.x = original.x + deltaX;
-                newData.y = original.y + deltaY;
-                break;
-                
-            case 'custom':
-                newData.vertices = original.vertices.map(v => ({
-                    x: v.x + deltaX,
-                    y: v.y + deltaY
-                }));
-                break;
-        }
-        
-        platform.data = newData;
-    }
-    
-    applyResize(platform, original, handleData, deltaX, deltaY) {
-        const newData = { ...original };
-        const { position } = handleData;
-        
-        switch (platform.data.type) {
-            case 'rectangle':
-            case 'trapezoid':
-                this.resizeRectangle(newData, position, deltaX, deltaY);
-                break;
-                
-            case 'circle':
-                this.resizeCircle(newData, position, deltaX, deltaY);
-                break;
-                
-            case 'polygon':
-                this.resizePolygon(newData, position, deltaX, deltaY);
-                break;
-        }
-        
-        platform.data = newData;
-    }
-    
-    resizeRectangle(data, position, deltaX, deltaY) {
-        const minSize = 20;
-        
-        switch (position) {
-            case 'nw':
-                data.width = Math.max(minSize, data.width - deltaX);
-                data.height = Math.max(minSize, data.height - deltaY);
-                data.x = data.x + deltaX / 2;
-                data.y = data.y + deltaY / 2;
-                break;
-            case 'ne':
-                data.width = Math.max(minSize, data.width + deltaX);
-                data.height = Math.max(minSize, data.height - deltaY);
-                data.x = data.x + deltaX / 2;
-                data.y = data.y + deltaY / 2;
-                break;
-            case 'sw':
-                data.width = Math.max(minSize, data.width - deltaX);
-                data.height = Math.max(minSize, data.height + deltaY);
-                data.x = data.x + deltaX / 2;
-                data.y = data.y + deltaY / 2;
-                break;
-            case 'se':
-                data.width = Math.max(minSize, data.width + deltaX);
-                data.height = Math.max(minSize, data.height + deltaY);
-                data.x = data.x + deltaX / 2;
-                data.y = data.y + deltaY / 2;
-                break;
-            case 'n':
-                data.height = Math.max(minSize, data.height - deltaY);
-                data.y = data.y + deltaY / 2;
-                break;
-            case 's':
-                data.height = Math.max(minSize, data.height + deltaY);
-                data.y = data.y + deltaY / 2;
-                break;
-            case 'w':
-                data.width = Math.max(minSize, data.width - deltaX);
-                data.x = data.x + deltaX / 2;
-                break;
-            case 'e':
-                data.width = Math.max(minSize, data.width + deltaX);
-                data.x = data.x + deltaX / 2;
-                break;
-        }
-    }
-    
-    resizeCircle(data, position, deltaX, deltaY) {
-        const minRadius = 10;
-        let radiusDelta = 0;
-        
-        switch (position) {
-            case 'n':
-            case 's':
-                radiusDelta = Math.abs(deltaY);
-                break;
-            case 'e':
-            case 'w':
-                radiusDelta = Math.abs(deltaX);
-                break;
-        }
-        
-        if ((position === 'n' && deltaY < 0) || (position === 's' && deltaY > 0) ||
-            (position === 'e' && deltaX > 0) || (position === 'w' && deltaX < 0)) {
-            data.radius = Math.max(minRadius, data.radius + radiusDelta);
-        } else {
-            data.radius = Math.max(minRadius, data.radius - radiusDelta);
-        }
-    }
-    
-    resizePolygon(data, position, deltaX, deltaY) {
-        const minRadius = 10;
-        let radiusDelta = 0;
-        
-        switch (position) {
-            case 'n':
-            case 's':
-                radiusDelta = Math.abs(deltaY);
-                break;
-            case 'e':
-            case 'w':
-                radiusDelta = Math.abs(deltaX);
-                break;
-        }
-        
-        if ((position === 'n' && deltaY < 0) || (position === 's' && deltaY > 0) ||
-            (position === 'e' && deltaX > 0) || (position === 'w' && deltaX < 0)) {
-            data.radius = Math.max(minRadius, data.radius + radiusDelta);
-        } else {
-            data.radius = Math.max(minRadius, data.radius - radiusDelta);
-        }
-    }
-    
-    applyVertexMove(platform, original, handleData, deltaX, deltaY) {
-        const newData = { ...original };
-        newData.vertices = [...original.vertices];
-        newData.vertices[handleData.position] = {
-            x: original.vertices[handleData.position].x + deltaX,
-            y: original.vertices[handleData.position].y + deltaY
-        };
-        platform.data = newData;
-    }
-    
-    updatePlatformVisual(platform) {
-        // Destroy old visual
-        if (platform.visual) {
-            platform.visual.destroy();
-        }
-        
-        // Create new visual with updated data
-        platform.visual = this.createPlatformVisual(platform.data);
-        
-        // Reapply selection highlighting
-        if (this.selectedPlatform === platform) {
-            platform.visual.setStrokeStyle(4, 0x00ff00, 1);
-        }
-    }
-    
-    endTransform() {
-        this.isTransforming = false;
-        this.activeHandle = null;
-        this.transformMode = 'move';
-        this.originalTransform = null;
-        
-        // Update map data
-        this.mapData.platforms = this.platforms.map(p => p.data);
-        this.autoSave();
-    }
-    
-    updateCursor(x, y) {
-        // Change cursor based on what's under the mouse
-        const handle = this.getHandleAtPosition(x, y);
-        
-        if (handle) {
-            const { type, position } = handle.handleData;
-            
-            if (type === 'resize') {
-                // Set resize cursors based on handle position
-                const cursors = {
-                    'nw': 'nw-resize', 'ne': 'ne-resize',
-                    'sw': 'sw-resize', 'se': 'se-resize',
-                    'n': 'n-resize', 's': 's-resize',
-                    'w': 'w-resize', 'e': 'e-resize'
-                };
-                this.input.setDefaultCursor(cursors[position] || 'pointer');
-            } else {
-                this.input.setDefaultCursor('pointer');
-            }
-        } else if (this.selectedPlatform && this.isPlatformAtPosition(this.selectedPlatform, x, y)) {
-            this.input.setDefaultCursor('move');
-        } else {
-            this.input.setDefaultCursor('default');
-        }
-    }
-    
-    updateEntityPositions() {
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
-        this.wormSprite.setPosition(wormX, wormY);
-        if (this.wormText) {
-            this.wormText.setPosition(wormX, wormY);
-        }
-        
-        const goalX = this.entities.goal.x;
-        const goalY = this.entities.goal.y;
-        this.goalSprite.setPosition(goalX, goalY);
-    }
 }
