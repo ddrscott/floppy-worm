@@ -188,11 +188,12 @@ export default class WormBase {
             this.audioInitAttempted = true;
             try {
                 this.whooshSynthesizer = new WhooshSynthesizer({
-                    pitch: 0.8,
-                    filterBase: 180,
-                    resonance: 8.5,
-                    lowBoost: 0.8,
-                    reverb: 0.15
+                    pitch: 1.1,
+                    filterBase: 900,
+                    resonance: 6.0,
+                    lowBoost: 0.05,
+                    reverb: 0.03,
+                    swishFactor: 0.8
                 });
                 this.whooshSynthesizer.start();
             } catch (error) {
@@ -203,40 +204,63 @@ export default class WormBase {
         
         if (!this.whooshSynthesizer) return;
         
-        // Calculate airborne ratio (0-1)
+        // Get head and tail segments for velocity tracking
+        const head = this.getHead();
+        const tail = this.getTail();
+        
+        // Calculate head and tail velocities
+        const headVel = Math.sqrt(head.velocity.x ** 2 + head.velocity.y ** 2);
+        const tailVel = Math.sqrt(tail.velocity.x ** 2 + tail.velocity.y ** 2);
+        
+        // Use maximum velocity of head/tail (whichever is moving faster creates the whoosh)
+        const maxEndVelocity = Math.max(headVel, tailVel);
+        
+        // Apply velocity threshold and curve mapping
+        const thresholdVel = Math.max(0, maxEndVelocity - this.audioState.volumeThreshold);
+        const normalizedVel = thresholdVel / (this.audioState.maxVelocity - this.audioState.volumeThreshold);
+        
+        // Smooth velocity curve (exponential for more dramatic effect)
+        const velocityCurve = Math.pow(Math.min(1, normalizedVel), 1.8);
+        
+        // Calculate airborne ratio for gating (still useful to avoid ground scraping sounds)
         const airborneCount = this.segments.filter((_, i) => 
             !this.segmentCollisions[i].isColliding
         ).length;
         const airborneRatio = airborneCount / this.segments.length;
         
-        // Calculate average velocity magnitude
-        let totalVelocity = 0;
-        this.segments.forEach(segment => {
-            const vel = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
-            totalVelocity += vel;
-        });
-        const avgVelocity = totalVelocity / this.segments.length;
+        // Volume: pure speed-based, gated by being somewhat airborne
+        this.audioState.targetVolume = airborneRatio > 0.3 ? velocityCurve * 0.9 : 0;
         
-        // Calculate volume (0-1): louder when airborne and fast
-        const maxVelocity = 20; // Adjust based on typical worm speeds
-        const velocityRatio = Math.min(avgVelocity / maxVelocity, 1);
-        const volume = airborneRatio * velocityRatio * 0.8; // Cap at 80%
+        // Frequency: also pure speed-based (faster = higher pitch)
+        this.audioState.targetFrequency = velocityCurve;
         
-        // Calculate frequency (0-1): higher pitch for speed + height
-        const head = this.getHead();
-        const groundLevel = 600; // Adjust based on your scene
-        const heightRatio = Math.max(0, Math.min(1, (groundLevel - head.position.y) / 400));
-        const frequency = velocityRatio * 0.7 + heightRatio * 0.3;
+        // Smooth interpolation (tweening)
+        const smoothing = this.audioState.smoothingFactor;
+        this.audioState.currentVolume += (this.audioState.targetVolume - this.audioState.currentVolume) * smoothing;
+        this.audioState.currentFrequency += (this.audioState.targetFrequency - this.audioState.currentFrequency) * smoothing;
         
+        // Apply fade-out threshold to prevent tiny volume levels
+        const finalVolume = this.audioState.currentVolume < 0.02 ? 0 : this.audioState.currentVolume;
         
-        // Update the synthesizer
-        this.whooshSynthesizer.update(volume, frequency);
+        // Update the synthesizer with smoothed values
+        this.whooshSynthesizer.update(finalVolume, this.audioState.currentFrequency);
     }
     
     initializeAudio() {
         // Audio will be initialized automatically on first update
         this.whooshSynthesizer = null;
         this.audioInitAttempted = false;
+        
+        // Audio smoothing/tweening state
+        this.audioState = {
+            targetVolume: 0,
+            currentVolume: 0,
+            targetFrequency: 0, 
+            currentFrequency: 0,
+            smoothingFactor: 0.15, // How quickly audio follows physics (0-1)
+            volumeThreshold: 5.0,  // Minimum velocity for audio to start
+            maxVelocity: 25.0      // Velocity at which volume reaches maximum
+        };
     }
     
     startAudio(audioSettings = {}) {
