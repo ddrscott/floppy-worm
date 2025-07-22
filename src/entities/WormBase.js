@@ -232,20 +232,32 @@ export default class WormBase {
     
     // Cleanup
     destroy() {
+        console.log(`WormBase.destroy() - Cleaning up worm with ${this.segments?.length || 0} segments, ${this.constraints?.length || 0} constraints, ${this.compressionSprings?.length || 0} compression springs`);
+        
         // Remove all bodies and constraints
         if (this.segments) {
-            this.segments.forEach(segment => {
+            this.segments.forEach((segment, index) => {
                 if (segment.graphics) {
                     segment.graphics.destroy();
                 }
                 this.matter.world.remove(segment);
             });
+            console.log(`Removed ${this.segments.length} segment bodies`);
         }
         
         if (this.constraints) {
-            this.constraints.forEach(constraint => {
+            this.constraints.forEach((constraint, index) => {
                 this.matter.world.remove(constraint);
             });
+            console.log(`Removed ${this.constraints.length} main constraints`);
+        }
+        
+        // Clean up compression springs
+        if (this.compressionSprings) {
+            this.compressionSprings.forEach((spring, index) => {
+                this.matter.world.remove(spring);
+            });
+            console.log(`Removed ${this.compressionSprings.length} compression spring constraints`);
         }
         
         // Clean up connection dots
@@ -259,6 +271,8 @@ export default class WormBase {
         
         // Clean up collision detection
         this.cleanupCollisionDetection();
+        
+        console.log('WormBase.destroy() completed');
     }
     
     // Collision Detection System for Stickiness

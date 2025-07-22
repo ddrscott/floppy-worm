@@ -375,7 +375,10 @@ export default class DoubleWorm extends WormBase {
     
     // Override destroy to clean up swing components
     destroy() {
+        console.log('DoubleWorm.destroy() - Starting cleanup');
+        
         // Clean up anchors
+        const anchorCount = Object.keys(this.anchors).length;
         Object.values(this.anchors).forEach(anchorData => {
             if (anchorData.body) {
                 this.matter.world.remove(anchorData.body);
@@ -390,11 +393,14 @@ export default class DoubleWorm extends WormBase {
                 anchorData.stickIndicator.destroy();
             }
         });
+        console.log(`Cleaned up ${anchorCount} anchor constraints`);
         
         // Clean up jump springs if attached
+        let jumpSpringCount = 0;
         Object.values(this.jumpSprings).forEach(springData => {
             if (springData.spring && springData.attached) {
                 this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
+                jumpSpringCount++;
             }
             if (springData.laser) {
                 springData.laser.destroy();
@@ -406,16 +412,20 @@ export default class DoubleWorm extends WormBase {
                 springData.groundedSegment = null;
             }
         });
+        console.log(`Cleaned up ${jumpSpringCount} jump spring constraints`);
         
         // Clean up sticky constraints and circles
+        let stickyConstraintCount = 0;
         if (this.stickyConstraints) {
             Object.values(this.stickyConstraints).forEach(constraints => {
                 constraints.forEach(constraintData => {
                     this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
                     this.removeStickinessCircle(constraintData.constraint);
+                    stickyConstraintCount++;
                 });
             });
         }
+        console.log(`Cleaned up ${stickyConstraintCount} sticky constraints`);
         
         // Clean up any remaining stickiness circles
         if (this.stickinessCircles) {
@@ -428,7 +438,9 @@ export default class DoubleWorm extends WormBase {
         }
         
         // Call parent destroy
+        console.log('DoubleWorm.destroy() - Calling parent destroy');
         super.destroy();
+        console.log('DoubleWorm.destroy() completed');
     }
 
     updateMovement(delta) {
