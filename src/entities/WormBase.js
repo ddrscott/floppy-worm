@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import WhooshSynthesizer from '../audio/WhooshSynthesizer.js';
+import Tick from '../utils/Tick.js';
 
 export default class WormBase {
     constructor(scene, x, y, config = {}) {
@@ -34,6 +35,9 @@ export default class WormBase {
         
         // Set up collision detection after segments are created
         this.setupCollisionDetection();
+        
+        // Initialize Tick helper for velocity plotting (auto-initializes if needed)
+        // Tick.init() is now called automatically in push() method
     }
 
     colorToHex(color) {
@@ -184,20 +188,20 @@ export default class WormBase {
     }
     
     updateAudio(delta) {
-        if (!this.whooshSynthesizer && !this.audioInitAttempted) {
-            this.audioInitAttempted = true;
+        if (!this.whooshSynthesizer) {
+            let synth = null;
             try {
-                this.whooshSynthesizer = new WhooshSynthesizer({
+                synth = new WhooshSynthesizer({
                     pitch: 1.1,
                     filterBase: 900,
-                    resonance: 6.0,
-                    lowBoost: 0.05,
+                    resonance: 16.0,
+                    lowBoost: 1,
                     reverb: 0.03,
                     swishFactor: 0.8
                 });
-                this.whooshSynthesizer.start();
+                synth.start();
+                this.whooshSynthesizer = synth;
             } catch (error) {
-                // Audio initialization failed (likely no user interaction yet)
                 return;
             }
         }
@@ -212,13 +216,17 @@ export default class WormBase {
         const headVel = Math.sqrt(head.velocity.x ** 2 + head.velocity.y ** 2);
         const tailVel = Math.sqrt(tail.velocity.x ** 2 + tail.velocity.y ** 2);
         
+        // Plot velocities on the scene as line charts with auto-scaling
+        Tick.push('head vel', headVel, 0xff6b6b); // Red for head velocity
+        Tick.push('tail vel', tailVel, 0x4ecdc4); // Cyan for tail velocity
+
         // Use maximum velocity of head/tail (whichever is moving faster creates the whoosh)
         const maxEndVelocity = Math.max(headVel, tailVel);
         
         // Apply velocity threshold and curve mapping
         const thresholdVel = Math.max(0, maxEndVelocity - this.audioState.volumeThreshold);
         const normalizedVel = thresholdVel / (this.audioState.maxVelocity - this.audioState.volumeThreshold);
-        
+
         // Smooth velocity curve (exponential for more dramatic effect)
         const velocityCurve = Math.pow(Math.min(1, normalizedVel), 1.8);
         
@@ -249,7 +257,6 @@ export default class WormBase {
     initializeAudio() {
         // Audio will be initialized automatically on first update
         this.whooshSynthesizer = null;
-        this.audioInitAttempted = false;
         
         // Audio smoothing/tweening state
         this.audioState = {
@@ -263,13 +270,6 @@ export default class WormBase {
         };
     }
     
-    startAudio(audioSettings = {}) {
-        if (!this.whooshSynthesizer) {
-            this.whooshSynthesizer = new WhooshSynthesizer(audioSettings);
-        }
-        this.whooshSynthesizer.start();
-    }
-    
     stopAudio() {
         if (this.whooshSynthesizer) {
             this.whooshSynthesizer.stop();
@@ -278,8 +278,7 @@ export default class WormBase {
     }
     
     retryAudioInit() {
-        // Reset the attempt flag so audio will try to initialize again
-        this.audioInitAttempted = false;
+        this.stopAudio();
     }
     
     // Utility methods
@@ -380,6 +379,9 @@ export default class WormBase {
         
         // Clean up audio
         this.stopAudio();
+        
+        // Clean up Tick helper
+        Tick.clearAll();
     }
     
     // Collision Detection System for Stickiness

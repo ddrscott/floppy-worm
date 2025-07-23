@@ -1,24 +1,35 @@
 import Phaser from 'phaser';
+import { loadMapMetadata, createMapScene } from './maps/MapDataRegistry';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MapSelectScene' });
         
-        // Map configuration
-        this.maps = [
-            { key: 'Map001', title: 'Tutorial - First Steps', difficulty: 1 },
-            { key: 'Map002', title: 'The Gap', difficulty: 2 },
-            { key: 'Map003', title: 'Step Up', difficulty: 2 },
-            { key: 'Map004', title: 'Zigzag Challenge', difficulty: 3 },
-            { key: 'Map005', title: 'The Wall', difficulty: 3 },
-            { key: 'Swinger', title: 'Swing Away', difficulty: 1 },
-        ];
-        
         this.selectedMapIndex = 0;
         this.mapButtons = [];
+        this.maps = []; // Will be loaded in create()
+    }
+    
+    loadMapsFromDataRegistry() {
+        const maps = loadMapMetadata();
+        
+        // Register parameterized map scenes with Phaser (now safe to access scene manager)
+        maps.forEach(map => {
+            if (!this.scene.manager.getScene(map.key)) {
+                const MapSceneClass = createMapScene(map.key);
+                if (MapSceneClass) {
+                    this.scene.manager.add(map.key, MapSceneClass, false);
+                }
+            }
+        });
+        
+        return maps;
     }
 
     create() {
+        // Load maps now that scene manager is available
+        this.maps = this.loadMapsFromDataRegistry();
+        
         // Background
         this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x232333);
         
@@ -71,7 +82,7 @@ export default class MapSelectScene extends Phaser.Scene {
         this.maps.forEach((map, index) => {
             if (!progress[map.key]) {
                 progress[map.key] = {
-                    unlocked: index === 0, // Unlock only first map by default
+                    unlocked: true, // Unlock all maps by default
                     completed: false,
                     bestTime: null
                 };
@@ -354,14 +365,13 @@ export function completeMap(mapKey) {
         if (progress[mapKey]) {
             progress[mapKey].completed = true;
             
-            // Find and unlock next map
-            const maps = [
-                'Map001', 'Map002', 'Map003', 'Map004', 'Map005',
-                'Swinger'
-            ];
-            const currentIndex = maps.indexOf(mapKey);
-            if (currentIndex !== -1 && currentIndex < maps.length - 1) {
-                const nextMapKey = maps[currentIndex + 1];
+            // Find and unlock next map using the data registry
+            const { getMapKeys } = require('./maps/MapDataRegistry');
+            const mapKeys = getMapKeys();
+            
+            const currentIndex = mapKeys.indexOf(mapKey);
+            if (currentIndex !== -1 && currentIndex < mapKeys.length - 1) {
+                const nextMapKey = mapKeys[currentIndex + 1];
                 if (progress[nextMapKey]) {
                     progress[nextMapKey].unlocked = true;
                 }
