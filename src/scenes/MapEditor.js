@@ -1855,14 +1855,6 @@ export default class MapEditor extends Phaser.Scene {
         shapeFolder.add(this.toolSettings, 'trapezoidSlope', -1, 1).name('Trapezoid Slope');
         shapeFolder.open();
         
-        // Test Mode folder
-        const testFolder = this.gui.addFolder('Test Mode');
-        this.testModeController = testFolder.add(this, 'isTestMode').name('Enable Testing').onChange(() => {
-            this.toggleTestMode();
-        });
-        testFolder.add(this.matter.world, 'drawDebug').name('Show Physics Debug');
-        testFolder.open();
-        
         // View Controls folder
         const viewFolder = this.gui.addFolder('View Controls');
         viewFolder.add(this.cameras.main, 'zoom', 0.3, 3).name('Zoom').onChange((value) => {
