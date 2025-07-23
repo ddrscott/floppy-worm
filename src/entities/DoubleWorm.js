@@ -651,8 +651,9 @@ export default class DoubleWorm extends WormBase {
             }
         }
         
-        // Apply velocity-based impulse only when stick is active and not on release
-        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && !stickState.released) {
+        // Apply velocity-based impulse only when stick is active and not on release or returning to center
+        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && 
+            !stickState.released && !stickState.returningToCenter) {
             const mass = segment.mass;
             const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
             const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
@@ -681,22 +682,35 @@ export default class DoubleWorm extends WormBase {
         // Check if this is a keyboard release
         const isKeyboardRelease = gamepadStick.keyboardRelease || false;
         
+        // Calculate current and previous magnitudes for directional momentum detection
+        const prevMagnitude = Math.sqrt(stickState.prevX * stickState.prevX + stickState.prevY * stickState.prevY);
+        const currentMagnitude = Math.sqrt(stickState.x * stickState.x + stickState.y * stickState.y);
+        
+        // Detect if stick is truly returning to center (moving toward center AND magnitude decreasing significantly)
+        // Only trigger when magnitude is decreasing substantially and moving toward deadzone
+        const movingTowardCenter = currentMagnitude < prevMagnitude * 0.85 && 
+                                  currentMagnitude < prevMagnitude - 0.1 &&
+                                  currentMagnitude > this.config.stickDeadzone;
+        
         // Calculate velocity (change per second)
         const deltaX = stickState.x - stickState.prevX;
         const deltaY = stickState.y - stickState.prevY;
         
         // Velocity is change per second - normalized to target frame rate
-        if (deltaSeconds > 0 && !isKeyboardRelease) {
+        if (deltaSeconds > 0 && !isKeyboardRelease && !movingTowardCenter) {
             // Normalize velocity calculation to target frame rate
             const targetDeltaSeconds = this.targetFrameTime / 1000;
             const velocityScale = deltaSeconds / targetDeltaSeconds;
             stickState.velocity.x = (deltaX / deltaSeconds) * velocityScale;
             stickState.velocity.y = (deltaY / deltaSeconds) * velocityScale;
-        } else if (isKeyboardRelease) {
-            // On keyboard release, zero out velocity to prevent snapback
+        } else if (isKeyboardRelease || movingTowardCenter) {
+            // On keyboard release or when moving toward center, zero out velocity to prevent snapback
             stickState.velocity.x = 0;
             stickState.velocity.y = 0;
         }
+        
+        // Track if stick is returning to center
+        stickState.returningToCenter = movingTowardCenter;
         
         // Apply damping to velocity (exponential decay over time)
         // Normalize damping to target frame rate for consistent behavior

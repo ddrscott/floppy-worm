@@ -57,8 +57,8 @@ export default class JsonMapBase extends BaseLevelScene {
                 description: "A basic test level"
             },
             dimensions: {
-                width: 16,
-                height: 8
+                width:  800,
+                height: 600 
             },
             entities: {
                 wormStart: { x: 2, y: 1 },
