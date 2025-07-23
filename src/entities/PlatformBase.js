@@ -36,21 +36,24 @@ export default class PlatformBase {
     
     create() {
         // Debug logging
-        console.log(`PlatformBase.create() - ${this.constructor.name} at (${this.x}, ${this.y}) size: ${this.width}x${this.height} shape: ${this.config.shape}`);
+        console.log(`PlatformBase.create() - ${this.constructor.name} at (${this.x}, ${this.y}) size: ${this.width}x${this.height} shape: ${this.config.shape} angle: ${this.config.angle}`);
         
-        // Create visual representation based on shape
+        // Create container for all visual elements
+        this.container = this.scene.add.container(this.x, this.y);
+        
+        // Create visual representation based on shape (centered in container)
         if (this.config.shape === 'circle') {
             this.graphics = this.scene.add.circle(
-                this.x, 
-                this.y, 
+                0, 
+                0, 
                 this.radius, 
                 this.config.color
             );
         } else {
-            // Default to rectangle
+            // Default to rectangle - using default origin (0.5, 0.5 for rectangles)
             this.graphics = this.scene.add.rectangle(
-                this.x, 
-                this.y, 
+                0, 
+                0, 
                 this.width, 
                 this.height, 
                 this.config.color
@@ -62,8 +65,10 @@ export default class PlatformBase {
             this.graphics.setStrokeStyle(this.config.strokeWidth, this.config.strokeColor);
         }
         
-        // Create physics body based on shape using the same approach as regular platforms
-        // This ensures coordinate system consistency
+        // Add main graphics to container
+        this.container.add(this.graphics);
+        
+        // Create physics body first (source of truth for position/rotation)
         if (this.config.shape === 'circle') {
             this.body = this.scene.matter.add.circle(this.x, this.y, this.radius, {
                 isStatic: true,
@@ -81,10 +86,14 @@ export default class PlatformBase {
             });
         }
         
-        // Apply rotation if specified
+        // Apply rotation to physics body if specified
         if (this.config.angle !== 0) {
-            this.body.setAngle(this.config.angle);
+            this.scene.matter.body.setAngle(this.body, this.config.angle);
+            console.log(`Applied rotation: ${this.config.angle} to physics body. Body angle now: ${this.body.angle}`);
         }
+        
+        // Now sync container to match physics body exactly
+        this.syncVisualWithPhysics();
         
         // Store platform type for collision detection
         this.body.platformType = this.constructor.name;
@@ -107,7 +116,28 @@ export default class PlatformBase {
     
     // Update method called each frame
     update(delta) {
+        // Keep visual container synchronized with physics body
+        this.syncVisualWithPhysics();
+        
         // Override in subclasses for dynamic behavior
+    }
+    
+    // Synchronize visual container with physics body (source of truth)
+    syncVisualWithPhysics() {
+        if (this.container && this.body) {
+            // Update container position to match physics body
+            this.container.setPosition(this.body.position.x, this.body.position.y);
+            
+            // Update container rotation to match physics body
+            this.container.setRotation(this.body.angle);
+            
+            // Debug logging for physics/visual misalignment
+            const posDiff = Math.abs(this.body.position.x - this.container.x) + Math.abs(this.body.position.y - this.container.y);
+            if (Math.abs(this.body.angle) > 0.01 || posDiff > 1) {
+                // console.log(`Platform sync: Physics pos=(${this.body.position.x.toFixed(1)}, ${this.body.position.y.toFixed(1)}) angle=${this.body.angle.toFixed(3)}`);
+                // console.log(`               Container pos=(${this.container.x.toFixed(1)}, ${this.container.y.toFixed(1)}) rotation=${this.container.rotation.toFixed(3)}`);
+            }
+        }
     }
     
     // Utility methods
@@ -116,18 +146,29 @@ export default class PlatformBase {
     }
     
     setPosition(x, y) {
+        console.log(`PlatformBase.setPosition(${x}, ${y}) called`);
+        // Update physics body first (source of truth)
         this.scene.matter.body.setPosition(this.body, { x, y });
-        this.graphics.setPosition(x, y);
+        console.log(`Physics body now at: (${this.body.position.x}, ${this.body.position.y})`);
+        
+        // Sync visual to physics
+        this.syncVisualWithPhysics();
     }
     
     setAngle(angle) {
-        this.body.setAngle(angle);
+        // Update physics body first (source of truth)
+        this.scene.matter.body.setAngle(this.body, angle);
         this.config.angle = angle;
+        
+        // Sync visual to physics
+        this.syncVisualWithPhysics();
     }
     
     // Cleanup
     destroy() {
-        if (this.graphics) {
+        if (this.container) {
+            this.container.destroy();
+        } else if (this.graphics) {
             this.graphics.destroy();
         }
         if (this.body) {
