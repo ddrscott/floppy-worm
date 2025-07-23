@@ -37,7 +37,7 @@ export default class DoubleWorm extends WormBase {
             impulseMultiplier: 0.002,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
-            stickDeadzone: 0.05,          // Minimum stick input to register movement (0-0.2 typical)
+            stickDeadzone: 0.06,          // Minimum stick input to register movement (0-0.2 typical)
                                           // Higher = larger dead zone, less sensitive to small inputs
                                           // Lower = more sensitive, may cause drift or jitter
             positionForceMagnitude: 0.00001, // Strength of position-based spring forces (0-0.001 typical)
