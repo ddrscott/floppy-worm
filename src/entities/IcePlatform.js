@@ -190,6 +190,7 @@ export default class IcePlatform extends PlatformBase {
         // Crystal overlay will be destroyed by container, but handle fallback case
         if (this.crystalOverlay && !this.container) {
             this.crystalOverlay.destroy();
+            this.crystalOverlay = null;
         }
         super.destroy();
     }

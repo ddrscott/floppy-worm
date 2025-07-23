@@ -18,9 +18,9 @@ class BasicWormScene extends Phaser.Scene {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         
-        // ESC to return to levels menu
+        // ESC to return to map selection
         this.input.keyboard.on('keydown-ESC', () => {
-            this.scene.start('LevelsScene');
+            this.scene.start('MapSelectScene');
         });
     }
     

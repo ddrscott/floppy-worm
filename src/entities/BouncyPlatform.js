@@ -142,9 +142,11 @@ export default class BouncyPlatform extends PlatformBase {
     destroy() {
         if (this.bounceTween) {
             this.bounceTween.stop();
+            this.bounceTween = null;
         }
         if (this.springOverlay) {
             this.springOverlay.destroy();
+            this.springOverlay = null;
         }
         super.destroy();
     }

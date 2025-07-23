@@ -123,7 +123,7 @@ export default class VirtualControls {
         
         this.menuButton.on('pointerup', () => {
             this.menuButton.setScale(1).setAlpha(0.8);
-            this.scene.scene.start('LevelsScene');
+            this.scene.scene.start('MapSelectScene');
         });
         
         // Make joystick elements fixed to camera

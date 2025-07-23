@@ -4,6 +4,7 @@
 import Map001Data from './data/Map001.json';
 import Map002Data from './data/Map002.json';
 import SwingMapData from './data/SwingMap.json';
+import TowerData from './data/Tower.json';
 import JsonMapScene from '../JsonMapScene';
 
 // Map registry with key -> data mappings
@@ -11,6 +12,7 @@ export const MAP_DATA_REGISTRY = {
     'Map001': Map001Data,
     'Map002': Map002Data,
     'Swinger': SwingMapData,
+    'Tower': TowerData,
 };
 
 // Helper function to load map metadata
