@@ -212,12 +212,15 @@ export default class ElectricPlatform extends PlatformBase {
     destroy() {
         if (this.electricTimer) {
             this.electricTimer.destroy();
+            this.electricTimer = null;
         }
         if (this.electricField) {
             this.electricField.destroy();
+            this.electricField = null;
         }
         if (this.sparkEmitter) {
             this.sparkEmitter.destroy();
+            this.sparkEmitter = null;
         }
         super.destroy();
     }

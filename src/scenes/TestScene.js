@@ -119,9 +119,9 @@ export default class TestScene extends Phaser.Scene {
         // Add spacebar key
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         
-        // ESC to return to levels menu
+        // ESC to return to map selection
         this.input.keyboard.on('keydown-ESC', () => {
-            this.scene.start('LevelsScene');
+            this.scene.start('MapSelectScene');
         });
         
         // Virtual controls (joystick + buttons)

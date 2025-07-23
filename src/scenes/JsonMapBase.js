@@ -734,10 +734,14 @@ export default class JsonMapBase extends BaseLevelScene {
         if (!this.viewportIndicator || !this.minimap || !this.miniMapConfig.visible) return;
         
         const mainCam = this.cameras.main;
+        if (!mainCam || !mainCam.width || !mainCam.height || !mainCam.zoom) return;
+        
         const miniZoom = this.minimap.zoom;
         
         const viewWidth = mainCam.width / mainCam.zoom;
         const viewHeight = mainCam.height / mainCam.zoom;
+        
+        if (!mainCam.worldView) return;
         
         const centerX = mainCam.worldView.centerX;
         const centerY = mainCam.worldView.centerY;
@@ -762,6 +766,7 @@ export default class JsonMapBase extends BaseLevelScene {
             
             // ESC key to return to map select
             if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
+                this.scene.stop();
                 this.scene.start('MapSelectScene');
                 return;
             }
@@ -771,6 +776,7 @@ export default class JsonMapBase extends BaseLevelScene {
                 if (this.hasNextLevel) {
                     this.scene.start(this.nextMapKey);
                 } else {
+                    this.scene.stop();
                     this.scene.start('MapSelectScene');
                 }
                 return;
@@ -778,6 +784,7 @@ export default class JsonMapBase extends BaseLevelScene {
             
             // Gamepad button B (1) for map select
             if (pad && pad.buttons[1] && pad.buttons[1].pressed && !this.button1WasPressed) {
+                this.scene.stop();
                 this.scene.start('MapSelectScene');
                 return;
             }
@@ -860,6 +867,13 @@ export default class JsonMapBase extends BaseLevelScene {
         // Call parent victory (handles worm cleanup and victory state)
         super.victory();
         
+        // Determine if there's a next level
+        const { getMapKeys } = require('./maps/MapDataRegistry');
+        const mapKeys = getMapKeys();
+        const currentIndex = mapKeys.indexOf(this.scene.key);
+        const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
+        const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
+        
         // Create dark overlay
         const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.8);
         overlay.setScrollFactor(0);
@@ -883,29 +897,113 @@ export default class JsonMapBase extends BaseLevelScene {
             color: '#ffffff'
         }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
         
-        // Menu button
-        const menuButton = this.add.rectangle(this.scale.width / 2, this.scale.height / 2 + 20, 180, 50, 0x3498db);
-        menuButton.setScrollFactor(0).setDepth(1002);
-        menuButton.setStrokeStyle(2, 0x4ecdc4, 1);
-        menuButton.setInteractive();
+        // Button positioning
+        const buttonY = this.scale.height / 2 + 20;
+        const buttonWidth = 160;
+        const buttonHeight = 50;
+        const buttonSpacing = 40;
         
-        const menuText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, 'Return to Menu', {
-            fontSize: '20px',
-            color: '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
-        
-        menuButton.on('pointerdown', () => {
-            this.scene.start('MapSelectScene');
-        });
-        
-        menuButton.on('pointerover', () => {
-            menuButton.setFillStyle(0x4ecdc4);
-        });
-        
-        menuButton.on('pointerout', () => {
-            menuButton.setFillStyle(0x3498db);
-        });
+        if (hasNext) {
+            // Two buttons: Return to Menu (left) and Next (right)
+            const menuButtonX = this.scale.width / 2 - buttonWidth / 2 - buttonSpacing / 2;
+            const nextButtonX = this.scale.width / 2 + buttonWidth / 2 + buttonSpacing / 2;
+            
+            // Menu button (left)
+            const menuButton = this.add.rectangle(menuButtonX, buttonY, buttonWidth, buttonHeight, 0x3498db);
+            menuButton.setScrollFactor(0).setDepth(1002);
+            menuButton.setStrokeStyle(2, 0x4ecdc4, 1);
+            menuButton.setInteractive();
+            
+            const menuText = this.add.text(menuButtonX, buttonY, 'Return to Menu', {
+                fontSize: '18px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
+            
+            // Next button (right) - default focus
+            const nextButton = this.add.rectangle(nextButtonX, buttonY, buttonWidth, buttonHeight, 0x27ae60);
+            nextButton.setScrollFactor(0).setDepth(1002);
+            nextButton.setStrokeStyle(4, 0x2ecc71, 1); // Thicker stroke to show it's default
+            nextButton.setInteractive();
+            
+            const nextText = this.add.text(nextButtonX, buttonY, 'Next', {
+                fontSize: '20px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
+            
+            // Button interactions
+            menuButton.on('pointerdown', () => {
+                this.scene.stop();
+                this.scene.start('MapSelectScene');
+            });
+            
+            menuButton.on('pointerover', () => {
+                menuButton.setFillStyle(0x4ecdc4);
+            });
+            
+            menuButton.on('pointerout', () => {
+                menuButton.setFillStyle(0x3498db);
+            });
+            
+            nextButton.on('pointerdown', () => {
+                this.scene.stop();
+                this.scene.start(nextMapKey);
+            });
+            
+            nextButton.on('pointerover', () => {
+                nextButton.setFillStyle(0x2ecc71);
+            });
+            
+            nextButton.on('pointerout', () => {
+                nextButton.setFillStyle(0x27ae60);
+            });
+            
+            // Gamepad support - A button goes to next, B button goes to menu
+            this.input.gamepad.on('down', (pad, button) => {
+                if (button.index === 0) { // A button - Next
+                    this.scene.stop();
+                    this.scene.start(nextMapKey);
+                } else if (button.index === 1) { // B button - Menu
+                    this.scene.stop();
+                    this.scene.start('MapSelectScene');
+                }
+            });
+            
+        } else {
+            // Single button: Return to Menu (centered)
+            const menuButton = this.add.rectangle(this.scale.width / 2, buttonY, buttonWidth, buttonHeight, 0x27ae60);
+            menuButton.setScrollFactor(0).setDepth(1002);
+            menuButton.setStrokeStyle(4, 0x2ecc71, 1); // Thicker stroke to show it's default
+            menuButton.setInteractive();
+            
+            const menuText = this.add.text(this.scale.width / 2, buttonY, 'Return to Menu', {
+                fontSize: '20px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
+            
+            menuButton.on('pointerdown', () => {
+                this.scene.stop();
+                this.scene.start('MapSelectScene');
+            });
+            
+            menuButton.on('pointerover', () => {
+                menuButton.setFillStyle(0x2ecc71);
+            });
+            
+            menuButton.on('pointerout', () => {
+                menuButton.setFillStyle(0x27ae60);
+            });
+            
+            // Gamepad support - A or B button goes to menu
+            this.input.gamepad.on('down', (pad, button) => {
+                if (button.index === 0 || button.index === 1) {
+                    this.scene.stop();
+                    this.scene.start('MapSelectScene');
+                }
+            });
+        }
         
         // Hide from minimap
         if (this.minimap) {

@@ -5,9 +5,10 @@ export default class MapSelectScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MapSelectScene' });
         
-        this.selectedMapIndex = 0;
+        this.selectedMapIndex = -1; // Start with nothing selected
         this.mapButtons = [];
         this.maps = []; // Will be loaded in create()
+        this.isFocused = false; // Track if user has started navigating
     }
     
     loadMapsFromDataRegistry() {
@@ -27,22 +28,40 @@ export default class MapSelectScene extends Phaser.Scene {
     }
 
     create() {
+        // Reset focus state to ensure clean start
+        this.selectedMapIndex = -1;
+        this.isFocused = false;
+        
+        // Clear any existing button references
+        this.mapButtons = [];
+        
         // Load maps now that scene manager is available
         this.maps = this.loadMapsFromDataRegistry();
         
-        // Background
-        this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x232333);
+        // Responsive design detection
+        const gameWidth = this.scale.width;
+        const gameHeight = this.scale.height;
+        const isMobile = gameWidth < 600;
+        const centerX = gameWidth / 2;
         
-        // Title
-        this.add.text(this.scale.width / 2, 60, 'Floppy Worm', {
-            fontSize: '48px',
+        // Create background with grid
+        this.createBackground();
+        
+        // Title with responsive sizing
+        const titleSize = isMobile ? '36px' : '48px';
+        this.add.text(centerX, 60, 'Floppy Worm', {
+            fontSize: titleSize,
             color: '#4ecdc4',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4
         }).setOrigin(0.5);
         
-        this.add.text(this.scale.width / 2, 110, 'Select a Map', {
-            fontSize: '24px',
-            color: '#95a5a6'
+        const subtitleSize = isMobile ? '20px' : '24px';
+        this.add.text(centerX, 110, 'Select a Map', {
+            fontSize: subtitleSize,
+            color: '#95a5a6',
+            fontStyle: 'italic'
         }).setOrigin(0.5);
         
         // Get user progress from localStorage
@@ -57,16 +76,26 @@ export default class MapSelectScene extends Phaser.Scene {
         // Set up input (after grid is created)
         this.setupInput();
         
-        // Instructions
-        this.add.text(this.scale.width / 2, this.scale.height - 60, 'Use ARROW KEYS or WASD to navigate • ENTER or SPACE to select', {
-            fontSize: '16px',
-            color: '#7f8c8d'
+        // Instructions with responsive sizing
+        const instructionSize = isMobile ? '14px' : '16px';
+        const secondarySize = isMobile ? '12px' : '14px';
+        const instructionText = isMobile ? 
+            'Tap to select • ESC to refresh' :
+            'Use ARROW KEYS, WASD, or GAMEPAD to navigate • ENTER, SPACE, or A button to select';
+        
+        this.add.text(centerX, gameHeight - 60, instructionText, {
+            fontSize: instructionSize,
+            color: '#7f8c8d',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            padding: { x: 15, y: 8 }
         }).setOrigin(0.5);
         
-        this.add.text(this.scale.width / 2, this.scale.height - 30, 'ESC: Return to Main Menu • Shift+R: Reset Progress', {
-            fontSize: '14px',
-            color: '#7f8c8d'
-        }).setOrigin(0.5);
+        if (!isMobile) {
+            this.add.text(centerX, gameHeight - 30, 'ESC or B button: Refresh • Shift+R: Reset Progress', {
+                fontSize: secondarySize,
+                color: '#7f8c8d'
+            }).setOrigin(0.5);
+        }
     }
     
     getUserProgress() {
@@ -149,6 +178,7 @@ export default class MapSelectScene extends Phaser.Scene {
             
             buttonBg.on('pointerover', () => {
                 this.selectedMapIndex = index;
+                this.isFocused = true;
                 this.updateSelection();
             });
             
@@ -232,10 +262,12 @@ export default class MapSelectScene extends Phaser.Scene {
             );
         });
         
-        // Highlight selected button
-        const selectedButton = this.mapButtons[this.selectedMapIndex];
-        if (selectedButton) {
-            selectedButton.background.setStrokeStyle(4, 0xf39c12, 1);
+        // Highlight selected button only if focused
+        if (this.isFocused && this.selectedMapIndex >= 0) {
+            const selectedButton = this.mapButtons[this.selectedMapIndex];
+            if (selectedButton) {
+                selectedButton.background.setStrokeStyle(6, 0xffffff, 1); // Thicker white stroke for visibility
+            }
         }
     }
     
@@ -273,6 +305,10 @@ export default class MapSelectScene extends Phaser.Scene {
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         
+        // Gamepad setup
+        this.gamepadInputTimer = 0; // Track last gamepad input time
+        this.gamepadInputDelay = 200; // Milliseconds between gamepad inputs
+        
         // Mouse/touch input is handled directly in createMapGrid
     }
     
@@ -287,15 +323,18 @@ export default class MapSelectScene extends Phaser.Scene {
         } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down) || Phaser.Input.Keyboard.JustDown(this.wasd.S)) {
             this.navigateMap(0, 1);
         }
+
+        // Handle gamepad navigation
+        this.handleGamepadInput();
         
         // Handle selection
         if (Phaser.Input.Keyboard.JustDown(this.enterKey) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
             this.selectMap();
         }
         
-        // Handle ESC
+        // Handle ESC (restart scene to refresh)
         if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-            this.scene.start('LevelsScene');
+            this.scene.restart();
         }
         
         // Handle reset (require Shift+R to avoid browser refresh conflict)
@@ -304,8 +343,91 @@ export default class MapSelectScene extends Phaser.Scene {
             this.resetProgress();
         }
     }
+
+    handleGamepadInput() {
+        const currentTime = this.time.now;
+        
+        // Check if enough time has passed since last gamepad input
+        if (currentTime - this.gamepadInputTimer < this.gamepadInputDelay) {
+            return;
+        }
+
+        // Get the first connected gamepad
+        const gamepads = this.input.gamepad.gamepads;
+        if (!gamepads || gamepads.length === 0) return;
+        
+        const gamepad = gamepads[0];
+        if (!gamepad) return;
+
+        let navigationOccurred = false;
+
+        // D-pad navigation
+        if (gamepad.left || gamepad.leftStick.x < -0.5) {
+            this.navigateMap(-1, 0);
+            navigationOccurred = true;
+        } else if (gamepad.right || gamepad.leftStick.x > 0.5) {
+            this.navigateMap(1, 0);
+            navigationOccurred = true;
+        } else if (gamepad.up || gamepad.leftStick.y < -0.5) {
+            this.navigateMap(0, -1);
+            navigationOccurred = true;
+        } else if (gamepad.down || gamepad.leftStick.y > 0.5) {
+            this.navigateMap(0, 1);
+            navigationOccurred = true;
+        }
+
+        // Selection buttons (A button for confirm)
+        if (gamepad.A) {
+            this.selectMap();
+            navigationOccurred = true;
+        }
+
+        // Back button (B button to refresh scene)
+        if (gamepad.B) {
+            this.scene.restart();
+            navigationOccurred = true;
+        }
+
+        // Update timer if any navigation occurred
+        if (navigationOccurred) {
+            this.gamepadInputTimer = currentTime;
+        }
+    }
+
+    createBackground() {
+        // Create solid background first
+        this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x232333);
+        
+        // Create a subtle grid background (from LevelsScene)
+        const graphics = this.add.graphics();
+        graphics.lineStyle(1, 0x333333, 0.2);
+        
+        const width = this.scale.width;
+        const height = this.scale.height;
+        
+        for (let x = 0; x <= width; x += 40) {
+            graphics.moveTo(x, 0);
+            graphics.lineTo(x, height);
+        }
+        
+        for (let y = 0; y <= height; y += 40) {
+            graphics.moveTo(0, y);
+            graphics.lineTo(width, y);
+        }
+        
+        graphics.strokePath();
+        graphics.setDepth(-100);
+    }
     
     navigateMap(deltaX, deltaY) {
+        // If not focused yet, start at first map
+        if (!this.isFocused) {
+            this.isFocused = true;
+            this.selectedMapIndex = 0;
+            this.updateSelection();
+            return;
+        }
+        
         const mapsPerRow = 2;
         const currentRow = Math.floor(this.selectedMapIndex / mapsPerRow);
         const currentCol = this.selectedMapIndex % mapsPerRow;
@@ -328,19 +450,31 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     selectMap() {
+        // Only allow selection if focused and valid index
+        if (!this.isFocused || this.selectedMapIndex < 0) {
+            return;
+        }
+        
         const selectedButton = this.mapButtons[this.selectedMapIndex];
+        
         if (selectedButton) {
             const mapKey = selectedButton.mapKey;
             const isUnlocked = this.userProgress[mapKey].unlocked;
             
             if (isUnlocked) {
-                // If scene is already active, stop it first to ensure clean restart
-                if (this.scene.manager.isActive(mapKey)) {
-                    this.scene.stop(mapKey);
-                }
+                // Clear focus state before transitioning
+                this.isFocused = false;
+                this.selectedMapIndex = -1;
+                this.updateSelection();
                 
-                // Start the scene fresh
-                this.scene.start(mapKey);
+                // Add a simple fade transition
+                this.cameras.main.fadeOut(250, 0, 0, 0);
+                
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    // Stop current scene first, then start the new one
+                    this.scene.stop();
+                    this.scene.start(mapKey);
+                });
             }
         }
     }

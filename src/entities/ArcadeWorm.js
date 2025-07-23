@@ -81,19 +81,21 @@ export default class MotorWorm extends WormBase {
         // Clean up motor-specific components
         if (this.flattenSprings) {
             this.flattenSprings.forEach(spring => {
-                this.matter.world.remove(spring);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(spring);
+                }
             });
         }
         
-        if (this.jumpSpring) {
+        if (this.jumpSpring && this.matter && this.matter.world) {
             this.matter.world.remove(this.jumpSpring);
         }
         
-        if (this.motor) {
+        if (this.motor && this.matter && this.matter.world) {
             this.matter.world.remove(this.motor);
         }
         
-        if (this.motorMount) {
+        if (this.motorMount && this.matter && this.matter.world) {
             this.matter.world.remove(this.motorMount);
         }
         

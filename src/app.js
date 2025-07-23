@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import * as dat from 'dat.gui';
 import MapSelectScene from './scenes/MapSelectScene';
-import TowerScene from './scenes/TowerScene';
 
 window.dat = dat;
 
@@ -38,7 +37,6 @@ export const game = new Phaser.Game(
     },
     scene: [
         MapSelectScene,
-        TowerScene,
     ]
 }
 );

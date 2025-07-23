@@ -287,15 +287,19 @@ export default class FirePlatform extends PlatformBase {
         
         if (this.fireTimer) {
             this.fireTimer.destroy();
+            this.fireTimer = null;
         }
         if (this.flameEmitter) {
             this.flameEmitter.destroy();
+            this.flameEmitter = null;
         }
         if (this.smokeEmitter) {
             this.smokeEmitter.destroy();
+            this.smokeEmitter = null;
         }
         if (this.heatField) {
             this.heatField.destroy();
+            this.heatField = null;
         }
         
         super.destroy();

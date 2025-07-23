@@ -171,7 +171,7 @@ export default class PlatformBase {
         } else if (this.graphics) {
             this.graphics.destroy();
         }
-        if (this.body) {
+        if (this.body && this.scene.matter && this.scene.matter.world) {
             this.scene.matter.world.remove(this.body);
         }
     }

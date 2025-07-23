@@ -54,10 +54,10 @@ export default class GamepadTest extends Phaser.Scene {
             console.log(`Button ${button.index} unpressed`);
             this.addButtonLog(this.getButtonName(button.index), button.index);
         });
-        // ESC to return to menu (only if LevelsScene exists)
+        // ESC to return to menu (only if MapSelectScene exists)
         this.input.keyboard.on('keydown-ESC', () => {
-            if (this.scene.get('LevelsScene')) {
-                this.scene.start('LevelsScene');
+            if (this.scene.get('MapSelectScene')) {
+                this.scene.start('MapSelectScene');
             }
         });
     }

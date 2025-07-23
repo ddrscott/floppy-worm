@@ -1,0 +1,37 @@
+{
+    "metadata": {
+        "name": "Tower",
+        "difficulty": 3,
+        "description": "Climb the challenging tower with alternating platforms"
+    },
+    "dimensions": {
+        "width": 1600,
+        "height": 3000
+    },
+    "entities": {
+        "wormStart": {
+            "x": 368,
+            "y": 2800
+        },
+        "goal": {
+            "x": 960,
+            "y": 96
+        }
+    },
+    "platforms": [
+        {"x":  144, "y": 2736, "width": 288, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x": 1248, "y": 2544, "width": 288, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  144, "y": 2352, "width": 288, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  576, "y": 2160, "width": 384, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  576, "y": 1968, "width": 576, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  864, "y": 1776, "width": 576, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  768, "y": 1584, "width": 768, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x": 1152, "y": 1392, "width": 672, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  576, "y": 1200, "width": 576, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  864, "y": 1008, "width": 576, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  768, "y":  816, "width": 768, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x": 1152, "y":  624, "width": 672, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  576, "y":  432, "width": 576, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }},
+        {"x":  576, "y":  240, "width": 384, "height": 48, "type": "rectangle", "color": "#ff6b6b", "physics": { "friction": 1, "frictionStatic": 1, "restitution": 0 }}
+    ]
+}

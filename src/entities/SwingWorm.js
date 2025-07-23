@@ -193,19 +193,21 @@ export default class SwingWorm extends WormBase {
         // Clean up swing-specific components
         if (this.flattenSprings) {
             this.flattenSprings.forEach(spring => {
-                this.matter.world.remove(spring);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(spring);
+                }
             });
         }
         
-        if (this.jumpSpring) {
+        if (this.jumpSpring && this.matter && this.matter.world) {
             this.matter.world.remove(this.jumpSpring);
         }
         
-        if (this.swingWeight) {
+        if (this.swingWeight && this.matter && this.matter.world) {
             this.matter.world.remove(this.swingWeight);
         }
         
-        if (this.swingMount) {
+        if (this.swingMount && this.matter && this.matter.world) {
             this.matter.world.remove(this.swingMount);
         }
         

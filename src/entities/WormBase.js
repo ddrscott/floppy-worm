@@ -346,20 +346,26 @@ export default class WormBase {
                 if (segment.graphics) {
                     segment.graphics.destroy();
                 }
-                this.matter.world.remove(segment);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(segment);
+                }
             });
         }
         
         if (this.constraints) {
             this.constraints.forEach((constraint, index) => {
-                this.matter.world.remove(constraint);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(constraint);
+                }
             });
         }
         
         // Clean up compression springs
         if (this.compressionSprings) {
             this.compressionSprings.forEach((spring, index) => {
-                this.matter.world.remove(spring);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(spring);
+                }
             });
         }
         

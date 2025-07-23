@@ -368,31 +368,37 @@ export default class Worm {
                 if (segment.graphics) {
                     segment.graphics.destroy();
                 }
-                this.matter.world.remove(segment);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(segment);
+                }
             });
         }
         
         if (this.constraints) {
             this.constraints.forEach(constraint => {
-                this.matter.world.remove(constraint);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(constraint);
+                }
             });
         }
         
         if (this.flattenSprings) {
             this.flattenSprings.forEach(spring => {
-                this.matter.world.remove(spring);
+                if (this.matter && this.matter.world) {
+                    this.matter.world.remove(spring);
+                }
             });
         }
         
-        if (this.jumpSpring) {
+        if (this.jumpSpring && this.matter && this.matter.world) {
             this.matter.world.remove(this.jumpSpring);
         }
         
-        if (this.motor) {
+        if (this.motor && this.matter && this.matter.world) {
             this.matter.world.remove(this.motor);
         }
         
-        if (this.motorMount) {
+        if (this.motorMount && this.matter && this.matter.world) {
             this.matter.world.remove(this.motorMount);
         }
         
