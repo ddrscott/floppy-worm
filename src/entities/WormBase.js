@@ -35,9 +35,6 @@ export default class WormBase {
         
         // Set up collision detection after segments are created
         this.setupCollisionDetection();
-        
-        // Initialize Tick helper for velocity plotting (auto-initializes if needed)
-        // Tick.init() is now called automatically in push() method
     }
 
     colorToHex(color) {
@@ -217,8 +214,9 @@ export default class WormBase {
         const tailVel = Math.sqrt(tail.velocity.x ** 2 + tail.velocity.y ** 2);
         
         // Plot velocities on the scene as line charts with auto-scaling
-        Tick.push('head vel', headVel, 0xff6b6b); // Red for head velocity
-        Tick.push('tail vel', tailVel, 0x4ecdc4); // Cyan for tail velocity
+        // Max velocity is around 48
+        // Tick.push('head vel', headVel, 0xff6b6b); // Red for head velocity
+        // Tick.push('tail vel', tailVel, 0x4ecdc4); // Cyan for tail velocity
 
         // Use maximum velocity of head/tail (whichever is moving faster creates the whoosh)
         const maxEndVelocity = Math.max(headVel, tailVel);
@@ -264,9 +262,9 @@ export default class WormBase {
             currentVolume: 0,
             targetFrequency: 0, 
             currentFrequency: 0,
-            smoothingFactor: 0.15, // How quickly audio follows physics (0-1)
-            volumeThreshold: 5.0,  // Minimum velocity for audio to start
-            maxVelocity: 25.0      // Velocity at which volume reaches maximum
+            smoothingFactor: 0.5, // How quickly audio follows physics (0-1)
+            volumeThreshold: 10.0,  // Minimum velocity for audio to start
+            maxVelocity: 30.0       // Velocity at which volume reaches maximum
         };
     }
     
