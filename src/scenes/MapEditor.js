@@ -363,7 +363,11 @@ export default class MapEditor extends Phaser.Scene {
             
             // Handle resize operations (key fix: don't recreate handles during resize)
             if (gameObject.handleType && this.isResizing) {
-                this.handleResize(gameObject, dragX, dragY);
+                if (gameObject.handleType === 'rotation') {
+                    this.handleRotation(gameObject, dragX, dragY);
+                } else {
+                    this.handleResize(gameObject, dragX, dragY);
+                }
                 return;
             }
             
@@ -382,6 +386,12 @@ export default class MapEditor extends Phaser.Scene {
                 if (platform) {
                     platform.data.x = dragX;
                     platform.data.y = dragY;
+                    
+                    // Synchronize platform instance position with editor container
+                    if (platform.instance && platform.instance.setPosition) {
+                        platform.instance.setPosition(dragX, dragY);
+                    }
+                    
                     this.autoSave();
                 }
             }
@@ -418,6 +428,9 @@ export default class MapEditor extends Phaser.Scene {
                     // Update container position to match rounded data
                     gameObject.x = platform.data.x;
                     gameObject.y = platform.data.y;
+                    
+                    // Update handle positions to maintain rotation after move
+                    this.updateHandlePositions(platform);
                     this.autoSave();
                 }
             }
@@ -455,27 +468,27 @@ export default class MapEditor extends Phaser.Scene {
     resizeRectangleFromHandle(data, original, handleType, relativeX, relativeY) {
         const minSize = 20;
         
-        // With top-left origin, relativeX and relativeY are the handle's position from (0,0)
+        // With center-based coordinates, relativeX and relativeY are distances from center
         switch (handleType) {
             case 'nw':
-                // Top-left handle: this is the new (0,0) position
-                data.width = Math.max(minSize, original.width - relativeX);
-                data.height = Math.max(minSize, original.height - relativeY);
+                // Northwest handle: both width and height grow outward from center
+                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
+                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
                 break;
             case 'ne':
-                // Top-right handle: width = relativeX, height shrinks from top
-                data.width = Math.max(minSize, relativeX);
-                data.height = Math.max(minSize, original.height - relativeY);
+                // Northeast handle: width grows right, height grows up
+                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
+                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
                 break;
             case 'sw':
-                // Bottom-left handle: width shrinks from left, height = relativeY
-                data.width = Math.max(minSize, original.width - relativeX);
-                data.height = Math.max(minSize, relativeY);
+                // Southwest handle: width grows left, height grows down
+                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
+                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
                 break;
             case 'se':
-                // Bottom-right handle: width = relativeX, height = relativeY
-                data.width = Math.max(minSize, relativeX);
-                data.height = Math.max(minSize, relativeY);
+                // Southeast handle: both width and height grow outward from center
+                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
+                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
                 break;
         }
         
@@ -512,23 +525,55 @@ export default class MapEditor extends Phaser.Scene {
         console.log(`New radius: ${newRadius}`);
     }
     
+    handleRotation(handle, dragX, dragY) {
+        const platform = this.platforms.find(p => p.data === handle.platformData);
+        if (!platform) return;
+        
+        // Calculate angle from platform center to handle position
+        const centerX = 0; // Handle is relative to container center
+        const centerY = 0;
+        const angle = Math.atan2(dragY - centerY, dragX - centerX);
+        
+        // Convert to rotation (add 90 degrees so "up" is 0 rotation)
+        const rotation = angle + Math.PI / 2;
+        
+        // Update platform data (use 'angle' to match platform instance config)
+        platform.data.angle = rotation;
+        
+        // Update visual rotation
+        this.updatePlatformVisual(platform);
+        
+        // Update handle positions to maintain relative positioning
+        this.updateHandlePositions(platform);
+        
+        this.autoSave();
+        console.log(`New rotation: ${(rotation * 180 / Math.PI).toFixed(1)} degrees`);
+        console.log(`Platform data angle:`, platform.data.angle);
+    }
+    
     updatePlatformVisual(platform) {
-        // Remove old visual from container
-        if (platform.visual) {
-            platform.container.remove(platform.visual);
-            platform.visual.destroy();
+        // Destroy old platform instance
+        if (platform.instance) {
+            platform.instance.destroy();
         }
         
-        // Create new visual
-        platform.visual = this.createPlatformVisual(platform.data);
-        platform.visual.setPosition(0, 0); // Center in container
+        // Create new platform instance
+        platform.instance = this.createPlatformInstance(platform.data);
+        platform.visual = platform.instance.container || platform.instance.graphics;
         
-        // Add back to container
-        platform.container.add(platform.visual);
+        // Update editor container reference
+        platform.container.platformInstance = platform.instance;
         
-        // Reapply selection highlighting
+        // Reapply selection highlighting if needed
         if (this.selectedPlatform === platform) {
-            platform.visual.setStrokeStyle(4, 0x00ff00, 1);
+            this.highlightSelectedPlatform(platform);
+        }
+    }
+    
+    highlightSelectedPlatform(platform) {
+        // Add selection highlight to platform instance
+        if (platform.instance && platform.instance.graphics) {
+            platform.instance.graphics.setStrokeStyle(4, 0x00ff00, 1);
         }
     }
     
@@ -537,29 +582,84 @@ export default class MapEditor extends Phaser.Scene {
         
         // Update handle positions based on current platform size
         // Handles are inside the container, so use container-relative coordinates
-        const { width, height, radius, type } = platform.data;
+        const { width, height, radius, type, angle = 0 } = platform.data;
         
+        console.log(`updateHandlePositions: angle = ${angle}, type = ${type}`);
+        
+        // Helper function to rotate a point around origin
+        const rotatePoint = (x, y, rotation) => {
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        };
+        
+        let resizeHandleCount = 0;
         platform.handles.forEach((handle, index) => {
-            if (type === 'rectangle' || type === 'trapezoid') {
-                const positions = [
-                    { x: 0, y: 0 },          // nw
-                    { x: width, y: 0 },      // ne
-                    { x: 0, y: height },     // sw
-                    { x: width, y: height }  // se
-                ];
-                if (positions[index]) {
-                    handle.setPosition(positions[index].x, positions[index].y);
+            // Skip graphics objects (rotation icon)
+            if (!handle.handleType) return;
+            
+            if (handle.handleType === 'rotation') {
+                // Position rotation handle at the top edge of the shape
+                let rotationDistance;
+                if (type === 'circle') {
+                    rotationDistance = radius; // Right at the edge of the circle
+                } else if (type === 'rectangle' || type === 'trapezoid') {
+                    rotationDistance = height / 2; // Right at the top edge of the rectangle
+                } else {
+                    rotationDistance = 30; // Default distance for other shapes
                 }
-            } else if (type === 'circle') {
-                const positions = [
-                    { x: 0, y: -radius },     // n
-                    { x: radius, y: 0 },      // e
-                    { x: 0, y: radius },      // s
-                    { x: -radius, y: 0 }      // w
-                ];
-                if (positions[index]) {
-                    handle.setPosition(positions[index].x, positions[index].y);
+                
+                // Rotate the rotation handle position
+                const rotatedPos = rotatePoint(0, -rotationDistance, angle);
+                handle.setPosition(rotatedPos.x, rotatedPos.y);
+                
+                // Also update the rotation icon position (next item in array)
+                const iconIndex = index + 1;
+                if (iconIndex < platform.handles.length && !platform.handles[iconIndex].handleType) {
+                    platform.handles[iconIndex].setPosition(rotatedPos.x, rotatedPos.y);
                 }
+            } else {
+                // Handle resize handles
+                if (type === 'rectangle' || type === 'trapezoid') {
+                    // Use center-based coordinates (matching initial creation)
+                    const halfWidth = width / 2;
+                    const halfHeight = height / 2;
+                    const positions = [
+                        { x: -halfWidth, y: -halfHeight },   // nw
+                        { x: halfWidth, y: -halfHeight },    // ne
+                        { x: -halfWidth, y: halfHeight },    // sw
+                        { x: halfWidth, y: halfHeight }      // se
+                    ];
+                    if (positions[resizeHandleCount]) {
+                        // Apply rotation to handle position
+                        const rotatedPos = rotatePoint(
+                            positions[resizeHandleCount].x, 
+                            positions[resizeHandleCount].y, 
+                            angle
+                        );
+                        handle.setPosition(rotatedPos.x, rotatedPos.y);
+                    }
+                } else if (type === 'circle') {
+                    const positions = [
+                        { x: 0, y: -radius },     // n
+                        { x: radius, y: 0 },      // e
+                        { x: 0, y: radius },      // s
+                        { x: -radius, y: 0 }      // w
+                    ];
+                    if (positions[resizeHandleCount]) {
+                        // Apply rotation to handle position
+                        const rotatedPos = rotatePoint(
+                            positions[resizeHandleCount].x, 
+                            positions[resizeHandleCount].y, 
+                            angle
+                        );
+                        handle.setPosition(rotatedPos.x, rotatedPos.y);
+                    }
+                }
+                resizeHandleCount++;
             }
         });
     }
@@ -657,6 +757,7 @@ export default class MapEditor extends Phaser.Scene {
             platformType: this.toolSettings.platformType,
             x: snapX,
             y: snapY,
+            rotation: 0, // Default rotation in radians
             color: this.toolSettings.platformColor,
             physics: {
                 friction: this.toolSettings.friction,
@@ -671,89 +772,91 @@ export default class MapEditor extends Phaser.Scene {
     
     
     addPlatformToScene(platformData) {
-        // Create container for platform + handles
-        const container = this.add.container(platformData.x, platformData.y);
+        // Create actual platform instance using unified system
+        const platformInstance = this.createPlatformInstance(platformData);
         
-        // Create visual representation (centered in container)
-        const visual = this.createPlatformVisual(platformData);
-        visual.setPosition(0, 0); // Center in container
+        if (!platformInstance) {
+            console.error('Failed to create platform instance for:', platformData);
+            return null;
+        }
         
-        // Add visual to container
-        container.add(visual);
+        // Create editor container for handles and selection (transparent overlay)
+        const editorContainer = this.add.container(platformData.x, platformData.y);
         
-        // Make container draggable with proper size based on platform type
+        // Make editor container draggable with proper size based on platform type
+        // Set size and ensure center-based interaction area
         if (platformData.type === 'rectangle' || platformData.type === 'trapezoid') {
-            // For rectangles with top-left origin, set interactive area to match visual size
-            container.setSize(platformData.width, platformData.height);
+            editorContainer.setSize(platformData.width, platformData.height);
         } else if (platformData.type === 'circle') {
             const diameter = platformData.radius * 2;
-            container.setSize(diameter, diameter);
+            editorContainer.setSize(diameter, diameter);
         } else {
             // Default fallback
-            container.setSize(100, 100);
+            editorContainer.setSize(100, 100);
         }
-        container.setInteractive();
-        this.input.setDraggable(container);
-        container.platformData = platformData;
+        
+        // Set interactive area with center origin to match coordinate system
+        editorContainer.setInteractive();
+        this.input.setDraggable(editorContainer);
+        editorContainer.platformData = platformData;
+        editorContainer.platformInstance = platformInstance;
         
         const platform = {
             data: platformData,
-            container: container,
-            visual: visual,
+            instance: platformInstance,        // Actual platform instance
+            container: editorContainer,        // Editor-only container for handles
+            visual: platformInstance.container || platformInstance.graphics,  // Reference to visual
             id: platformData.id,
             handles: []
         };
         
         this.platforms.push(platform);
         this.mapData.platforms = this.platforms.map(p => p.data);
+        
+        return platform;
     }
     
-    createPlatformVisual(platformData) {
-        const { type, color } = platformData;
-        const colorValue = parseInt(color.replace('#', '0x'));
+    createPlatformInstance(platformData) {
+        const { type, platformType = 'standard', x, y, width, height, radius, color = '#666666', angle = 0 } = platformData;
         
-        let visual;
+        // Convert color to hex number
+        const colorValue = color.startsWith('#') ? parseInt(color.replace('#', '0x')) : 0x666666;
         
-        switch (type) {
-            case 'rectangle':
-                const { width, height } = platformData;
-                visual = this.add.rectangle(0, 0, width, height, colorValue);
-                visual.setOrigin(0, 0);
-                break;
-                
-            case 'circle':
-                visual = this.add.circle(0, 0, platformData.radius, colorValue);
-                break;
-                
-            case 'polygon':
-                const vertices = this.generatePolygonVertices(0, 0, platformData.radius, platformData.sides);
-                visual = this.add.polygon(0, 0, vertices, colorValue);
-                break;
-                
-            case 'trapezoid':
-                const trapVertices = this.generateTrapezoidVertices(0, 0, platformData.width, platformData.height, platformData.slope);
-                visual = this.add.polygon(0, 0, trapVertices, colorValue);
-                break;
-                
-            case 'custom':
-                // For custom, center the vertices around (0,0)
-                const centerX = platformData.vertices.reduce((sum, v) => sum + v.x, 0) / platformData.vertices.length;
-                const centerY = platformData.vertices.reduce((sum, v) => sum + v.y, 0) / platformData.vertices.length;
-                const centeredVertices = platformData.vertices.map(v => ({
-                    x: v.x - centerX,
-                    y: v.y - centerY
-                }));
-                visual = this.add.polygon(0, 0, centeredVertices, colorValue);
-                break;
+        // Determine dimensions
+        let platformWidth, platformHeight;
+        if (type === 'circle') {
+            platformWidth = radius * 2;
+            platformHeight = radius * 2;
+        } else {
+            platformWidth = width || 100;
+            platformHeight = height || 50;
         }
         
-        if (visual) {
-            visual.setStrokeStyle(2, 0x000000, 0.5);
-            visual.setDepth(10);
-        }
+        // Create config object
+        const config = {
+            color: colorValue,
+            angle: angle,
+            shape: type === 'circle' ? 'circle' : 'rectangle',
+            strokeColor: 0x333333,
+            strokeWidth: 2
+        };
         
-        return visual;
+        // Create appropriate platform type
+        switch(platformType) {
+            case 'ice':
+                return new IcePlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'bouncy':
+                return new BouncyPlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'electric':
+                return new ElectricPlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'fire':
+                return new FirePlatform(this, x, y, platformWidth, platformHeight, config);
+            default:
+                return new PlatformBase(this, x, y, platformWidth, platformHeight, config);
+        }
     }
+    
+    // Removed createPlatformVisual - now using unified platform instances
     
     generatePolygonVertices(centerX, centerY, radius, sides) {
         const vertices = [];
@@ -782,17 +885,24 @@ export default class MapEditor extends Phaser.Scene {
     
     selectPlatform(platform) {
         // Deselect previous platform
-        if (this.selectedPlatform && this.selectedPlatform.visual) {
-            this.selectedPlatform.visual.setStrokeStyle(2, 0x000000, 0.5);
+        if (this.selectedPlatform) {
+            this.clearPlatformHighlight(this.selectedPlatform);
             this.clearHandlesFromContainer(this.selectedPlatform);
         }
         
         // Select new platform
         this.selectedPlatform = platform;
-        if (platform && platform.visual) {
-            platform.visual.setStrokeStyle(4, 0x00ff00, 1);
+        if (platform) {
+            this.highlightSelectedPlatform(platform);
             // Add resize handles
             this.addHandlesToPlatform(platform);
+        }
+    }
+    
+    clearPlatformHighlight(platform) {
+        // Reset platform graphics to default styling
+        if (platform.instance && platform.instance.graphics) {
+            platform.instance.graphics.setStrokeStyle(2, 0x333333, 1);
         }
     }
     
@@ -809,24 +919,46 @@ export default class MapEditor extends Phaser.Scene {
     addHandlesToPlatform(platform) {
         const data = platform.data;
         
-        // Only create resize handles for rectangles and circles for simplicity
+        // Create resize handles for rectangles and circles
         if (data.type === 'rectangle' || data.type === 'trapezoid') {
             this.createRectangleHandles(platform);
         } else if (data.type === 'circle') {
             this.createCircleHandles(platform);
         }
+        
+        // Add rotation handle for all platform types
+        this.createRotationHandle(platform);
     }
     
     createRectangleHandles(platform) {
-        const { width, height } = platform.data;
+        const { width, height, angle = 0 } = platform.data;
         
-        // Corner handles relative to top-left origin
-        const handlePositions = [
-            { x: 0, y: 0, type: 'nw' },
-            { x: width, y: 0, type: 'ne' },
-            { x: 0, y: height, type: 'sw' },
-            { x: width, y: height, type: 'se' }
+        // Helper function to rotate a point around origin
+        const rotatePoint = (x, y, rotation) => {
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        };
+        
+        // Corner handles relative to center origin (like circles)
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+        const basePositions = [
+            { x: -halfWidth, y: -halfHeight, type: 'nw' },
+            { x: halfWidth, y: -halfHeight, type: 'ne' },
+            { x: -halfWidth, y: halfHeight, type: 'sw' },
+            { x: halfWidth, y: halfHeight, type: 'se' }
         ];
+        
+        // Apply rotation to handle positions
+        const handlePositions = basePositions.map(pos => ({
+            x: rotatePoint(pos.x, pos.y, angle).x,
+            y: rotatePoint(pos.x, pos.y, angle).y,
+            type: pos.type
+        }));
         
         handlePositions.forEach(pos => {
             const handle = this.add.rectangle(pos.x, pos.y, 12, 12, 0x00ffff);
@@ -852,15 +984,32 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createCircleHandles(platform) {
-        const { radius } = platform.data;
+        const { radius, angle = 0 } = platform.data;
+        
+        // Helper function to rotate a point around origin
+        const rotatePoint = (x, y, rotation) => {
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        };
         
         // Four resize handles around the circle relative to container center
-        const handlePositions = [
+        const basePositions = [
             { x: 0, y: -radius, type: 'n' },
             { x: radius, y: 0, type: 'e' },
             { x: 0, y: radius, type: 's' },
             { x: -radius, y: 0, type: 'w' }
         ];
+        
+        // Apply rotation to handle positions
+        const handlePositions = basePositions.map(pos => ({
+            x: rotatePoint(pos.x, pos.y, angle).x,
+            y: rotatePoint(pos.x, pos.y, angle).y,
+            type: pos.type
+        }));
         
         handlePositions.forEach(pos => {
             const handle = this.add.circle(pos.x, pos.y, 6, 0x00ffff);
@@ -883,6 +1032,72 @@ export default class MapEditor extends Phaser.Scene {
             
             console.log('Created circle handle:', pos.type, 'interactive:', handle.input.enabled);
         });
+    }
+    
+    createRotationHandle(platform) {
+        const { type, radius, width, height, angle = 0 } = platform.data;
+        
+        // Helper function to rotate a point around origin
+        const rotatePoint = (x, y, rotation) => {
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            return {
+                x: x * cos - y * sin,
+                y: x * sin + y * cos
+            };
+        };
+        
+        // Position rotation handle at the top edge of the shape
+        let rotationDistance;
+        if (type === 'circle') {
+            rotationDistance = radius; // Right at the edge of the circle
+        } else if (type === 'rectangle' || type === 'trapezoid') {
+            rotationDistance = height / 2; // Right at the top edge of the rectangle
+        } else {
+            rotationDistance = 30; // Default distance for other shapes
+        }
+        
+        // Apply rotation to handle position
+        const rotatedPos = rotatePoint(0, -rotationDistance, angle);
+        const handle = this.add.circle(rotatedPos.x, rotatedPos.y, 8, 0xff4444);
+        handle.setStrokeStyle(2, 0xaa2222);
+        handle.setInteractive();
+        handle.handleType = 'rotation';
+        handle.platformData = platform.data;
+        handle.setDepth(300);
+        
+        // Add rotation icon indicator
+        const rotationIcon = this.add.graphics();
+        rotationIcon.lineStyle(2, 0xffffff);
+        rotationIcon.strokeCircle(0, 0, 4);
+        rotationIcon.moveTo(-2, -2);
+        rotationIcon.lineTo(2, 2);
+        rotationIcon.moveTo(2, -2);
+        rotationIcon.lineTo(-2, 2);
+        rotationIcon.strokePath();
+        rotationIcon.setPosition(rotatedPos.x, rotatedPos.y);
+        rotationIcon.setDepth(301);
+        
+        // Make it draggable
+        this.input.setDraggable(handle);
+        
+        // Visual feedback
+        handle.on('pointerover', () => {
+            handle.setFillStyle(0xff6666);
+            rotationIcon.setAlpha(1.2);
+        });
+        handle.on('pointerout', () => {
+            handle.setFillStyle(0xff4444);
+            rotationIcon.setAlpha(1.0);
+        });
+        
+        // Add both handle and icon to container
+        platform.container.add(handle);
+        platform.container.add(rotationIcon);
+        platform.handles.push(handle);
+        platform.handles.push(rotationIcon); // Track the icon too for cleanup
+        
+        console.log('Created rotation handle for platform type:', type);
     }
     
     deleteSelectedPlatform() {
@@ -943,30 +1158,9 @@ export default class MapEditor extends Phaser.Scene {
         this.testPlatformBodies = [];
         this.testSpecialPlatforms = [];
         this.testPlatformVisuals = [];
-        this.platforms.forEach(platform => {
-            const platformData = platform.data;
-            const { platformType = 'standard' } = platformData;
-            
-            if (platformType !== 'standard') {
-                // Create special platform with all properties
-                const specialPlatform = this.createSpecialPlatformForTest(platformData);
-                if (specialPlatform) {
-                    this.testSpecialPlatforms.push(specialPlatform);
-                }
-            } else {
-                // Create regular physics body and visual
-                const { body, visual } = this.createStandardPlatformForTest(platformData);
-                if (body) {
-                    this.testPlatformBodies.push(body);
-                }
-                if (visual) {
-                    console.log(`Created test visual for ${platformData.type} platform:`, visual.type || 'unknown', 'at', visual.x, visual.y);
-                    this.testPlatformVisuals.push(visual);
-                } else {
-                    console.warn(`Failed to create visual for ${platformData.type} platform`);
-                }
-            }
-        });
+        // No need to create additional physics bodies - using unified platform instances
+        // The platform instances from the editor already have physics bodies and visuals
+        console.log(`Test mode: Using ${this.platforms.length} unified platform instances`);
         
         // Set up collision detection for special platforms
         this.setupSpecialPlatformCollisions();
@@ -1079,7 +1273,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createPhysicsBodyForPlatform(platformData) {
-        const { type, physics = {} } = platformData;
+        const { type, physics = {}, rotation = 0 } = platformData;
         const defaultPhysics = {
             isStatic: true,
             friction: 0.8,
@@ -1104,7 +1298,7 @@ export default class MapEditor extends Phaser.Scene {
                 break;
                 
             case 'polygon':
-                const { x: polyX, y: polyY, sides, radius: polyRadius, rotation = 0 } = platformData;
+                const { x: polyX, y: polyY, sides, radius: polyRadius } = platformData;
                 const vertices = [];
                 
                 for (let i = 0; i < sides; i++) {
@@ -1145,6 +1339,11 @@ export default class MapEditor extends Phaser.Scene {
                 break;
         }
         
+        // Apply rotation to the physics body
+        if (body && rotation !== 0) {
+            this.matter.body.setAngle(body, rotation);
+        }
+        
         return body;
     }
     
@@ -1157,7 +1356,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createTestPlatformVisual(platformData) {
-        const { type, color } = platformData;
+        const { type, color, rotation = 0 } = platformData;
         const colorValue = parseInt(color.replace('#', '0x'));
         
         let visual;
@@ -1177,7 +1376,7 @@ export default class MapEditor extends Phaser.Scene {
                 break;
                 
             case 'polygon':
-                const { x: polyX, y: polyY, sides, radius: polyRadius, rotation = 0 } = platformData;
+                const { x: polyX, y: polyY, sides, radius: polyRadius } = platformData;
                 const vertices = [];
                 for (let i = 0; i < sides; i++) {
                     const angle = (2 * Math.PI * i / sides) + rotation;
@@ -1216,13 +1415,15 @@ export default class MapEditor extends Phaser.Scene {
         
         if (visual) {
             visual.setDepth(10);
+            // Apply rotation to test visuals
+            visual.setRotation(rotation);
         }
         
         return visual;
     }
     
     createSpecialPlatformForTest(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, color } = platformData;
+        const { type, platformType, x, y, width, height, radius, physics = {}, color, rotation = 0 } = platformData;
         
         // Adjust coordinates for top-left origin (like regular physics bodies)
         let centerX, centerY;
@@ -1245,6 +1446,7 @@ export default class MapEditor extends Phaser.Scene {
         const config = {
             color: parseInt((color || '#ff6b6b').replace('#', '0x')),
             shape: type, // Pass the shape type (rectangle, circle, etc.)
+            angle: rotation, // Pass rotation to special platforms
             ...physics,
         };
         
@@ -1801,14 +2003,12 @@ TESTING TIPS:
         if (this.isTestMode && this.testWorm) {
             this.testWorm.update(delta);
             
-            // Update special platforms during test mode
-            if (this.testSpecialPlatforms) {
-                this.testSpecialPlatforms.forEach(platform => {
-                    if (platform && platform.update) {
-                        platform.update(delta);
-                    }
-                });
-            }
+            // Update all platforms during test mode (now using unified system)
+            this.platforms.forEach(platform => {
+                if (platform.instance && platform.instance.update) {
+                    platform.instance.update(delta);
+                }
+            });
             
             // Update camera target to follow worm center
             if (this.cameraTarget && this.testWorm.segments) {

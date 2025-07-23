@@ -32,7 +32,7 @@ export default class IcePlatform extends PlatformBase {
     }
     
     createIceEffects() {
-        // Add crystalline pattern overlay
+        // Add crystalline pattern overlay (positioned relative to container center)
         const crystalGraphics = this.scene.add.graphics();
         crystalGraphics.lineStyle(1, 0xe1f5fe, 0.6);
         
@@ -53,8 +53,15 @@ export default class IcePlatform extends PlatformBase {
         }
         
         crystalGraphics.strokePath();
-        crystalGraphics.setPosition(this.x, this.y);
-        crystalGraphics.setAngle(this.config.angle);
+        
+        // Add crystal overlay to the container (no need to set position/angle manually)
+        if (this.container) {
+            this.container.add(crystalGraphics);
+        } else {
+            // Fallback for backwards compatibility
+            crystalGraphics.setPosition(this.x, this.y);
+            crystalGraphics.setAngle(this.config.angle);
+        }
         
         this.crystalOverlay = crystalGraphics;
     }
@@ -180,7 +187,8 @@ export default class IcePlatform extends PlatformBase {
             this.segmentsOnIce.clear();
         }
         
-        if (this.crystalOverlay) {
+        // Crystal overlay will be destroyed by container, but handle fallback case
+        if (this.crystalOverlay && !this.container) {
             this.crystalOverlay.destroy();
         }
         super.destroy();
