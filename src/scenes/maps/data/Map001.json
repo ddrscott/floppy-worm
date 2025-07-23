@@ -1,0 +1,23 @@
+{
+    "metadata": {
+        "name": "Left",
+        "difficulty": 1,
+        "description": "Learn the basics of worm movement"
+    },
+    "dimensions": {
+        "width": 1024,
+        "height": 400
+    },
+    "entities": {
+        "wormStart": {
+            "x": 800,
+            "y":  50
+        },
+        "goal": {
+            "x": 240,
+            "y": 350
+        }
+    },
+    "platforms": [
+    ]
+}

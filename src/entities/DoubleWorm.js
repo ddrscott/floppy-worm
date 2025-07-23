@@ -382,17 +382,33 @@ export default class DoubleWorm extends WormBase {
         // Clean up anchors
         const anchorCount = Object.keys(this.anchors).length;
         Object.values(this.anchors).forEach(anchorData => {
-            if (anchorData.body) {
-                this.matter.world.remove(anchorData.body);
+            if (anchorData.body && this.matter && this.matter.world) {
+                try {
+                    this.matter.world.remove(anchorData.body);
+                } catch (error) {
+                    console.warn('Failed to remove anchor body:', error);
+                }
             }
-            if (anchorData.constraint) {
-                this.matter.world.remove(anchorData.constraint);
+            if (anchorData.constraint && this.matter && this.matter.world) {
+                try {
+                    this.matter.world.remove(anchorData.constraint);
+                } catch (error) {
+                    console.warn('Failed to remove anchor constraint:', error);
+                }
             }
             if (anchorData.rangeGraphics) {
-                anchorData.rangeGraphics.destroy();
+                try {
+                    anchorData.rangeGraphics.destroy();
+                } catch (error) {
+                    console.warn('Failed to destroy range graphics:', error);
+                }
             }
             if (anchorData.stickIndicator) {
-                anchorData.stickIndicator.destroy();
+                try {
+                    anchorData.stickIndicator.destroy();
+                } catch (error) {
+                    console.warn('Failed to destroy stick indicator:', error);
+                }
             }
         });
         console.log(`Cleaned up ${anchorCount} anchor constraints`);
@@ -400,12 +416,20 @@ export default class DoubleWorm extends WormBase {
         // Clean up jump springs if attached
         let jumpSpringCount = 0;
         Object.values(this.jumpSprings).forEach(springData => {
-            if (springData.spring && springData.attached) {
-                this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
-                jumpSpringCount++;
+            if (springData.spring && springData.attached && this.matter && this.matter.world) {
+                try {
+                    this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
+                    jumpSpringCount++;
+                } catch (error) {
+                    console.warn('Failed to remove jump spring:', error);
+                }
             }
             if (springData.laser) {
-                springData.laser.destroy();
+                try {
+                    springData.laser.destroy();
+                } catch (error) {
+                    console.warn('Failed to destroy spring laser:', error);
+                }
             }
             // Clean up ground-anchored spring properties
             if (springData.isGroundAnchored) {
@@ -418,12 +442,18 @@ export default class DoubleWorm extends WormBase {
         
         // Clean up sticky constraints and circles
         let stickyConstraintCount = 0;
-        if (this.stickyConstraints) {
+        if (this.stickyConstraints && this.matter && this.matter.world) {
             Object.values(this.stickyConstraints).forEach(constraints => {
                 constraints.forEach(constraintData => {
-                    this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-                    this.removeStickinessCircle(constraintData.constraint);
-                    stickyConstraintCount++;
+                    try {
+                        if (constraintData.constraint) {
+                            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
+                            this.removeStickinessCircle(constraintData.constraint);
+                            stickyConstraintCount++;
+                        }
+                    } catch (error) {
+                        console.warn('Failed to remove sticky constraint:', error);
+                    }
                 });
             });
         }

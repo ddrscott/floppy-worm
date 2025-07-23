@@ -584,10 +584,14 @@ export default class JsonMapBase extends BaseLevelScene {
         graphics.strokeRect(0, 0, this.levelWidth, height);
         
         // Create physics walls
+        // Left and right walls use normal dimensions
         this.matter.add.rectangle(-wallThickness/2, height/2, wallThickness, height, { isStatic: true });
         this.matter.add.rectangle(this.levelWidth + wallThickness/2, height/2, wallThickness, height, { isStatic: true });
-        this.matter.add.rectangle(this.levelWidth/2, -wallThickness/2, this.levelWidth, wallThickness, { isStatic: true });
-        this.matter.add.rectangle(this.levelWidth/2, height + wallThickness/2, this.levelWidth, wallThickness, { isStatic: true });
+        
+        // Top and bottom walls extend 2x the stage width to prevent objects from falling through diagonal corners
+        const extendedWidth = this.levelWidth * 2;
+        this.matter.add.rectangle(this.levelWidth/2, -wallThickness/2, extendedWidth, wallThickness, { isStatic: true });
+        this.matter.add.rectangle(this.levelWidth/2, height + wallThickness/2, extendedWidth, wallThickness, { isStatic: true });
     }
     
     setupControls() {
@@ -799,6 +803,11 @@ export default class JsonMapBase extends BaseLevelScene {
                 platform.instance.update(delta);
             }
         });
+        
+        // Check for M key to toggle mini-map
+        if (Phaser.Input.Keyboard.JustDown(this.mKey)) {
+            this.toggleMiniMap();
+        }
         
         // Check for gamepad button M to toggle mini-map
         const pad = this.input.gamepad.getPad(0);

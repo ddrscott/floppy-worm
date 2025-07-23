@@ -1,0 +1,23 @@
+{
+    "metadata": {
+        "name": "Right",
+        "difficulty": 1,
+        "description": "To the Right"
+    },
+    "dimensions": {
+        "width": 1024,
+        "height": 400
+    },
+    "entities": {
+        "wormStart": {
+            "x": 240,
+            "y":  50
+        },
+        "goal": {
+            "x": 800,
+            "y": 350
+        }
+    },
+    "platforms": [
+    ]
+}
