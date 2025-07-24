@@ -3,11 +3,11 @@ import BaseLevelScene from './BaseLevelScene';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
-import PlatformBase from '../entities/PlatformBase';
 import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
+import { getMapKeys } from './maps/MapDataRegistry';
 
 export default class JsonMapBase extends BaseLevelScene {
     constructor(config = {}) {
@@ -868,7 +868,6 @@ export default class JsonMapBase extends BaseLevelScene {
         super.victory();
         
         // Determine if there's a next level
-        const { getMapKeys } = require('./maps/MapDataRegistry');
         const mapKeys = getMapKeys();
         const currentIndex = mapKeys.indexOf(this.scene.key);
         const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
