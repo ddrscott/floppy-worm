@@ -6,6 +6,7 @@ import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
+import Sticker from '../entities/Sticker';
 
 export default class MapEditor extends Phaser.Scene {
     constructor() {
@@ -15,7 +16,9 @@ export default class MapEditor extends Phaser.Scene {
         this.isTestMode = false;
         this.selectedTool = 'rectangle';
         this.selectedPlatform = null;
+        this.selectedSticker = null;
         this.platforms = [];
+        this.stickers = [];
         this.entities = {
             wormStart: { x: 200, y: 900 },
             goal: { x: 1700, y: 200 }
@@ -45,7 +48,8 @@ export default class MapEditor extends Phaser.Scene {
                 height: 1152
             },
             entities: this.entities,
-            platforms: this.platforms
+            platforms: this.platforms,
+            stickers: this.stickers
         };
         
         // Tool settings
@@ -57,7 +61,12 @@ export default class MapEditor extends Phaser.Scene {
             restitution: 0,
             polygonSides: 6,
             polygonRadius: 2,
-            trapezoidSlope: 0.3
+            trapezoidSlope: 0.3,
+            // Sticker settings
+            stickerText: "New Sticker",
+            stickerPreset: "tip",
+            stickerFontSize: "18px",
+            stickerColor: "#ffffff"
         };
         
         // Input will be set up in create() method
@@ -125,6 +134,13 @@ export default class MapEditor extends Phaser.Scene {
             });
         }
         
+        // Restore stickers from session if any
+        if (this.mapData.stickers && this.mapData.stickers.length > 0) {
+            this.mapData.stickers.forEach(stickerData => {
+                this.addStickerToScene(stickerData);
+            });
+        }
+        
         // Create entities
         this.createEntitySprites();
         
@@ -144,20 +160,30 @@ export default class MapEditor extends Phaser.Scene {
             const worldX = pointer.worldX;
             const worldY = pointer.worldY;
             
-            // Check if clicking on platform container
-            const clickedPlatform = this.platforms.find(p => 
-                this.isContainerAtPosition(p, worldX, worldY)
+            // Check if clicking on sticker first (they're on top)
+            const clickedSticker = this.stickers.find(s => 
+                s.containsPoint(worldX, worldY)
             );
             
-            if (clickedPlatform) {
-                this.selectPlatform(clickedPlatform);
+            if (clickedSticker) {
+                this.selectSticker(clickedSticker);
             } else {
-                this.selectPlatform(null);
+                // Check if clicking on platform container
+                const clickedPlatform = this.platforms.find(p => 
+                    this.isContainerAtPosition(p, worldX, worldY)
+                );
+                
+                if (clickedPlatform) {
+                    this.selectPlatform(clickedPlatform);
+                } else {
+                    this.selectPlatform(null);
+                    this.selectSticker(null);
+                }
             }
         });
         
-        // Setup camera
-        this.cameras.main.setBounds(0, 0, levelWidth, levelHeight);
+        // Setup camera - remove built-in bounds to use manual constraints
+        this.cameras.main.removeBounds();
         this.cameras.main.setZoom(0.8);
         this.cameras.main.centerOn(levelWidth / 2, levelHeight / 2);
         
@@ -268,6 +294,8 @@ export default class MapEditor extends Phaser.Scene {
             // Update map data with current state
             this.mapData.entities = this.entities;
             this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
+            this.mapData.stickers = this.stickers.map(s => s.toJSON());
             this.mapData.metadata.modified = new Date().toISOString();
             
             // Save to localStorage
@@ -377,6 +405,9 @@ export default class MapEditor extends Phaser.Scene {
         
         // Make entities draggable
         this.setupEntityDragging();
+        
+        // Create reference worm for scale visualization
+        this.createReferenceWorm();
     }
     
     setupEntityDragging() {
@@ -398,6 +429,7 @@ export default class MapEditor extends Phaser.Scene {
                     if (this.wormText) {
                         this.wormText.setPosition(dragX, dragY);
                     }
+                    this.updateReferenceWormPosition();
                     this.autoSave();
                 } else if (gameObject === this.goalSprite) {
                     this.entities.goal = { x: dragX, y: dragY };
@@ -422,12 +454,83 @@ export default class MapEditor extends Phaser.Scene {
                     if (this.wormText) {
                         this.wormText.setPosition(roundedX, roundedY);
                     }
+                    this.updateReferenceWormPosition();
                 } else if (gameObject === this.goalSprite) {
                     this.entities.goal = { x: roundedX, y: roundedY };
                 }
                 this.autoSave();
             }
         });
+    }
+    
+    createReferenceWorm() {
+        // Create a visual reference worm to show scale and positioning
+        // This gives a better sense of the actual worm size relative to platforms
+        
+        const wormX = this.entities.wormStart.x;
+        const wormY = this.entities.wormStart.y;
+        
+        // Worm configuration matching DoubleWorm defaults
+        const baseRadius = 15;
+        const segmentSizes = [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8];
+        const segmentSpacing = 25; // Approximate spacing between segments
+        
+        this.referenceWormSegments = [];
+        
+        // Create worm segments as simple circles (positioned vertically downwards)
+        segmentSizes.forEach((sizeMultiplier, index) => {
+            const segmentRadius = baseRadius * sizeMultiplier;
+            const segmentX = wormX;
+            const segmentY = wormY + (index * segmentSpacing); // Vertical positioning
+            
+            // Create segment circle with semi-transparent appearance
+            const segment = this.add.circle(segmentX, segmentY, segmentRadius, 0x44aa44, 0.4);
+            segment.setStrokeStyle(1, 0x228822, 0.6);
+            segment.setDepth(5); // Below entity markers but above grid
+            
+            this.referenceWormSegments.push(segment);
+        });
+        
+        // Add a simple head indicator
+        const head = this.referenceWormSegments[0];
+        if (head) {
+            // Add eyes to the head
+            const eyeOffset = baseRadius * 0.4;
+            const leftEye = this.add.circle(head.x - eyeOffset/2, head.y - eyeOffset/2, 2, 0x000000);
+            const rightEye = this.add.circle(head.x + eyeOffset/2, head.y - eyeOffset/2, 2, 0x000000);
+            leftEye.setDepth(6);
+            rightEye.setDepth(6);
+            
+            this.referenceWormSegments.push(leftEye, rightEye);
+        }
+        
+        console.log(`Created reference worm with ${segmentSizes.length} segments at (${wormX}, ${wormY})`);
+    }
+    
+    updateReferenceWormPosition() {
+        // Update reference worm position when worm start position changes
+        if (!this.referenceWormSegments || this.referenceWormSegments.length === 0) return;
+        
+        const wormX = this.entities.wormStart.x;
+        const wormY = this.entities.wormStart.y;
+        const segmentSpacing = 25;
+        
+        // Update main segments (excluding eyes)
+        const mainSegments = this.referenceWormSegments.slice(0, -2);
+        mainSegments.forEach((segment, index) => {
+            segment.setPosition(wormX + (index * segmentSpacing), wormY);
+        });
+        
+        // Update eyes if they exist
+        if (this.referenceWormSegments.length >= 2) {
+            const baseRadius = 15;
+            const eyeOffset = baseRadius * 0.4;
+            const leftEye = this.referenceWormSegments[this.referenceWormSegments.length - 2];
+            const rightEye = this.referenceWormSegments[this.referenceWormSegments.length - 1];
+            
+            leftEye.setPosition(wormX - eyeOffset/2, wormY - eyeOffset/2);
+            rightEye.setPosition(wormX + eyeOffset/2, wormY - eyeOffset/2);
+        }
     }
     
     setupPlatformDragging() {
@@ -446,6 +549,11 @@ export default class MapEditor extends Phaser.Scene {
             if (gameObject.platformData) {
                 this.children.bringToTop(gameObject);
                 this.selectPlatform(this.platforms.find(p => p.container === gameObject));
+            }
+            
+            // Handle sticker selection on drag start
+            if (gameObject.stickerInstance) {
+                this.selectSticker(gameObject.stickerInstance);
             }
         });
         
@@ -486,6 +594,20 @@ export default class MapEditor extends Phaser.Scene {
                     this.autoSave();
                 }
             }
+            
+            // Handle sticker movement
+            if (gameObject.stickerInstance) {
+                let newX = dragX;
+                let newY = dragY;
+                
+                if (this.getGridSnapEnabled()) {
+                    newX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
+                    newY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
+                }
+                
+                gameObject.stickerInstance.setPosition(newX, newY);
+                this.autoSave();
+            }
         });
         
         this.input.on('dragend', (pointer, gameObject) => {
@@ -524,6 +646,10 @@ export default class MapEditor extends Phaser.Scene {
                     this.updateHandlePositions(platform);
                     this.autoSave();
                 }
+            } else if (gameObject.stickerInstance) {
+                // Update map data after sticker drag
+                this.mapData.stickers = this.stickers.map(s => s.toJSON());
+                this.autoSave();
             }
         });
     }
@@ -825,8 +951,8 @@ export default class MapEditor extends Phaser.Scene {
             // Constrain camera to bounds
             const mapWidth = this.mapData.dimensions.width;
             const mapHeight = this.mapData.dimensions.height;
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
             
             // Update camera info display
             this.updateCameraInfoDisplay();
@@ -842,8 +968,8 @@ export default class MapEditor extends Phaser.Scene {
                 // Constrain to bounds
                 const mapWidth = this.mapData.dimensions.width;
                 const mapHeight = this.mapData.dimensions.height;
-                camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
-                camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+                camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
+                camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
                 
                 // Update camera info display
                 this.updateCameraInfoDisplay();
@@ -855,7 +981,7 @@ export default class MapEditor extends Phaser.Scene {
         this.input.on('pointerup', (pointer) => {
             const now = Date.now();
             if (now - lastClickTime < 400) { // 400ms double-click threshold
-                this.createPlatformAtPointer(pointer);
+                this.createItemAtPointer(pointer);
             }
             lastClickTime = now;
         });
@@ -864,7 +990,7 @@ export default class MapEditor extends Phaser.Scene {
         this.setupPlatformDragging();
     }
     
-    createPlatformAtPointer(pointer) {
+    createItemAtPointer(pointer) {
         if (this.isTestMode) return;
         
         const worldX = pointer.worldX;
@@ -872,16 +998,28 @@ export default class MapEditor extends Phaser.Scene {
         
         // Check if clicking on existing objects first
         if (this.isClickOnEntity(worldX, worldY) || 
-            this.platforms.some(p => this.isContainerAtPosition(p, worldX, worldY))) {
+            this.platforms.some(p => this.isContainerAtPosition(p, worldX, worldY)) ||
+            this.stickers.some(s => s.containsPoint(worldX, worldY))) {
             return;
         }
         
-        // Create platform at pointer location with default size
-        let platformData = this.createDefaultPlatform(worldX, worldY);
-        
-        if (platformData) {
-            this.addPlatformToScene(platformData);
-            this.autoSave();
+        // Create item based on selected tool
+        if (this.selectedTool === 'sticker') {
+            // Create sticker at pointer location
+            let stickerData = this.createDefaultSticker(worldX, worldY);
+            
+            if (stickerData) {
+                this.addStickerToScene(stickerData);
+                this.autoSave();
+            }
+        } else {
+            // Create platform at pointer location with default size
+            let platformData = this.createDefaultPlatform(worldX, worldY);
+            
+            if (platformData) {
+                this.addPlatformToScene(platformData);
+                this.autoSave();
+            }
         }
     }
     
@@ -918,6 +1056,86 @@ export default class MapEditor extends Phaser.Scene {
         };
         
         return { ...baseData, ...size };
+    }
+    
+    createDefaultSticker(x, y) {
+        let snapX = x, snapY = y;
+        if (this.getGridSnapEnabled()) {
+            snapX = Math.round(x / this.CHAR_WIDTH) * this.CHAR_WIDTH;
+            snapY = Math.round(y / this.ROW_SPACING) * this.ROW_SPACING;
+        }
+        
+        // Get preset configuration
+        const presets = Sticker.getPresets();
+        const presetConfig = presets[this.toolSettings.stickerPreset] || presets.tip;
+        
+        const stickerData = {
+            id: `sticker_${Date.now()}`,
+            x: snapX,
+            y: snapY,
+            text: this.toolSettings.stickerText,
+            config: {
+                ...presetConfig,
+                fontSize: this.toolSettings.stickerFontSize,
+                color: this.toolSettings.stickerColor
+            }
+        };
+        
+        return stickerData;
+    }
+    
+    addStickerToScene(stickerData) {
+        // Create sticker instance
+        const sticker = Sticker.fromJSON(this, stickerData);
+        sticker.setInteractive(true);
+        
+        // Set up drag and selection
+        this.input.setDraggable(sticker.textObject);
+        
+        // Add to stickers array
+        this.stickers.push(sticker);
+        
+        // Update map data
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
+        
+        return sticker;
+    }
+    
+    selectSticker(sticker) {
+        // Deselect previous sticker
+        if (this.selectedSticker) {
+            this.selectedSticker.setHighlight(false);
+        }
+        
+        // Deselect platform if one is selected
+        if (this.selectedPlatform) {
+            this.selectPlatform(null);
+        }
+        
+        // Select new sticker
+        this.selectedSticker = sticker;
+        if (sticker) {
+            sticker.setHighlight(true);
+        }
+    }
+    
+    deleteSelectedSticker() {
+        if (this.selectedSticker) {
+            // Remove from stickers array
+            const index = this.stickers.indexOf(this.selectedSticker);
+            if (index > -1) {
+                this.stickers.splice(index, 1);
+            }
+            
+            // Destroy the sticker
+            this.selectedSticker.destroy();
+            
+            // Update map data
+            this.mapData.stickers = this.stickers.map(s => s.toJSON());
+            
+            this.selectedSticker = null;
+            this.autoSave();
+        }
     }
     
     
@@ -963,6 +1181,7 @@ export default class MapEditor extends Phaser.Scene {
         
         this.platforms.push(platform);
         this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         
         return platform;
     }
@@ -1269,6 +1488,7 @@ export default class MapEditor extends Phaser.Scene {
             
             // Update map data
             this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
             
             this.selectedPlatform = null;
             this.autoSave();
@@ -1294,6 +1514,7 @@ export default class MapEditor extends Phaser.Scene {
         // Create temporary JsonMapBase scene to test the map
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         
         // Spawn test worm using pixel coordinates
         const wormX = this.entities.wormStart.x;
@@ -1733,6 +1954,7 @@ export default class MapEditor extends Phaser.Scene {
         // Update map data
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         this.mapData.metadata.modified = new Date().toISOString();
         
         // Save to named maps library
@@ -1838,6 +2060,7 @@ export default class MapEditor extends Phaser.Scene {
     exportJSON() {
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         
         const dataStr = JSON.stringify(this.mapData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1855,6 +2078,7 @@ export default class MapEditor extends Phaser.Scene {
     async copyJSONToClipboard() {
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         
         const dataStr = JSON.stringify(this.mapData, null, 2);
         
@@ -2189,8 +2413,8 @@ TESTING TIPS:
             const mapHeight = this.mapData.dimensions.height;
             
             // Keep camera within map bounds
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
             
             // Update camera info display
             this.updateCameraInfoDisplay();

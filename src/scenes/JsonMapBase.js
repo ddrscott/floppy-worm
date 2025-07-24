@@ -7,6 +7,7 @@ import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
+import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
 
 export default class JsonMapBase extends BaseLevelScene {
@@ -29,6 +30,7 @@ export default class JsonMapBase extends BaseLevelScene {
         this.victoryAchieved = false;
         
         this.platforms = [];
+        this.stickers = [];
         this.platformColors = config.platformColors || [0xff6b6b, 0x4ecdc4, 0x95e1d3, 0xfeca57, 0xa29bfe];
         
         // Mini-map configuration
@@ -142,11 +144,16 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     loadMapFromJSON() {
-        const { platforms, entities } = this.mapData;
+        const { platforms, entities, stickers = [] } = this.mapData;
         
         // Create platforms
         platforms.forEach(platformData => {
             this.createPlatformFromJSON(platformData);
+        });
+        
+        // Create stickers
+        stickers.forEach(stickerData => {
+            this.createStickerFromJSON(stickerData);
         });
         
         // Create entities
@@ -219,6 +226,25 @@ export default class JsonMapBase extends BaseLevelScene {
         this.platforms.push({ 
             body, visual, data: platformData, id: id || `platform_${this.platforms.length}`
         });
+    }
+    
+    createStickerFromJSON(stickerData) {
+        try {
+            // Create sticker instance from JSON data
+            const sticker = Sticker.fromJSON(this, stickerData);
+            
+            // Add to stickers array for management
+            this.stickers.push(sticker);
+            
+            // Stickers should not appear in the minimap
+            if (this.minimap && sticker.textObject) {
+                this.minimap.ignore(sticker.textObject);
+            }
+            
+            console.log(`Created sticker: "${stickerData.text}" at (${stickerData.x}, ${stickerData.y})`);
+        } catch (error) {
+            console.warn('Failed to create sticker from JSON:', stickerData, error);
+        }
     }
     
     createSpecialPlatform(platformData) {

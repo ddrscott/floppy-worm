@@ -86,14 +86,35 @@ export default function PropertyPanel({
     'electric': 'Electric',
     'fire': 'Fire'
   };
+  
+  const stickerPresets = {
+    'tip': 'Tip (Green)',
+    'warning': 'Warning (Yellow)',
+    'taunt': 'Taunt (Red)',
+    'info': 'Info (Blue)',
+    'celebrate': 'Celebrate (Gold)'
+  };
 
   const tools = [
     { value: 'rectangle', label: 'Rectangle' },
     { value: 'circle', label: 'Circle' },
     { value: 'polygon', label: 'Polygon' },
     { value: 'trapezoid', label: 'Trapezoid' },
-    { value: 'custom', label: 'Custom' }
+    { value: 'custom', label: 'Custom' },
+    { value: 'sticker', label: 'Sticker' }
   ];
+
+  // Helper function to get preset background colors for preview
+  const getPresetBackgroundColor = (preset: string) => {
+    const presetColors = {
+      'tip': 'rgba(0, 50, 0, 0.8)',
+      'warning': 'rgba(50, 50, 0, 0.8)',
+      'taunt': 'rgba(50, 0, 0, 0.8)',
+      'info': 'rgba(0, 25, 50, 0.8)',
+      'celebrate': 'rgba(50, 40, 0, 0.8)'
+    };
+    return presetColors[preset] || presetColors.tip;
+  };
 
   return (
     <div className="w-80 bg-gray-800 text-white p-4 overflow-y-auto h-full">
@@ -334,6 +355,79 @@ export default function PropertyPanel({
           </div>
         </div>
       </div>
+
+      {/* Sticker Settings - only show when sticker tool is selected */}
+      {selectedTool === 'sticker' && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold mb-3 text-blue-300">Sticker Settings</h3>
+          
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Sticker Text</label>
+              <input
+                type="text"
+                value={toolSettings.stickerText || 'New Sticker'}
+                onChange={(e) => onToolSettingsChange({ ...toolSettings, stickerText: e.target.value })}
+                placeholder="Enter sticker text..."
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Preset Style</label>
+              <select
+                value={toolSettings.stickerPreset || 'tip'}
+                onChange={(e) => onToolSettingsChange({ ...toolSettings, stickerPreset: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                {Object.entries(stickerPresets).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Font Size</label>
+              <select
+                value={toolSettings.stickerFontSize || '18px'}
+                onChange={(e) => onToolSettingsChange({ ...toolSettings, stickerFontSize: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
+              >
+                <option value="12px">Small (12px)</option>
+                <option value="16px">Medium (16px)</option>
+                <option value="18px">Normal (18px)</option>
+                <option value="20px">Large (20px)</option>
+                <option value="24px">Extra Large (24px)</option>
+                <option value="28px">Huge (28px)</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">Text Color</label>
+              <input
+                type="color"
+                value={toolSettings.stickerColor || '#ffffff'}
+                onChange={(e) => onToolSettingsChange({ ...toolSettings, stickerColor: e.target.value })}
+                className="w-full h-10 bg-gray-700 border border-gray-600 rounded-md"
+              />
+            </div>
+            
+            <div className="p-3 bg-gray-700 rounded border border-gray-600">
+              <div className="text-xs text-gray-300 mb-2">Preview:</div>
+              <div 
+                className="inline-block px-2 py-1 rounded text-center"
+                style={{
+                  fontSize: toolSettings.stickerFontSize || '18px',
+                  color: toolSettings.stickerColor || '#ffffff',
+                  backgroundColor: getPresetBackgroundColor(toolSettings.stickerPreset || 'tip')
+                }}
+              >
+                {toolSettings.stickerText || 'New Sticker'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Selected Platform Properties */}
       {selectedPlatform && (
