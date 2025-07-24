@@ -1,0 +1,22 @@
+{
+  "name": "floppy-worm",
+  "version": "1.0.0",
+  "description": "Physics-based worm game using Phaser and Matter.js",
+  "private": true,
+  "scripts": {
+    "build": "parcel build src/index.html",
+    "start": "parcel src/index.html",
+    "dev": "parcel src/index.html"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0",
+    "dat.gui": "^0.7.9"
+  },
+  "devDependencies": {
+    "parcel": "latest",
+    "process": "^0.11.10"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

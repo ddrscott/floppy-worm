@@ -6,10 +6,11 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "editor": "remix vite:dev --config vite.config.ts",
-    "typecheck": "tsc",
-    "build": "parcel build src/index.html src/editor.html",
-    "start": "parcel src/index.html src/editor.html"
+    "start": "remix vite:dev",
+    "build": "remix vite:build --config vite.config.prod.ts",
+    "dev": "remix vite:dev",
+    "preview": "vite preview",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@remix-run/node": "^2.16.8",
@@ -39,7 +40,6 @@
     "typescript": "^5.1.6",
     "vite": "^6.0.0",
     "vite-tsconfig-paths": "^4.2.1",
-    "parcel": "latest",
     "process": "^0.11.10"
   },
   "engines": {
