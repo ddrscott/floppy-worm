@@ -1,15 +1,6 @@
 import type { LinksFunction, MetaFunction } from '@remix-run/node';
 import App from '../app.client';
 
-export const links: LinksFunction = () => {
-    return [
-        {
-            rel: 'stylesheet',
-            href: '/tailwind.css',
-        }
-    ]
-}
-
 export const meta: MetaFunction = () => {
     return [
         { title: 'Floppy Worm' },

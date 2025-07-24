@@ -3,7 +3,7 @@
 
 import Map001Data from './data/Map001.json';
 import Map002Data from './data/Map002.json';
-import SwingMapData from './data/SwingMap.json';
+import SwingMapData from './data/Swing.json';
 import TowerData from './data/Tower.json';
 import JsonMapScene from '../JsonMapScene';
 
@@ -11,7 +11,7 @@ import JsonMapScene from '../JsonMapScene';
 export const MAP_DATA_REGISTRY = {
     'Map001': Map001Data,
     'Map002': Map002Data,
-    'Swinger': SwingMapData,
+    'Swing': SwingMapData,
     'Tower': TowerData,
 };
 
