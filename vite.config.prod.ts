@@ -11,7 +11,8 @@ export default defineConfig({
             ssr: false,
             ignoredRouteFiles: [
                 "routes/maps.*",
-                "routes/api.*"
+                "routes/api.*",
+                "routes/$.tsx"
             ],
         }),
         tsconfigPaths()

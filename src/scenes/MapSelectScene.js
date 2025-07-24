@@ -11,23 +11,23 @@ export default class MapSelectScene extends Phaser.Scene {
         this.isFocused = false; // Track if user has started navigating
     }
     
-    loadMapsFromDataRegistry() {
-        const maps = loadMapMetadata();
+    async loadMapsFromDataRegistry() {
+        const maps = await loadMapMetadata();
         
         // Register parameterized map scenes with Phaser (now safe to access scene manager)
-        maps.forEach(map => {
+        for (const map of maps) {
             if (!this.scene.manager.getScene(map.key)) {
-                const MapSceneClass = createMapScene(map.key);
+                const MapSceneClass = await createMapScene(map.key);
                 if (MapSceneClass) {
                     this.scene.manager.add(map.key, MapSceneClass, false);
                 }
             }
-        });
+        }
         
         return maps;
     }
 
-    create() {
+    async create() {
         // Reset focus state to ensure clean start
         this.selectedMapIndex = -1;
         this.isFocused = false;
@@ -35,8 +35,22 @@ export default class MapSelectScene extends Phaser.Scene {
         // Clear any existing button references
         this.mapButtons = [];
         
+        // Initialize keyboard controls immediately (before async loading)
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        
+        // Show loading text
+        const loadingText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 
+            'Loading maps...', {
+            fontSize: '24px',
+            fill: '#ffffff'
+        }).setOrigin(0.5);
+        
         // Load maps now that scene manager is available
-        this.maps = this.loadMapsFromDataRegistry();
+        this.maps = await this.loadMapsFromDataRegistry();
+        
+        // Remove loading text
+        loadingText.destroy();
         
         // Responsive design detection
         const gameWidth = this.scale.width;
@@ -295,9 +309,7 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     setupInput() {
-        // Keyboard navigation
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        // Keyboard navigation already initialized in create()
         
         // Selection keys
         this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
@@ -313,6 +325,11 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     update() {
+        // Guard against incomplete initialization (async create)
+        if (!this.cursors || !this.wasd || !this.maps || this.maps.length === 0) {
+            return;
+        }
+        
         // Handle keyboard navigation
         if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.wasd.A)) {
             this.navigateMap(-1, 0);
