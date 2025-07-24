@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import MapSelectScene from '/src/scenes/MapSelectScene';
+import { clearMapCache } from '/src/scenes/maps/MapDataRegistry';
 
 // Find out more information about the Game Config at:
 // https://docs.phaser.io/api-documentation/typedef/types-core#gameconfig
@@ -38,6 +39,9 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 const StartGame = (parent: string) => {
+    // Expose clearMapCache globally for editor integration
+    (window as any).clearMapCache = clearMapCache;
+    
     return new Phaser.Game({ ...config, parent });
 }
 

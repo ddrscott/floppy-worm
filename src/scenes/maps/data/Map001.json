@@ -1,23 +1,23 @@
 {
-    "metadata": {
-        "name": "Left",
-        "difficulty": 1,
-        "description": "Learn the basics of worm movement"
+  "metadata": {
+    "name": "Left",
+    "difficulty": 1,
+    "description": "Learn the basics of worm movement",
+    "modified": "2025-07-24T16:42:53.744Z"
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 400
+  },
+  "entities": {
+    "wormStart": {
+      "x": 800,
+      "y": 50
     },
-    "dimensions": {
-        "width": 1024,
-        "height": 400
-    },
-    "entities": {
-        "wormStart": {
-            "x": 800,
-            "y":  50
-        },
-        "goal": {
-            "x": 240,
-            "y": 350
-        }
-    },
-    "platforms": [
-    ]
+    "goal": {
+      "x": 192,
+      "y": 96
+    }
+  },
+  "platforms": []
 }

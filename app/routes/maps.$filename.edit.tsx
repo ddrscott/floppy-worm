@@ -1,24 +1,83 @@
 import { Link, useParams } from "@remix-run/react";
 import { useRef, useEffect, useState } from "react";
+import PropertyPanel from "~/components/PropertyPanel";
 
 // Client-only map editor component
 function MapEditorClient({ mapData, filename }: { mapData: any, filename: string }) {
   const [saveStatus, setSaveStatus] = useState<{ state: string; message?: string; error?: string }>({ state: 'idle' });
   const [gameLoaded, setGameLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Property panel state
+  const [mapMetadata, setMapMetadata] = useState({
+    name: mapData?.title || filename?.replace('.json', '') || 'New Map',
+    difficulty: mapData?.difficulty || 1,
+    description: mapData?.description || 'A custom level'
+  });
+  
+  const [mapDimensions, setMapDimensions] = useState({
+    width: mapData?.dimensions?.width || 1920,
+    height: mapData?.dimensions?.height || 1152
+  });
+  
+  const [selectedTool, setSelectedTool] = useState('rectangle');
+  const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
+  const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
+  
+  const [toolSettings, setToolSettings] = useState({
+    platformType: 'normal',
+    platformColor: '#ff6b6b',
+    friction: 0.8,
+    frictionStatic: 0.9,
+    restitution: 0.3,
+    polygonSides: 6,
+    trapezoidSlope: 0.5
+  });
 
   useEffect(() => {
+    // Update editor callbacks whenever React state changes
+    if (typeof window !== 'undefined') {
+      (window as any).editorCallbacks = {
+        onToolChange: setSelectedTool,
+        onGridSnapChange: setGridSnapEnabled,
+        onPlatformSelect: setSelectedPlatform,
+        onToolSettingsChange: setToolSettings,
+        mapMetadata,
+        mapDimensions,
+        selectedTool,
+        gridSnapEnabled,
+        toolSettings
+      };
+    }
+  }, [mapMetadata, mapDimensions, selectedTool, gridSnapEnabled, toolSettings]);
+
+  useEffect(() => {
+    // No more dat.gui cleanup needed - using React PropertyPanel
+    
     // Dynamically load game only on client
     let mounted = true;
 
     const loadMapEditor = async () => {
       try {
+        // No dat.gui cleanup needed anymore
+        
         // Use dynamic imports to avoid SSR issues and load dependencies in order
         const { default: Phaser } = await import('phaser');
         
-        // First load dat.gui
-        const datGuiModule = await import('dat.gui');
-        window.dat = datGuiModule;
+        // Initial setup of communication between React and Phaser
+        (window as any).editorCallbacks = {
+          onToolChange: setSelectedTool,
+          onGridSnapChange: setGridSnapEnabled,
+          onPlatformSelect: setSelectedPlatform,
+          onToolSettingsChange: setToolSettings,
+          mapMetadata,
+          mapDimensions,
+          selectedTool,
+          gridSnapEnabled,
+          toolSettings
+        };
+        
+        // No need to load dat.gui anymore
         
         // Load base dependencies first to avoid circular issues
         await import('/src/entities/WormBase');
@@ -56,6 +115,9 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
               constraintIterations: 2,
               enableSleeping: true
             }
+          },
+          input: {
+            gamepad: true
           },
           scene: [MapEditor]
         };
@@ -129,6 +191,9 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
         return () => {
           document.removeEventListener('keydown', handleKeyDown);
           delete (window as any).saveMap;
+          
+          // No dat.gui cleanup needed anymore
+          
           if (game) {
             game.destroy(true);
           }
@@ -149,7 +214,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
         cleanup();
       }
     };
-  }, [mapData]);
+  }, [mapData, filename]);
 
   if (error) {
     return (
@@ -175,7 +240,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
             position: 'absolute',
             top: '70px',
             right: '20px',
-            zIndex: 1001,
+            zIndex: 10001,
             background: 'rgba(0,0,0,0.8)',
             padding: '8px 12px',
             borderRadius: '4px'
@@ -201,7 +266,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
           position: 'absolute',
           top: '70px',
           left: '20px',
-          zIndex: 1001
+          zIndex: 10001
         }}
       >
         <button
@@ -223,26 +288,120 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
         </button>
       </div>
 
-      {/* Game Container */}
-      <div 
-        id="map-editor-container" 
-        style={{ 
-          width: '100%', 
-          height: '100%'
-        }}
-      >
-        {!gameLoaded && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
+      {/* Main Editor Layout */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+        {/* Game Container */}
+        <div 
+          style={{ 
+            flex: 1,
             height: '100%',
-            background: '#232333',
-            color: 'white'
-          }}>
-            Loading Map Editor...
+            position: 'relative'
+          }}
+        >
+          <div 
+            id="map-editor-container" 
+            style={{ 
+              width: '100%',
+              height: '100%'
+            }}
+          >
+          {!gameLoaded && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100%',
+              background: '#232333',
+              color: 'white'
+            }}>
+              Loading Map Editor...
+            </div>
+          )}
           </div>
-        )}
+        </div>
+        
+        {/* Property Panel - Always Visible */}
+        <PropertyPanel
+            mapMetadata={mapMetadata}
+            mapDimensions={mapDimensions}
+            selectedTool={selectedTool}
+            toolSettings={toolSettings}
+            gridSnapEnabled={gridSnapEnabled}
+            selectedPlatform={selectedPlatform}
+            onMapMetadataChange={setMapMetadata}
+            onMapDimensionsChange={setMapDimensions}
+            onToolChange={setSelectedTool}
+            onToolSettingsChange={setToolSettings}
+            onGridSnapChange={setGridSnapEnabled}
+            onPlatformPropertyChange={(property, value) => {
+              // TODO: Communicate with Phaser game to update platform
+              console.log('Update platform property:', property, value);
+            }}
+            onLoadMap={(mapName) => {
+              // TODO: Load different map
+              console.log('Load map:', mapName);
+            }}
+            onNewMap={async (newMapData) => {
+              try {
+                // Create the new map structure
+                const mapData = {
+                  metadata: {
+                    name: newMapData.name,
+                    difficulty: newMapData.difficulty,
+                    description: newMapData.description,
+                    modified: new Date().toISOString()
+                  },
+                  dimensions: {
+                    width: newMapData.width,
+                    height: newMapData.height
+                  },
+                  entities: {
+                    wormStart: { x: 200, y: newMapData.height - 200 },
+                    goal: { x: newMapData.width - 200, y: 200 }
+                  },
+                  platforms: []
+                };
+                
+                // Save the new map
+                const formData = new FormData();
+                formData.append("mapData", JSON.stringify(mapData));
+                
+                const response = await fetch(`/api/maps/${newMapData.filename}.json`, {
+                  method: 'POST',
+                  body: formData
+                });
+                
+                if (response.ok) {
+                  // Navigate to the new map editor
+                  window.location.href = `/maps/${newMapData.filename}.json/edit`;
+                } else {
+                  alert('Failed to create new map');
+                }
+              } catch (error) {
+                console.error('Error creating new map:', error);
+                alert('Error creating new map');
+              }
+            }}
+            onSaveToLibrary={() => {
+              // Use existing save functionality
+              if ((window as any).saveMap) {
+                (window as any).saveMap();
+                
+                // Clear map cache so main game will reload updated data
+                if ((window as any).clearMapCache) {
+                  (window as any).clearMapCache();
+                }
+              }
+            }}
+            onExportJSON={() => {
+              // TODO: Export JSON
+              console.log('Export JSON');
+            }}
+            onImportJSON={(file) => {
+              // TODO: Import JSON
+              console.log('Import JSON:', file);
+            }}
+          />
       </div>
     </>
   );
@@ -362,7 +521,7 @@ export default function MapEdit() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 20px',
-          zIndex: 1000
+          zIndex: 10000
         }}
       >
         <div>
@@ -375,8 +534,8 @@ export default function MapEdit() {
         </div>
         
         <div style={{ display: 'flex', gap: '10px' }}>
-          <Link
-            to="/maps"
+          <a
+            href="/maps"
             style={{
               background: '#6b7280',
               color: 'white',
@@ -386,19 +545,22 @@ export default function MapEdit() {
             }}
           >
             Back to Maps
-          </Link>
+          </a>
         </div>
       </div>
       
-      {/* Client-only Map Editor */}
+      {/* Client-only Map Editor with Property Panel */}
       <div 
         style={{ 
           width: '100%', 
           height: '100%',
-          paddingTop: '60px'
+          paddingTop: '60px',
+          display: 'flex'
         }}
       >
-        <MapEditorClient mapData={mapData} filename={filename || ''} />
+        <div style={{ flex: 1 }}>
+          <MapEditorClient mapData={mapData} filename={filename || ''} />
+        </div>
       </div>
     </div>
   );

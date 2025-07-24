@@ -316,7 +316,7 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     createRectanglePlatform(platformData) {
-        const { x, y, width, height, color = "#ff6b6b" } = platformData;
+        const { x, y, width, height, color = "#ff6b6b", angle = 0 } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, width/height are in pixels
         const centerX = x;
@@ -330,11 +330,17 @@ export default class JsonMapBase extends BaseLevelScene {
         
         const visual = this.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, parseInt(color.replace('#', '0x')));
         
+        // Apply rotation if specified
+        if (angle !== 0) {
+            this.matter.body.setAngle(body, angle);
+            visual.setRotation(angle);
+        }
+        
         return { body, visual };
     }
     
     createCirclePlatform(platformData) {
-        const { x, y, radius, color = "#4ecdc4" } = platformData;
+        const { x, y, radius, color = "#4ecdc4", angle = 0 } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, radius in pixels
         const centerX = x;
@@ -347,11 +353,18 @@ export default class JsonMapBase extends BaseLevelScene {
         
         const visual = this.add.circle(centerX, centerY, pixelRadius, parseInt(color.replace('#', '0x')));
         
+        // Apply rotation if specified (though visually irrelevant for circles)
+        if (angle !== 0) {
+            this.matter.body.setAngle(body, angle);
+            visual.setRotation(angle);
+        }
+        
         return { body, visual };
     }
     
     createPolygonPlatform(platformData) {
-        const { x, y, sides, radius, rotation = 0, color = "#95e1d3" } = platformData;
+        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3" } = platformData;
+        const actualRotation = rotation || angle; // Support both 'rotation' and 'angle' properties
         
         // Use pixel coordinates directly - x,y is center position, radius in pixels
         const centerX = x;
@@ -361,7 +374,7 @@ export default class JsonMapBase extends BaseLevelScene {
         // Create regular polygon vertices
         const vertices = [];
         for (let i = 0; i < sides; i++) {
-            const angle = (2 * Math.PI * i / sides) + rotation;
+            const angle = (2 * Math.PI * i / sides) + actualRotation;
             vertices.push({
                 x: centerX + pixelRadius * Math.cos(angle),
                 y: centerY + pixelRadius * Math.sin(angle)
@@ -379,7 +392,7 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     createTrapezoidPlatform(platformData) {
-        const { x, y, width, height, slope = 0, color = "#feca57" } = platformData;
+        const { x, y, width, height, slope = 0, color = "#feca57", angle = 0 } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, width/height in pixels
         const centerX = x;
@@ -406,11 +419,17 @@ export default class JsonMapBase extends BaseLevelScene {
         // Create visual trapezoid
         const visual = this.add.polygon(centerX, centerY, vertices, parseInt(color.replace('#', '0x')));
         
+        // Apply rotation if specified
+        if (angle !== 0) {
+            this.matter.body.setAngle(body, angle);
+            visual.setRotation(angle);
+        }
+        
         return { body, visual };
     }
     
     createCustomPlatform(platformData) {
-        const { vertices, color = "#a29bfe" } = platformData;
+        const { vertices, color = "#a29bfe", angle = 0 } = platformData;
         
         // Use pixel coordinates directly - vertices are already in world coordinates
         const pixelVertices = vertices;
@@ -425,6 +444,12 @@ export default class JsonMapBase extends BaseLevelScene {
         
         // Create visual polygon
         const visual = this.add.polygon(centerX, centerY, pixelVertices, parseInt(color.replace('#', '0x')));
+        
+        // Apply rotation if specified
+        if (angle !== 0) {
+            this.matter.body.setAngle(body, angle);
+            visual.setRotation(angle);
+        }
         
         return { body, visual };
     }

@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "name": "Try Angles",
+    "difficulty": 1,
+    "description": "",
+    "modified": "2025-07-24T17:10:56.189Z"
+  },
+  "dimensions": {
+    "width": 1000,
+    "height": 1000
+  },
+  "entities": {
+    "wormStart": {
+      "x": 932,
+      "y": 528
+    },
+    "goal": {
+      "x": 800,
+      "y": 200
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1753376364464",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 176,
+      "y": 543,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 1193,
+      "height": 67,
+      "angle": 0.6808707331966737
+    },
+    {
+      "id": "platform_1753376366495",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 876,
+      "y": 373,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 726,
+      "height": 69,
+      "angle": -0.8167008387322117
+    },
+    {
+      "id": "platform_1753376622885",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 227,
+      "y": 186,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 810,
+      "height": 60,
+      "angle": 0.7401324860317139
+    },
+    {
+      "id": "platform_1753376928347",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 672,
+      "y": 932,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 259,
+      "height": 79,
+      "angle": -0.8374948639838635
+    }
+  ]
+}

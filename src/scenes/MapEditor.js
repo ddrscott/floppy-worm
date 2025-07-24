@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import * as dat from 'dat.gui';
+// import * as dat from 'dat.gui'; // Replaced with React PropertyPanel
 import DoubleWorm from '../entities/DoubleWorm';
 import PlatformBase from '../entities/PlatformBase';
 import IcePlatform from '../entities/IcePlatform';
@@ -31,7 +31,7 @@ export default class MapEditor extends Phaser.Scene {
         this.CHAR_WIDTH = 96;
         this.CHAR_HEIGHT = 48;
         this.ROW_SPACING = 96;
-        this.gridSnapEnabled = true;
+        // Note: gridSnapEnabled is now read from React PropertyPanel via window.editorCallbacks
         
         // Map settings
         this.mapData = {
@@ -161,8 +161,43 @@ export default class MapEditor extends Phaser.Scene {
         this.cameras.main.setZoom(0.8);
         this.cameras.main.centerOn(levelWidth / 2, levelHeight / 2);
         
+        // Add camera info display
+        this.createCameraInfoDisplay();
+        
         // Create GUI
-        this.setupGUI();
+        // this.setupGUI(); // Replaced with React PropertyPanel
+    }
+    
+    createCameraInfoDisplay() {
+        // Create camera info text display
+        this.cameraInfoText = this.add.text(10, 10, '', {
+            fontSize: '14px',
+            fill: '#ffffff',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            padding: { x: 8, y: 4 }
+        }).setScrollFactor(0).setDepth(1000);
+        
+        // Create controls help text
+        this.controlsHelpText = this.add.text(10, this.cameras.main.height - 100, 
+            'Controls:\nIJKL/Arrows: Move camera\nWASD: Control worm (test mode)\nMouse wheel: Scroll vertically\nShift+wheel: Scroll horizontally\nCtrl+wheel: Zoom in/out\nMiddle mouse: Pan\nDouble-click: Create platform', {
+            fontSize: '12px',
+            fill: '#ffffff',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            padding: { x: 8, y: 4 }
+        }).setScrollFactor(0).setDepth(1000);
+        
+        this.updateCameraInfoDisplay();
+    }
+    
+    updateCameraInfoDisplay() {
+        if (this.cameraInfoText) {
+            const camera = this.cameras.main;
+            const x = Math.round(camera.scrollX);
+            const y = Math.round(camera.scrollY);
+            const zoom = (camera.zoom * 100).toFixed(0);
+            
+            this.cameraInfoText.setText(`Camera: (${x}, ${y}) | Zoom: ${zoom}%`);
+        }
     }
     
     getSavedMaps() {
@@ -206,6 +241,14 @@ export default class MapEditor extends Phaser.Scene {
             
             console.log('MapEditor initialized with entities:', this.entities);
         }
+    }
+    
+    // Helper method to get current grid snap state from React PropertyPanel
+    getGridSnapEnabled() {
+        if (typeof window !== 'undefined' && window.editorCallbacks) {
+            return window.editorCallbacks.gridSnapEnabled;
+        }
+        return true; // Default fallback
     }
     
     autoSave() {
@@ -341,7 +384,7 @@ export default class MapEditor extends Phaser.Scene {
         
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             if (!this.isTestMode) {
-                if (this.gridSnapEnabled) {
+                if (this.getGridSnapEnabled()) {
                     dragX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
                     dragY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
                 }
@@ -421,7 +464,7 @@ export default class MapEditor extends Phaser.Scene {
             
             // Handle platform movement
             if (gameObject.platformData && !gameObject.handleType) {
-                if (this.gridSnapEnabled) {
+                if (this.getGridSnapEnabled()) {
                     dragX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
                     dragY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
                 }
@@ -497,7 +540,7 @@ export default class MapEditor extends Phaser.Scene {
         let relativeX = dragX;
         let relativeY = dragY;
         
-        if (this.gridSnapEnabled) {
+        if (this.getGridSnapEnabled()) {
             relativeX = Math.round(relativeX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
             relativeY = Math.round(relativeY / this.ROW_SPACING) * this.ROW_SPACING;
         }
@@ -727,15 +770,66 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-TAB', () => this.toggleTestMode());
         this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
         
-        // Set up worm controls for test mode
+        // Set up controls
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         
-        // Camera controls - scroll to pan camera
+        // Use different keys for camera to avoid worm control conflicts
+        this.cameraKeys = this.input.keyboard.addKeys('I,J,K,L'); // IJKL for camera
+        
+        // Camera controls - mouse wheel scroll (with Ctrl+wheel for zoom)
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
             const camera = this.cameras.main;
-            const panSpeed = 50 / camera.zoom;
-            camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
+            
+            // Prevent default browser scroll
+            if (pointer.event) {
+                pointer.event.preventDefault();
+            }
+            
+            // Check if Ctrl is held for zoom, otherwise scroll
+            if (pointer.event && pointer.event.ctrlKey) {
+                // Zoom mode with Ctrl+wheel
+                const zoomSpeed = 0.1;
+                const oldZoom = camera.zoom;
+                
+                if (deltaY < 0) {
+                    // Zoom in
+                    camera.zoom = Phaser.Math.Clamp(camera.zoom + zoomSpeed, 0.2, 3.0);
+                } else {
+                    // Zoom out
+                    camera.zoom = Phaser.Math.Clamp(camera.zoom - zoomSpeed, 0.2, 3.0);
+                }
+                
+                // Zoom towards mouse cursor position
+                if (camera.zoom !== oldZoom) {
+                    const worldPoint = camera.getWorldPoint(pointer.x, pointer.y);
+                    const zoomRatio = camera.zoom / oldZoom;
+                    
+                    // Adjust camera position to zoom towards cursor
+                    camera.scrollX += (worldPoint.x - camera.scrollX) * (1 - 1/zoomRatio);
+                    camera.scrollY += (worldPoint.y - camera.scrollY) * (1 - 1/zoomRatio);
+                }
+            } else {
+                // Pan mode - normal wheel scrolling
+                const panSpeed = 20 / camera.zoom; // Adjust speed based on zoom level
+                
+                if (pointer.event && pointer.event.shiftKey) {
+                    // Shift+wheel = horizontal scroll
+                    camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
+                } else {
+                    // Normal wheel = vertical scroll
+                    camera.scrollY += deltaY > 0 ? panSpeed : -panSpeed;
+                }
+            }
+            
+            // Constrain camera to bounds
+            const mapWidth = this.mapData.dimensions.width;
+            const mapHeight = this.mapData.dimensions.height;
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+            
+            // Update camera info display
+            this.updateCameraInfoDisplay();
         });
         
         // Pan with middle mouse
@@ -744,6 +838,15 @@ export default class MapEditor extends Phaser.Scene {
                 const camera = this.cameras.main;
                 camera.scrollX -= pointer.velocity.x / camera.zoom;
                 camera.scrollY -= pointer.velocity.y / camera.zoom;
+                
+                // Constrain to bounds
+                const mapWidth = this.mapData.dimensions.width;
+                const mapHeight = this.mapData.dimensions.height;
+                camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
+                camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+                
+                // Update camera info display
+                this.updateCameraInfoDisplay();
             }
         });
         
@@ -784,7 +887,7 @@ export default class MapEditor extends Phaser.Scene {
     
     createDefaultPlatform(x, y) {
         let snapX = x, snapY = y;
-        if (this.gridSnapEnabled) {
+        if (this.getGridSnapEnabled()) {
             snapX = Math.round(x / this.CHAR_WIDTH) * this.CHAR_WIDTH;
             snapY = Math.round(y / this.ROW_SPACING) * this.ROW_SPACING;
         }
@@ -1182,9 +1285,9 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         // Update GUI button
-        if (this.gui && this.testModeController) {
-            this.testModeController.updateDisplay();
-        }
+        // if (this.gui && this.testModeController) {
+        //     this.testModeController.updateDisplay();
+        // }
     }
     
     enterTestMode() {
@@ -1886,10 +1989,10 @@ export default class MapEditor extends Phaser.Scene {
                 'fire': '#f44336'
             };
             this.toolSettings.platformColor = colors[value] || '#ff6b6b';
-            this.gui.updateDisplay();
+            // this.gui.updateDisplay(); // Replaced with React PropertyPanel
         });
         toolsFolder.addColor(this.toolSettings, 'platformColor').name('Platform Color');
-        toolsFolder.add(this, 'gridSnapEnabled').name('Snap to Grid');
+        // Note: Grid snap is now controlled by React PropertyPanel
         toolsFolder.open();
         
         // Physics Properties folder
@@ -2045,7 +2148,7 @@ TESTING TIPS:
     updateGUIFromMapData() {
         if (this.gui) {
             // Refresh GUI controllers to reflect loaded data
-            this.gui.updateDisplay();
+            // this.gui.updateDisplay(); // Replaced with React PropertyPanel
         }
     }
     
@@ -2054,7 +2157,52 @@ TESTING TIPS:
         // This could expand to show platform-specific settings
     }
     
+    updateCameraControls(delta) {
+        const camera = this.cameras.main;
+        const cameraSpeed = 200 / camera.zoom; // Adjust speed based on zoom level
+        const moveDistance = (cameraSpeed * delta) / 1000; // Convert to pixels per frame
+        
+        // IJKL and arrow key camera movement
+        let moved = false;
+        
+        if (this.cameraKeys.I.isDown || this.cursors.up.isDown) {
+            camera.scrollY -= moveDistance;
+            moved = true;
+        }
+        if (this.cameraKeys.K.isDown || this.cursors.down.isDown) {
+            camera.scrollY += moveDistance;
+            moved = true;
+        }
+        if (this.cameraKeys.J.isDown || this.cursors.left.isDown) {
+            camera.scrollX -= moveDistance;
+            moved = true;
+        }
+        if (this.cameraKeys.L.isDown || this.cursors.right.isDown) {
+            camera.scrollX += moveDistance;
+            moved = true;
+        }
+        
+        // Constrain camera to map bounds
+        if (moved) {
+            const bounds = camera.getBounds();
+            const mapWidth = this.mapData.dimensions.width;
+            const mapHeight = this.mapData.dimensions.height;
+            
+            // Keep camera within map bounds
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, mapWidth - camera.width / camera.zoom);
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, mapHeight - camera.height / camera.zoom);
+            
+            // Update camera info display
+            this.updateCameraInfoDisplay();
+        }
+    }
+    
     update(time, delta) {
+        // Camera controls (only when not in test mode)
+        if (!this.isTestMode) {
+            this.updateCameraControls(delta);
+        }
+        
         if (this.isTestMode && this.testWorm) {
             this.testWorm.update(delta);
             
@@ -2184,6 +2332,17 @@ TESTING TIPS:
         }
         
         return false;
+    }
+    
+    destroy() {
+        // Clean up dat.gui instance
+        // if (this.gui) {
+        //     this.gui.destroy();
+        //     this.gui = null;
+        // }
+        
+        // Call parent destroy
+        super.destroy();
     }
     
 }
