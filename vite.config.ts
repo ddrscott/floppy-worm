@@ -14,5 +14,11 @@ export default defineConfig({
     ],
     server: {
         port: 3001
-    }
+    },
+    optimizeDeps: {
+        include: ["phaser", "dat.gui"],
+    },
+    define: {
+        global: "globalThis",
+    },
 });

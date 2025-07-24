@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import * as dat from 'dat.gui';
-import JsonMapBase from './JsonMapBase';
 import DoubleWorm from '../entities/DoubleWorm';
 import PlatformBase from '../entities/PlatformBase';
 import IcePlatform from '../entities/IcePlatform';
@@ -87,9 +86,28 @@ export default class MapEditor extends Phaser.Scene {
         // Turn off debug rendering initially
         this.matter.world.drawDebug = false;
         
-        // Use pixel dimensions directly
-        const levelWidth = this.mapData.dimensions.width;
-        const levelHeight = this.mapData.dimensions.height;
+        // Re-check for server data in case it wasn't available during constructor
+        if (typeof window !== 'undefined' && window.serverMapData && !this.mapData.dimensions) {
+            console.log('Late initialization with server map data:', window.serverMapData);
+            this.mapData = window.serverMapData;
+            this.entities = window.serverMapData.entities || this.entities;
+        }
+        
+        // Ensure entities is properly initialized with fallbacks
+        if (!this.entities || !this.entities.wormStart) {
+            console.log('Entities not properly initialized, using fallbacks');
+            this.entities = {
+                wormStart: this.mapData.entities?.wormStart || { x: 200, y: 900 },
+                goal: this.mapData.entities?.goal || { x: 1700, y: 200 }
+            };
+        }
+        
+        // Use pixel dimensions directly with fallbacks
+        const levelWidth = this.mapData.dimensions?.width || 1920;
+        const levelHeight = this.mapData.dimensions?.height || 1152;
+        
+        console.log('MapEditor create() - dimensions:', { width: levelWidth, height: levelHeight });
+        console.log('MapEditor create() - mapData:', this.mapData);
         
         // Set world bounds
         this.matter.world.setBounds(0, 0, levelWidth, levelHeight, 1000);
@@ -177,11 +195,16 @@ export default class MapEditor extends Phaser.Scene {
         if (typeof window !== 'undefined' && window.serverMapData) {
             console.log('Initializing editor with server map data:', window.serverMapData);
             this.mapData = window.serverMapData;
-            this.entities = window.serverMapData.entities;
+            this.entities = window.serverMapData.entities || {
+                wormStart: { x: 200, y: 900 },
+                goal: { x: 1700, y: 200 }
+            };
             this.platforms = []; // Will be rebuilt from mapData.platforms
             
             // Store reference globally so server can access the scene
             window.mapEditorScene = this;
+            
+            console.log('MapEditor initialized with entities:', this.entities);
         }
     }
     
@@ -277,6 +300,15 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createEntitySprites() {
+        // Ensure entities exist before accessing them
+        if (!this.entities || !this.entities.wormStart) {
+            console.error('Entities not available in createEntitySprites, using defaults');
+            this.entities = {
+                wormStart: { x: 200, y: 900 },
+                goal: { x: 1700, y: 200 }
+            };
+        }
+        
         // Create worm start indicator using pixel coordinates
         const wormX = this.entities.wormStart.x;
         const wormY = this.entities.wormStart.y;
