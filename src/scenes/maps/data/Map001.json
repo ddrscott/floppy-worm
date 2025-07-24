@@ -3,7 +3,7 @@
     "name": "Left",
     "difficulty": 1,
     "description": "Learn the basics of worm movement",
-    "modified": "2025-07-24T16:42:53.744Z"
+    "modified": "2025-07-24T18:12:35.721Z"
   },
   "dimensions": {
     "width": 1024,
@@ -15,8 +15,8 @@
       "y": 50
     },
     "goal": {
-      "x": 192,
-      "y": 96
+      "x": 384,
+      "y": 384
     }
   },
   "platforms": []
