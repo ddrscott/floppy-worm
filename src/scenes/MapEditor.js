@@ -69,15 +69,18 @@ export default class MapEditor extends Phaser.Scene {
         this.goalSprite = null;
         this.testWorm = null;
         
-        // Auto-save settings
+        // Auto-save settings - 100ms delay as requested for server integration
         this.autoSaveTimer = null;
-        this.autoSaveDelay = 1000; // Auto-save 1 second after last change
+        this.autoSaveDelay = 100; // Auto-save 100ms after last change
         
         // Saved maps list
         this.savedMaps = this.getSavedMaps();
         
         // Try to restore the current editing session
         this.restoreEditingSession();
+        
+        // Check for server-provided map data
+        this.initializeWithServerData();
     }
     
     create() {
@@ -166,6 +169,19 @@ export default class MapEditor extends Phaser.Scene {
             }
         } catch (e) {
             console.warn('Failed to restore editing session:', e);
+        }
+    }
+    
+    initializeWithServerData() {
+        // Check if we're running in server mode with provided map data
+        if (typeof window !== 'undefined' && window.serverMapData) {
+            console.log('Initializing editor with server map data:', window.serverMapData);
+            this.mapData = window.serverMapData;
+            this.entities = window.serverMapData.entities;
+            this.platforms = []; // Will be rebuilt from mapData.platforms
+            
+            // Store reference globally so server can access the scene
+            window.mapEditorScene = this;
         }
     }
     
@@ -1790,7 +1806,10 @@ export default class MapEditor extends Phaser.Scene {
             });
         }
         
-        const mapActions = {
+        // Different actions based on whether we're running in server mode
+        const mapActions = this.isRunningInServerMode() ? {
+            'Save': () => this.saveToServer()
+        } : {
             'New Map': () => this.newMap(),
             'Save to Library': () => this.saveMapToLibrary(),
             'Export JSON': () => this.exportJSON(),
@@ -1970,6 +1989,18 @@ TESTING TIPS:
         // Initialize selected saved map if any exist
         if (Object.keys(this.savedMaps).length > 0) {
             this.selectedSavedMap = Object.keys(this.savedMaps)[0];
+        }
+    }
+    
+    isRunningInServerMode() {
+        return typeof window !== 'undefined' && window.serverMapData && window.saveCurrentMap;
+    }
+    
+    saveToServer() {
+        if (typeof window !== 'undefined' && window.saveCurrentMap) {
+            window.saveCurrentMap();
+        } else {
+            console.warn('Server save function not available');
         }
     }
     
