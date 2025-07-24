@@ -1,21 +1,24 @@
-import { useRef } from 'react';
-import { IRefPhaserGame, PhaserGame } from './PhaserGame';
+import { ClientOnly } from './components/ClientOnly';
+import { MainGame } from './components/MainGame';
 
-function App()
-{
-    //  References to the PhaserGame component (game and scene are exposed)
-    const phaserRef = useRef<IRefPhaserGame | null>(null);
-
-    // Event emitted from the PhaserGame component
-    const currentScene = (scene: Phaser.Scene) => {
-        // Handle scene changes if needed
-        console.log('Current scene:', scene.scene.key);
-    }
-
+function App() {
     return (
-        <div id="app" style={{ width: '100vw', height: '100vh' }}>
-            <PhaserGame ref={phaserRef} currentActiveScene={currentScene} />
-        </div>
+        <ClientOnly
+            fallback={
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: '100vh',
+                    background: '#232333',
+                    color: 'white'
+                }}>
+                    Loading Floppy Worm...
+                </div>
+            }
+        >
+            <MainGame />
+        </ClientOnly>
     )
 }
 
