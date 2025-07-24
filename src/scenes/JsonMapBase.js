@@ -1005,14 +1005,15 @@ export default class JsonMapBase extends BaseLevelScene {
             });
         }
         
-        // Hide from minimap
+        // Hide from minimap (collect all UI elements)
+        const uiElements = [overlay, dialogBg, victoryText, completionText];
+        
         if (this.minimap) {
-            this.minimap.ignore(overlay);
-            this.minimap.ignore(dialogBg);
-            this.minimap.ignore(victoryText);
-            this.minimap.ignore(completionText);
-            this.minimap.ignore(menuButton);
-            this.minimap.ignore(menuText);
+            uiElements.forEach(element => {
+                if (element) {
+                    this.minimap.ignore(element);
+                }
+            });
         }
         
         // Celebration effect
