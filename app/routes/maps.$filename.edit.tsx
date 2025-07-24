@@ -31,7 +31,12 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
     frictionStatic: 0.9,
     restitution: 0.3,
     polygonSides: 6,
-    trapezoidSlope: 0.5
+    trapezoidSlope: 0.5,
+    // Sticker settings
+    stickerText: 'New Sticker',
+    stickerPreset: 'tip',
+    stickerFontSize: '18px',
+    stickerColor: '#ffffff'
   });
 
   useEffect(() => {

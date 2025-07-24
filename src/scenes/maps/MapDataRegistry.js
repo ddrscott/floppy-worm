@@ -9,6 +9,8 @@ import Map002Data from './data/Map002.json';
 import SwingMapData from './data/Swing.json';
 import TowerData from './data/Tower.json';
 import TryAnglesData from './data/Try-angles.json';
+import Electric from './data/Electric-Slide.json';
+
 
 // Static registry for production
 const STATIC_MAP_REGISTRY = {
@@ -17,6 +19,7 @@ const STATIC_MAP_REGISTRY = {
     'Swing': SwingMapData,
     'Tower': TowerData,
     'Try-angles': TryAnglesData,
+    'Electric-Slide': Electric
 };
 
 // Dynamic map discovery - no need for hardcoded lists in development

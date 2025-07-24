@@ -3,7 +3,7 @@
     "name": "Tower",
     "difficulty": 3,
     "description": "Climb the challenging tower with alternating platforms",
-    "modified": "2025-07-24T16:43:27.170Z"
+    "modified": "2025-07-24T20:15:12.603Z"
   },
   "dimensions": {
     "width": 1600,
@@ -180,8 +180,8 @@
       "angle": 0.6202167500038069
     },
     {
-      "x": 864,
-      "y": 480,
+      "x": 859,
+      "y": 432,
       "width": 576,
       "height": 48,
       "type": "rectangle",
@@ -207,5 +207,6 @@
       },
       "angle": -0.01343456356411088
     }
-  ]
+  ],
+  "stickers": []
 }

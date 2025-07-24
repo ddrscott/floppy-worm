@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "name": "Electric Slide",
+    "difficulty": 1,
+    "description": "",
+    "modified": "2025-07-24T23:49:00.827Z"
+  },
+  "dimensions": {
+    "width": 1920,
+    "height": 800
+  },
+  "entities": {
+    "wormStart": {
+      "x": 1768,
+      "y": 114
+    },
+    "goal": {
+      "x": 192,
+      "y": 384
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1753400467415",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 672,
+      "y": 864,
+      "rotation": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 1728,
+      "height": 192,
+      "angle": -0.019825503310556547
+    },
+    {
+      "id": "platform_1753400469182",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 768,
+      "y": 576,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 382,
+      "height": 87
+    },
+    {
+      "id": "platform_1753400536719",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1728,
+      "y": 672,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 1261,
+      "height": 98,
+      "angle": -0.4217328028130105
+    }
+  ],
+  "stickers": []
+}
