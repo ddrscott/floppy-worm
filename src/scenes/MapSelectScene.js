@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { loadMapMetadata, createMapScene } from './maps/MapDataRegistry';
+import { loadMapMetadata, createMapScene, getMapKeys } from './maps/MapDataRegistry';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -500,7 +500,6 @@ export function completeMap(mapKey) {
             progress[mapKey].completed = true;
             
             // Find and unlock next map using the data registry
-            const { getMapKeys } = require('./maps/MapDataRegistry');
             const mapKeys = getMapKeys();
             
             const currentIndex = mapKeys.indexOf(mapKey);
