@@ -892,11 +892,29 @@ export default class JsonMapBase extends BaseLevelScene {
         // Call parent victory (handles worm cleanup and victory state)
         super.victory();
         
+        // Load map keys and set up victory UI asynchronously
+        this.setupVictoryUI();
+    }
+    
+    async setupVictoryUI() {
         // Determine if there's a next level
-        const mapKeys = getMapKeys();
-        const currentIndex = mapKeys.indexOf(this.scene.key);
-        const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
-        const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
+        let mapKeys = [];
+        let currentIndex = -1;
+        let hasNext = false;
+        let nextMapKey = null;
+        
+        try {
+            mapKeys = await getMapKeys();
+            currentIndex = mapKeys.indexOf(this.scene.key);
+            hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
+            nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
+        } catch (error) {
+            console.warn('Failed to load map keys for victory screen:', error);
+        }
+        
+        // Store for use in update method
+        this.hasNextLevel = hasNext;
+        this.nextMapKey = nextMapKey;
         
         // Create dark overlay
         const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.8);
