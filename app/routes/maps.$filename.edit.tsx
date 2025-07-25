@@ -25,7 +25,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
   const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
   
   const [toolSettings, setToolSettings] = useState({
-    platformType: 'normal',
+    platformType: 'standard',
     platformColor: '#ff6b6b',
     friction: 0.8,
     frictionStatic: 0.9,
@@ -58,11 +58,16 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
 
   // Update toolSettings when a platform is selected
   useEffect(() => {
+    console.log('React: selectedPlatform changed:', selectedPlatform);
     if (selectedPlatform && selectedPlatform.data) {
       const platformData = selectedPlatform.data;
+      console.log('React: Platform data received:', JSON.stringify(platformData, null, 2));
+      console.log('React: platformData.type =', platformData.type);
+      console.log('React: platformData.platformType =', platformData.platformType);
+      
       setToolSettings(prevSettings => ({
         ...prevSettings,
-        platformType: platformData.platformType || 'normal',
+        platformType: platformData.platformType || platformData.type || 'standard',
         platformColor: platformData.color || prevSettings.platformColor,
         friction: platformData.friction ?? prevSettings.friction,
         frictionStatic: platformData.frictionStatic ?? prevSettings.frictionStatic,
@@ -258,63 +263,8 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
 
   return (
     <>
-      {/* Save Status */}
-      {saveStatus.state !== 'idle' && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '70px',
-            right: '20px',
-            zIndex: 10001,
-            background: 'rgba(0,0,0,0.8)',
-            padding: '8px 12px',
-            borderRadius: '4px'
-          }}
-        >
-          {saveStatus.state === 'submitting' && (
-            <span style={{ color: '#fbbf24' }}>Saving...</span>
-          )}
-          
-          {saveStatus.state === 'success' && (
-            <span style={{ color: '#10b981' }}>Saved!</span>
-          )}
-          
-          {saveStatus.state === 'error' && (
-            <span style={{ color: '#ef4444' }}>Error: {saveStatus.error}</span>
-          )}
-        </div>
-      )}
-
-      {/* Save Button */}
-      <div 
-        style={{
-          position: 'absolute',
-          top: '70px',
-          left: '20px',
-          zIndex: 10001
-        }}
-      >
-        <button
-          onClick={() => {
-            if ((window as any).saveMap) {
-              (window as any).saveMap();
-            }
-          }}
-          style={{
-            background: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Save Map
-        </button>
-      </div>
-
       {/* Main Editor Layout */}
-      <div style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+      <div style={{ display: 'flex', height: '100vh' }}>
         {/* Game Container */}
         <div 
           style={{ 
@@ -353,16 +303,32 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
             toolSettings={toolSettings}
             gridSnapEnabled={gridSnapEnabled}
             selectedPlatform={selectedPlatform}
+            filename={filename}
+            saveStatus={saveStatus}
             onMapMetadataChange={setMapMetadata}
             onMapDimensionsChange={setMapDimensions}
             onToolChange={setSelectedTool}
             onToolSettingsChange={setToolSettings}
             onGridSnapChange={setGridSnapEnabled}
+            onSaveMap={() => {
+              if ((window as any).saveMap) {
+                (window as any).saveMap();
+              }
+            }}
             onPlatformPropertyChange={(property, value) => {
               // Communicate with Phaser game to update platform
+              console.log('PropertyPanel: onPlatformPropertyChange called', { property, value });
+              console.log('PropertyPanel: window.game =', (window as any).game);
+              
               const scene = (window as any).game?.scene?.getScene('MapEditor');
+              console.log('PropertyPanel: scene =', scene);
+              console.log('PropertyPanel: scene.selectedPlatform =', scene?.selectedPlatform);
+              
               if (scene && scene.selectedPlatform) {
+                console.log('PropertyPanel: calling scene.updatePlatformProperty');
                 scene.updatePlatformProperty(property, value);
+              } else {
+                console.warn('PropertyPanel: Cannot update platform property - scene or selectedPlatform not available');
               }
             }}
             onLoadMap={(mapName) => {
@@ -535,54 +501,11 @@ export default function MapEdit() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* Header UI */}
-      <div 
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '60px',
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 20px',
-          zIndex: 10000
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: '18px' }}>
-            Editing: {filename}
-          </h1>
-          <p style={{ margin: 0, fontSize: '12px', opacity: 0.7 }}>
-            Press Ctrl/Cmd+S to save
-          </p>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <a
-            href="/maps"
-            style={{
-              background: '#6b7280',
-              color: 'white',
-              textDecoration: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px'
-            }}
-          >
-            Back to Maps
-          </a>
-        </div>
-      </div>
-      
       {/* Client-only Map Editor with Property Panel */}
       <div 
         style={{ 
           width: '100%', 
           height: '100%',
-          paddingTop: '60px',
           display: 'flex'
         }}
       >

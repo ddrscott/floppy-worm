@@ -3,7 +3,7 @@
     "name": "Tower",
     "difficulty": 3,
     "description": "Climb the challenging tower with alternating platforms",
-    "modified": "2025-07-24T20:15:12.603Z"
+    "modified": "2025-07-25T22:50:47.540Z"
   },
   "dimensions": {
     "width": 1600,
@@ -11,8 +11,8 @@
   },
   "entities": {
     "wormStart": {
-      "x": 368,
-      "y": 2800
+      "x": 516,
+      "y": 2580
     },
     "goal": {
       "x": 960,
