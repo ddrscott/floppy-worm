@@ -3,8 +3,8 @@ import PlatformBase from './PlatformBase.js';
 export default class ElectricPlatform extends PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
         const electricConfig = {
-            color: 0x9c27b0,         // Purple electric color
-            strokeColor: 0x7b1fa2,   // Darker purple border
+            color: 0xffff00,         // Bright yellow electric color
+            strokeColor: 0xcccc00,   // Darker yellow border
             strokeWidth: 3,
             friction: 0.6,
             restitution: 0.2,
@@ -32,13 +32,14 @@ export default class ElectricPlatform extends PlatformBase {
     createElectricEffects() {
         // Create electric field visualization
         this.electricField = this.scene.add.graphics();
-        this.electricField.setPosition(this.x, this.y);
-        this.electricField.setAngle(this.config.angle);
         this.electricField.setDepth(-1); // Behind the platform
+        
+        // Add electric field to container (positioned at 0,0 relative to container)
+        this.container.add(this.electricField);
         
         // Create spark particle emitter
         try {
-            this.sparkEmitter = this.scene.add.particles(this.x, this.y, '__DEFAULT', {
+            this.sparkEmitter = this.scene.add.particles(0, 0, '__DEFAULT', {
                 scale: { start: 0.1, end: 0 },
                 speed: { min: 50, max: 150 },
                 lifespan: { min: 100, max: 300 },
@@ -51,6 +52,9 @@ export default class ElectricPlatform extends PlatformBase {
                     quantity: 1
                 }
             });
+            
+            // Add particle emitter to container
+            this.container.add(this.sparkEmitter);
         } catch (e) {
             // Fallback: no particles
             this.sparkEmitter = null;
@@ -110,7 +114,7 @@ export default class ElectricPlatform extends PlatformBase {
         
         if (this.isCharged) {
             // Draw electric field lines
-            this.electricField.lineStyle(1, 0x9c27b0, 0.3);
+            this.electricField.lineStyle(1, 0xffff00, 0.3);
             
             const numLines = 6;
             for (let i = 0; i < numLines; i++) {

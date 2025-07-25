@@ -3,8 +3,8 @@ import PlatformBase from './PlatformBase.js';
 export default class BouncyPlatform extends PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
         const bouncyConfig = {
-            color: 0xff9800,         // Orange bouncy color
-            strokeColor: 0xf57c00,   // Darker orange border
+            color: 0xff69b4,         // Pink bouncy color (hot pink)
+            strokeColor: 0xe91e63,   // Darker pink border
             strokeWidth: 4,
             friction: 0.8,           // Good grip for bouncing
             restitution: 2,        // High bounce factor
@@ -12,6 +12,9 @@ export default class BouncyPlatform extends PlatformBase {
         };
         
         super(scene, x, y, width, height, bouncyConfig);
+        
+        // Replace the default rectangle graphics with chamfered corners
+        this.createChamferedGraphics();
         
         // Bouncy-specific properties
         this.bounceForce = config.bounceForce || 0.1; // Increased from 0.003
@@ -26,6 +29,49 @@ export default class BouncyPlatform extends PlatformBase {
         
         // Visual effects
         this.createBouncyEffects();
+    }
+    
+    createChamferedGraphics() {
+        // Remove the default rectangle graphics
+        if (this.graphics) {
+            this.container.remove(this.graphics);
+            this.graphics.destroy();
+        }
+        
+        // Create custom graphics with chamfered corners
+        const chamferSize = Math.min(this.width, this.height) * 0.15; // 15% of the smallest dimension
+        const graphics = this.scene.add.graphics();
+        
+        // Set fill and stroke styles
+        graphics.fillStyle(this.config.color);
+        if (this.config.strokeColor !== null) {
+            graphics.lineStyle(this.config.strokeWidth, this.config.strokeColor);
+        }
+        
+        // Calculate chamfered rectangle points
+        const halfWidth = this.width / 2;
+        const halfHeight = this.height / 2;
+        
+        // Start from top-left, going clockwise
+        graphics.beginPath();
+        graphics.moveTo(-halfWidth + chamferSize, -halfHeight); // Top edge start
+        graphics.lineTo(halfWidth - chamferSize, -halfHeight);  // Top edge end
+        graphics.lineTo(halfWidth, -halfHeight + chamferSize);  // Top-right chamfer
+        graphics.lineTo(halfWidth, halfHeight - chamferSize);   // Right edge
+        graphics.lineTo(halfWidth - chamferSize, halfHeight);   // Bottom-right chamfer
+        graphics.lineTo(-halfWidth + chamferSize, halfHeight);  // Bottom edge
+        graphics.lineTo(-halfWidth, halfHeight - chamferSize);  // Bottom-left chamfer
+        graphics.lineTo(-halfWidth, -halfHeight + chamferSize); // Left edge
+        graphics.closePath(); // Back to start (top-left chamfer)
+        
+        graphics.fillPath();
+        if (this.config.strokeColor !== null) {
+            graphics.strokePath();
+        }
+        
+        // Replace the graphics reference
+        this.graphics = graphics;
+        this.container.add(this.graphics);
     }
     
     createBouncyEffects() {
@@ -55,10 +101,10 @@ export default class BouncyPlatform extends PlatformBase {
         }
         
         springGraphics.strokePath();
-        springGraphics.setPosition(this.x, this.y);
-        springGraphics.setAngle(this.config.angle);
         
+        // Add spring graphics to container (positioned at 0,0 relative to container)
         this.springOverlay = springGraphics;
+        this.container.add(this.springOverlay);
     }
     
     onCollision(segment, collision) {

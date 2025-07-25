@@ -56,6 +56,23 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
     }
   }, [mapMetadata, mapDimensions, selectedTool, gridSnapEnabled, toolSettings]);
 
+  // Update toolSettings when a platform is selected
+  useEffect(() => {
+    if (selectedPlatform && selectedPlatform.data) {
+      const platformData = selectedPlatform.data;
+      setToolSettings(prevSettings => ({
+        ...prevSettings,
+        platformType: platformData.platformType || 'normal',
+        platformColor: platformData.color || prevSettings.platformColor,
+        friction: platformData.friction ?? prevSettings.friction,
+        frictionStatic: platformData.frictionStatic ?? prevSettings.frictionStatic,
+        restitution: platformData.restitution ?? prevSettings.restitution,
+        polygonSides: platformData.polygonSides ?? prevSettings.polygonSides,
+        trapezoidSlope: platformData.trapezoidSlope ?? prevSettings.trapezoidSlope
+      }));
+    }
+  }, [selectedPlatform]);
+
   useEffect(() => {
     // No more dat.gui cleanup needed - using React PropertyPanel
     
@@ -135,6 +152,9 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
 
         // Initialize game
         const game = new Phaser.Game(config);
+        
+        // Store game reference globally for property updates
+        (window as any).game = game;
 
         // Set up save functionality (POST to API)
         const handleSave = async () => {
@@ -339,8 +359,11 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
             onToolSettingsChange={setToolSettings}
             onGridSnapChange={setGridSnapEnabled}
             onPlatformPropertyChange={(property, value) => {
-              // TODO: Communicate with Phaser game to update platform
-              console.log('Update platform property:', property, value);
+              // Communicate with Phaser game to update platform
+              const scene = (window as any).game?.scene?.getScene('MapEditor');
+              if (scene && scene.selectedPlatform) {
+                scene.updatePlatformProperty(property, value);
+              }
             }}
             onLoadMap={(mapName) => {
               // TODO: Load different map

@@ -31,9 +31,10 @@ export default class MapEditor extends Phaser.Scene {
         this.activeResizeHandle = null;
         
         // Grid settings
-        this.CHAR_WIDTH = 96;
+        this.CHAR_WIDTH = 96;  // Visual grid spacing (matches game)
         this.CHAR_HEIGHT = 48;
-        this.ROW_SPACING = 96;
+        this.ROW_SPACING = 96; // Visual grid spacing (matches game)
+        this.SNAP_SIZE = 8;    // Fine snap resolution
         // Note: gridSnapEnabled is now read from React PropertyPanel via window.editorCallbacks
         
         // Map settings
@@ -277,6 +278,24 @@ export default class MapEditor extends Phaser.Scene {
         return true; // Default fallback
     }
     
+    getToolSettings() {
+        // Read tool settings from React PropertyPanel
+        if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.toolSettings) {
+            return window.editorCallbacks.toolSettings;
+        }
+        // Fallback to local toolSettings
+        return this.toolSettings;
+    }
+    
+    getSelectedTool() {
+        // Read selected tool from React PropertyPanel
+        if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.selectedTool) {
+            return window.editorCallbacks.selectedTool;
+        }
+        // Fallback to local selectedTool
+        return this.selectedTool;
+    }
+    
     autoSave() {
         // Clear existing timer
         if (this.autoSaveTimer) {
@@ -416,8 +435,8 @@ export default class MapEditor extends Phaser.Scene {
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             if (!this.isTestMode) {
                 if (this.getGridSnapEnabled()) {
-                    dragX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-                    dragY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
+                    dragX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
+                    dragY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
                 }
                 
                 gameObject.x = dragX;
@@ -573,8 +592,8 @@ export default class MapEditor extends Phaser.Scene {
             // Handle platform movement
             if (gameObject.platformData && !gameObject.handleType) {
                 if (this.getGridSnapEnabled()) {
-                    dragX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-                    dragY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
+                    dragX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
+                    dragY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
                 }
                 
                 gameObject.x = dragX;
@@ -601,8 +620,8 @@ export default class MapEditor extends Phaser.Scene {
                 let newY = dragY;
                 
                 if (this.getGridSnapEnabled()) {
-                    newX = Math.round(dragX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-                    newY = Math.round(dragY / this.ROW_SPACING) * this.ROW_SPACING;
+                    newX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
+                    newY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
                 }
                 
                 gameObject.stickerInstance.setPosition(newX, newY);
@@ -667,8 +686,8 @@ export default class MapEditor extends Phaser.Scene {
         let relativeY = dragY;
         
         if (this.getGridSnapEnabled()) {
-            relativeX = Math.round(relativeX / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            relativeY = Math.round(relativeY / this.ROW_SPACING) * this.ROW_SPACING;
+            relativeX = Math.round(relativeX / this.SNAP_SIZE) * this.SNAP_SIZE;
+            relativeY = Math.round(relativeY / this.SNAP_SIZE) * this.SNAP_SIZE;
         }
         
         if (data.type === 'rectangle' || data.type === 'trapezoid') {
@@ -790,7 +809,11 @@ export default class MapEditor extends Phaser.Scene {
     highlightSelectedPlatform(platform) {
         // Add selection highlight to platform instance
         if (platform.instance && platform.instance.graphics) {
-            platform.instance.graphics.setStrokeStyle(4, 0x00ff00, 1);
+            // Check if graphics object has setStrokeStyle method (standard platforms)
+            if (typeof platform.instance.graphics.setStrokeStyle === 'function') {
+                platform.instance.graphics.setStrokeStyle(4, 0x00ff00, 1);
+            }
+            // For special platforms with custom graphics, we could add other highlighting methods here
         }
     }
     
@@ -948,11 +971,12 @@ export default class MapEditor extends Phaser.Scene {
                 }
             }
             
-            // Constrain camera to bounds
+            // Allow camera to pan beyond world boundaries with margin
             const mapWidth = this.mapData.dimensions.width;
             const mapHeight = this.mapData.dimensions.height;
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
+            const margin = 500; // 500 pixel margin around the world
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, -margin, Math.max(-margin, mapWidth - camera.width / camera.zoom + margin));
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, -margin, Math.max(-margin, mapHeight - camera.height / camera.zoom + margin));
             
             // Update camera info display
             this.updateCameraInfoDisplay();
@@ -1004,7 +1028,8 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         // Create item based on selected tool
-        if (this.selectedTool === 'sticker') {
+        const selectedTool = this.getSelectedTool();
+        if (selectedTool === 'sticker') {
             // Create sticker at pointer location
             let stickerData = this.createDefaultSticker(worldX, worldY);
             
@@ -1026,32 +1051,37 @@ export default class MapEditor extends Phaser.Scene {
     createDefaultPlatform(x, y) {
         let snapX = x, snapY = y;
         if (this.getGridSnapEnabled()) {
-            snapX = Math.round(x / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            snapY = Math.round(y / this.ROW_SPACING) * this.ROW_SPACING;
+            snapX = Math.round(x / this.SNAP_SIZE) * this.SNAP_SIZE;
+            snapY = Math.round(y / this.SNAP_SIZE) * this.SNAP_SIZE;
         }
+        
+        const toolSettings = this.getToolSettings();
+        const selectedTool = this.getSelectedTool();
         
         const defaultSizes = {
             rectangle: { width: 96, height: 48 },
             circle: { radius: 40 },
-            polygon: { radius: 40, sides: this.toolSettings.polygonSides },
-            trapezoid: { width: 96, height: 48, slope: this.toolSettings.trapezoidSlope }
+            polygon: { radius: 40, sides: toolSettings.polygonSides },
+            trapezoid: { width: 96, height: 48, slope: toolSettings.trapezoidSlope }
         };
         
-        const size = defaultSizes[this.selectedTool];
+        const size = defaultSizes[selectedTool];
         if (!size) return null;
+        
+        console.log(`Creating platform data: toolSettings.platformType=${toolSettings.platformType}, toolSettings.platformColor=${toolSettings.platformColor}`);
         
         const baseData = {
             id: `platform_${Date.now()}`,
-            type: this.selectedTool,
-            platformType: this.toolSettings.platformType,
+            type: selectedTool,
+            platformType: toolSettings.platformType,
             x: snapX,
             y: snapY,
             rotation: 0, // Default rotation in radians
-            color: this.toolSettings.platformColor,
+            color: toolSettings.platformColor,
             physics: {
-                friction: this.toolSettings.friction,
-                frictionStatic: this.toolSettings.frictionStatic,
-                restitution: this.toolSettings.restitution
+                friction: toolSettings.friction,
+                frictionStatic: toolSettings.frictionStatic,
+                restitution: toolSettings.restitution
             }
         };
         
@@ -1061,23 +1091,25 @@ export default class MapEditor extends Phaser.Scene {
     createDefaultSticker(x, y) {
         let snapX = x, snapY = y;
         if (this.getGridSnapEnabled()) {
-            snapX = Math.round(x / this.CHAR_WIDTH) * this.CHAR_WIDTH;
-            snapY = Math.round(y / this.ROW_SPACING) * this.ROW_SPACING;
+            snapX = Math.round(x / this.SNAP_SIZE) * this.SNAP_SIZE;
+            snapY = Math.round(y / this.SNAP_SIZE) * this.SNAP_SIZE;
         }
+        
+        const toolSettings = this.getToolSettings();
         
         // Get preset configuration
         const presets = Sticker.getPresets();
-        const presetConfig = presets[this.toolSettings.stickerPreset] || presets.tip;
+        const presetConfig = presets[toolSettings.stickerPreset] || presets.tip;
         
         const stickerData = {
             id: `sticker_${Date.now()}`,
             x: snapX,
             y: snapY,
-            text: this.toolSettings.stickerText,
+            text: toolSettings.stickerText,
             config: {
                 ...presetConfig,
-                fontSize: this.toolSettings.stickerFontSize,
-                color: this.toolSettings.stickerColor
+                fontSize: toolSettings.stickerFontSize,
+                color: toolSettings.stickerColor
             }
         };
         
@@ -1189,6 +1221,8 @@ export default class MapEditor extends Phaser.Scene {
     createPlatformInstance(platformData) {
         const { type, platformType = 'standard', x, y, width, height, radius, color = '#666666', angle = 0 } = platformData;
         
+        console.log(`Creating platform instance: type=${type}, platformType=${platformType}, color=${color}`);
+        
         // Convert color to hex number
         const colorValue = color.startsWith('#') ? parseInt(color.replace('#', '0x')) : 0x666666;
         
@@ -1202,14 +1236,18 @@ export default class MapEditor extends Phaser.Scene {
             platformHeight = height || 50;
         }
         
-        // Create config object
+        // Create config object - only set color for standard platforms
         const config = {
-            color: colorValue,
             angle: angle,
             shape: type === 'circle' ? 'circle' : 'rectangle',
             strokeColor: 0x333333,
             strokeWidth: 2
         };
+        
+        // Only set custom color for standard platforms - special platforms use their built-in colors
+        if (platformType === 'standard' || !platformType) {
+            config.color = colorValue;
+        }
         
         // Create appropriate platform type
         switch(platformType) {
@@ -1267,12 +1305,95 @@ export default class MapEditor extends Phaser.Scene {
             // Add resize handles
             this.addHandlesToPlatform(platform);
         }
+        
+        // Notify React PropertyPanel of platform selection
+        if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+            window.editorCallbacks.onPlatformSelect(platform);
+        }
+    }
+    
+    updatePlatformProperty(property, value) {
+        if (!this.selectedPlatform) return;
+        
+        const platform = this.selectedPlatform;
+        const oldValue = platform.data[property];
+        
+        // Update the data
+        platform.data[property] = value;
+        
+        // Handle position changes
+        if (property === 'x' || property === 'y') {
+            // Update physics body position
+            if (platform.instance && platform.instance.body) {
+                platform.instance.body.setPosition(platform.data.x, platform.data.y);
+            }
+            
+            // Update graphics position
+            if (platform.container) {
+                platform.container.setPosition(platform.data.x, platform.data.y);
+            }
+        }
+        
+        // Handle size changes for rectangles
+        else if ((property === 'width' || property === 'height') && platform.data.shape === 'rectangle') {
+            // Recreate the platform with new dimensions
+            this.recreatePlatform(platform);
+        }
+        
+        // Handle radius changes for circles
+        else if (property === 'radius' && platform.data.shape === 'circle') {
+            // Recreate the platform with new radius
+            this.recreatePlatform(platform);
+        }
+        
+        // Handle other properties that might need platform recreation
+        else if (property === 'friction' || property === 'frictionStatic' || property === 'restitution') {
+            // Update physics properties
+            if (platform.instance && platform.instance.body) {
+                platform.instance.body.setFriction(platform.data.friction || 0.8);
+                platform.instance.body.setFrictionStatic(platform.data.frictionStatic || 0.9);
+                platform.instance.body.setBounce(platform.data.restitution || 0.3);
+            }
+        }
+        
+        console.log(`Updated platform ${property}: ${oldValue} -> ${value}`);
+    }
+    
+    recreatePlatform(platform) {
+        const wasSelected = this.selectedPlatform === platform;
+        const index = this.platforms.indexOf(platform);
+        
+        // Store current position and data
+        const currentData = { ...platform.data };
+        
+        // Remove old platform
+        if (platform.container) {
+            platform.container.destroy();
+        }
+        if (platform.instance && platform.instance.body) {
+            this.matter.world.remove(platform.instance.body);
+        }
+        
+        // Create new platform with updated data
+        const newPlatform = this.addPlatformToScene(currentData);
+        
+        // Replace in platforms array
+        this.platforms[index] = newPlatform;
+        
+        // Restore selection if it was selected
+        if (wasSelected) {
+            this.selectPlatform(newPlatform);
+        }
     }
     
     clearPlatformHighlight(platform) {
         // Reset platform graphics to default styling
         if (platform.instance && platform.instance.graphics) {
-            platform.instance.graphics.setStrokeStyle(2, 0x333333, 1);
+            // Check if graphics object has setStrokeStyle method (standard platforms)
+            if (typeof platform.instance.graphics.setStrokeStyle === 'function') {
+                platform.instance.graphics.setStrokeStyle(2, 0x333333, 1);
+            }
+            // For special platforms with custom graphics, no action needed (they maintain their own styling)
         }
     }
     
@@ -1475,7 +1596,12 @@ export default class MapEditor extends Phaser.Scene {
             // Clear resize handles first
             this.clearHandlesFromContainer(this.selectedPlatform);
             
-            // Remove container (which removes visual and handles)
+            // Destroy the platform instance (which destroys container and physics body)
+            if (this.selectedPlatform.instance && this.selectedPlatform.instance.destroy) {
+                this.selectedPlatform.instance.destroy();
+            }
+            
+            // Also destroy the editor container if it exists separately
             if (this.selectedPlatform.container) {
                 this.selectedPlatform.container.destroy();
             }
@@ -1488,7 +1614,7 @@ export default class MapEditor extends Phaser.Scene {
             
             // Update map data
             this.mapData.platforms = this.platforms.map(p => p.data);
-        this.mapData.stickers = this.stickers.map(s => s.toJSON());
+            this.mapData.stickers = this.stickers.map(s => s.toJSON());
             
             this.selectedPlatform = null;
             this.autoSave();
@@ -2208,8 +2334,8 @@ export default class MapEditor extends Phaser.Scene {
             const colors = {
                 'standard': '#ff6b6b',
                 'ice': '#b3e5fc',
-                'bouncy': '#ff9800', 
-                'electric': '#9c27b0',
+                'bouncy': '#ff69b4', 
+                'electric': '#ffff00',
                 'fire': '#f44336'
             };
             this.toolSettings.platformColor = colors[value] || '#ff6b6b';
@@ -2412,9 +2538,10 @@ TESTING TIPS:
             const mapWidth = this.mapData.dimensions.width;
             const mapHeight = this.mapData.dimensions.height;
             
-            // Keep camera within map bounds
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
+            // Allow camera to pan beyond world boundaries with margin
+            const margin = 500; // 500 pixel margin around the world
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, -margin, Math.max(-margin, mapWidth - camera.width / camera.zoom + margin));
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, -margin, Math.max(-margin, mapHeight - camera.height / camera.zoom + margin));
             
             // Update camera info display
             this.updateCameraInfoDisplay();

@@ -38,10 +38,45 @@ export default class PlatformBase {
         // Debug logging
         console.log(`PlatformBase.create() - ${this.constructor.name} at (${this.x}, ${this.y}) size: ${this.width}x${this.height} shape: ${this.config.shape} angle: ${this.config.angle}`);
         
-        // Create container for all visual elements
+        // Create container for all visual elements at the platform position
         this.container = this.scene.add.container(this.x, this.y);
         
-        // Create visual representation based on shape (centered in container)
+        // Create visual representation based on shape (centered in container at 0,0)
+        this.createVisualElements();
+        
+        // Create physics body (separate from container for flexible collision shapes)
+        if (this.config.shape === 'circle') {
+            this.body = this.scene.matter.add.circle(this.x, this.y, this.radius, {
+                isStatic: true,
+                friction: this.config.friction,
+                restitution: this.config.restitution,
+                density: this.config.density
+            });
+        } else {
+            this.body = this.scene.matter.add.rectangle(this.x, this.y, this.width, this.height, {
+                isStatic: true,
+                friction: this.config.friction,
+                restitution: this.config.restitution,
+                density: this.config.density
+            });
+        }
+        
+        // Apply rotation if specified
+        if (this.config.angle !== 0) {
+            this.scene.matter.body.setAngle(this.body, this.config.angle);
+            this.container.setRotation(this.config.angle);
+        }
+        
+        // Initial sync of container to physics body
+        this.syncVisualWithPhysics();
+        
+        // Store platform type for collision detection
+        this.body.platformType = this.constructor.name;
+        this.body.platformInstance = this;
+    }
+    
+    createVisualElements() {
+        // Create basic visual representation (can be overridden in subclasses)
         if (this.config.shape === 'circle') {
             this.graphics = this.scene.add.circle(
                 0, 
@@ -67,37 +102,6 @@ export default class PlatformBase {
         
         // Add main graphics to container
         this.container.add(this.graphics);
-        
-        // Create physics body first (source of truth for position/rotation)
-        if (this.config.shape === 'circle') {
-            this.body = this.scene.matter.add.circle(this.x, this.y, this.radius, {
-                isStatic: true,
-                friction: this.config.friction,
-                restitution: this.config.restitution,
-                density: this.config.density
-            });
-        } else {
-            // Default to rectangle
-            this.body = this.scene.matter.add.rectangle(this.x, this.y, this.width, this.height, {
-                isStatic: true,
-                friction: this.config.friction,
-                restitution: this.config.restitution,
-                density: this.config.density
-            });
-        }
-        
-        // Apply rotation to physics body if specified
-        if (this.config.angle !== 0) {
-            this.scene.matter.body.setAngle(this.body, this.config.angle);
-            console.log(`Applied rotation: ${this.config.angle} to physics body. Body angle now: ${this.body.angle}`);
-        }
-        
-        // Now sync container to match physics body exactly
-        this.syncVisualWithPhysics();
-        
-        // Store platform type for collision detection
-        this.body.platformType = this.constructor.name;
-        this.body.platformInstance = this;
     }
     
     setupCollisionDetection() {
