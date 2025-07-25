@@ -203,9 +203,14 @@ export default class MapEditor extends Phaser.Scene {
         // Setup input
         this.setupInput();
         
-        // Simple click selection (not drag-based)
+        // Allow interaction with all objects under pointer, not just the topmost
+        // This enables double-click creation even when clicking on existing platforms
+        this.input.topOnly = false;
+        
+        // Combined click handler for selection and double-click creation
+        let lastClickTime = 0;
         this.input.on('pointerup', (pointer) => {
-            // Don't process platform selection if we just finished resizing
+            // Don't process if we just finished resizing
             if (this.justFinishedResizing) {
                 this.justFinishedResizing = false;
                 return;
@@ -213,28 +218,39 @@ export default class MapEditor extends Phaser.Scene {
             
             if (this.isTestMode) return;
             
+            const now = Date.now();
             const worldX = pointer.worldX;
             const worldY = pointer.worldY;
             
-            // Check if clicking on sticker first (they're on top)
-            const clickedSticker = this.stickers.find(s => 
-                s.containsPoint(worldX, worldY)
-            );
-            
-            if (clickedSticker) {
-                this.selectSticker(clickedSticker);
+            // Check if this is a double-click
+            if (now - lastClickTime < this.CONFIG.TIMING.DOUBLE_CLICK_THRESHOLD) {
+                // Double-click detected - try to create item
+                this.createItemAtPointer(pointer);
+                lastClickTime = 0; // Reset to prevent triple-click issues
             } else {
-                // Check if clicking on platform container
-                const clickedPlatform = this.platforms.find(p => 
-                    this.isContainerAtPosition(p, worldX, worldY)
+                // Single click - handle selection
+                // Check if clicking on sticker first (they're on top)
+                const clickedSticker = this.stickers.find(s => 
+                    s.containsPoint(worldX, worldY)
                 );
                 
-                if (clickedPlatform) {
-                    this.selectPlatform(clickedPlatform);
+                if (clickedSticker) {
+                    this.selectSticker(clickedSticker);
                 } else {
-                    this.selectPlatform(null);
-                    this.selectSticker(null);
+                    // Check if clicking on platform graphics
+                    const clickedPlatform = this.platforms.find(p => {
+                        if (!p.graphics) return false;
+                        return p.graphics.getBounds().contains(worldX, worldY);
+                    });
+                    
+                    if (clickedPlatform) {
+                        this.selectPlatform(clickedPlatform);
+                    } else {
+                        this.selectPlatform(null);
+                        this.selectSticker(null);
+                    }
                 }
+                lastClickTime = now;
             }
         });
         
@@ -639,10 +655,16 @@ export default class MapEditor extends Phaser.Scene {
                 return;
             }
             
-            // Bring dragged platform container to top
+            // For platforms, bring to front and disable browser drag ghost
             if (gameObject.platformData) {
+                gameObject.setDepth(1000);
                 this.children.bringToTop(gameObject);
-                this.selectPlatform(this.platforms.find(p => p.container === gameObject));
+                this.selectPlatform(this.platforms.find(p => p.graphics === gameObject));
+                
+                // Prevent browser drag ghost image
+                if (pointer.event && pointer.event.preventDefault) {
+                    pointer.event.preventDefault();
+                }
             }
             
             // Handle sticker selection on drag start
@@ -654,7 +676,7 @@ export default class MapEditor extends Phaser.Scene {
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             if (this.isTestMode) return;
             
-            // Handle resize operations (key fix: don't recreate handles during resize)
+            // Handle resize operations
             if (gameObject.handleType && this.isResizing) {
                 if (gameObject.handleType === 'rotation') {
                     this.handleRotation(gameObject, dragX, dragY);
@@ -664,23 +686,27 @@ export default class MapEditor extends Phaser.Scene {
                 return;
             }
             
-            // Handle platform movement
+            // Handle platform movement - much simpler now!
             if (gameObject.platformData && !gameObject.handleType) {
                 const snappedPos = this.applyGridSnap(dragX, dragY);
                 
+                // Direct manipulation - just set position
                 gameObject.x = snappedPos.x;
                 gameObject.y = snappedPos.y;
                 
-                // Update platform data (no handle recreation here)
-                const platform = this.platforms.find(p => p.container === gameObject);
+                // Bring to front while dragging to avoid render artifacts
+                gameObject.setDepth(1000);
+                
+                // Update platform data
+                const platform = this.platforms.find(p => p.graphics === gameObject);
                 if (platform) {
                     platform.data.x = snappedPos.x;
                     platform.data.y = snappedPos.y;
+                    gameObject.platformData.x = snappedPos.x;
+                    gameObject.platformData.y = snappedPos.y;
                     
-                    // Synchronize platform instance position with editor container
-                    if (platform.instance && platform.instance.setPosition) {
-                        platform.instance.setPosition(snappedPos.x, snappedPos.y);
-                    }
+                    // Update handle positions during drag
+                    this.updateHandlePositions(platform);
                     
                     this.autoSave();
                 }
@@ -710,21 +736,26 @@ export default class MapEditor extends Phaser.Scene {
                     if (data.height !== undefined) data.height = Math.round(data.height);
                     if (data.radius !== undefined) data.radius = Math.round(data.radius);
                     
-                    // Update visual and handle positions
+                    // Update visual (which will recreate at proper size) and handle positions
                     this.updatePlatformVisual(platform);
                     this.updateHandlePositions(platform);
                     this.autoSave();
                 }
             } else if (gameObject.platformData) {
                 // Round platform position to pixels after drag
-                const platform = this.platforms.find(p => p.container === gameObject);
+                const platform = this.platforms.find(p => p.graphics === gameObject);
                 if (platform) {
                     platform.data.x = Math.round(platform.data.x);
                     platform.data.y = Math.round(platform.data.y);
                     
-                    // Update container position to match rounded data
+                    // Update graphics position to match rounded data
                     gameObject.x = platform.data.x;
                     gameObject.y = platform.data.y;
+                    gameObject.platformData.x = platform.data.x;
+                    gameObject.platformData.y = platform.data.y;
+                    
+                    // Reset depth after dragging
+                    gameObject.setDepth(0);
                     
                     // Update handle positions to maintain rotation after move
                     this.updateHandlePositions(platform);
@@ -745,10 +776,17 @@ export default class MapEditor extends Phaser.Scene {
         const data = platform.data;
         const original = this.resizeStartData;
         
-        // The dragX, dragY are the handle's new position relative to its container
-        // Since handles are inside the container, dragX/dragY are container-relative coordinates
-        let relativeX = dragX;
-        let relativeY = dragY;
+        // dragX, dragY are world coordinates since handles are positioned in world space
+        // Convert to relative coordinates from platform center
+        let relativeX = dragX - data.x;
+        let relativeY = dragY - data.y;
+        
+        // Account for platform rotation by rotating the relative coordinates back
+        if (data.angle) {
+            const unrotated = this.rotatePoint(relativeX, relativeY, -data.angle);
+            relativeX = unrotated.x;
+            relativeY = unrotated.y;
+        }
         
         if (this.getGridSnapEnabled()) {
             relativeX = Math.round(relativeX / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE;
@@ -761,8 +799,22 @@ export default class MapEditor extends Phaser.Scene {
             this.resizeCircleFromHandle(data, original, handle.handleType, relativeX, relativeY);
         }
         
-        // During resize: ONLY update visual, don't touch handles
-        this.updatePlatformVisual(platform);
+        // During resize: Use scale instead of recreating to avoid artifacts
+        if (platform.graphics) {
+            if (data.type === 'rectangle' || data.type === 'trapezoid') {
+                // Calculate scale based on new size vs original size
+                const scaleX = data.width / this.resizeStartData.width;
+                const scaleY = data.height / this.resizeStartData.height;
+                platform.graphics.setScale(scaleX, scaleY);
+            } else if (data.type === 'circle') {
+                // For circles, uniform scale based on radius
+                const scale = data.radius / this.resizeStartData.radius;
+                platform.graphics.setScale(scale, scale);
+            }
+            
+            // Update handle positions to follow the resize
+            this.updateHandlePositions(platform);
+        }
         this.autoSave();
     }
     
@@ -830,10 +882,9 @@ export default class MapEditor extends Phaser.Scene {
         const platform = this.platforms.find(p => p.data === handle.platformData);
         if (!platform) return;
         
+        // dragX, dragY are world coordinates since handles are positioned in world space
         // Calculate angle from platform center to handle position
-        const centerX = 0; // Handle is relative to container center
-        const centerY = 0;
-        const angle = Math.atan2(dragY - centerY, dragX - centerX);
+        const angle = Math.atan2(dragY - platform.data.y, dragX - platform.data.x);
         
         // Convert to rotation (add 90 degrees so "up" is 0 rotation)
         const rotation = angle + Math.PI / 2;
@@ -853,17 +904,51 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     updatePlatformVisual(platform) {
-        // Destroy old platform instance
-        if (platform.instance) {
-            platform.instance.destroy();
+        // For simple graphics, we don't need to recreate - just update properties
+        if (!platform.graphics) return;
+        
+        const { type, width, height, radius, angle = 0 } = platform.data;
+        
+        // For size changes, we need to recreate the graphics
+        // But for rotation, we can just update the angle
+        if (type === 'rectangle' || type === 'trapezoid') {
+            // Check if size changed
+            const currentWidth = platform.graphics.width;
+            const currentHeight = platform.graphics.height;
+            
+            if (currentWidth !== width || currentHeight !== height) {
+                // Size changed - need to recreate
+                const oldGraphics = platform.graphics;
+                platform.graphics = this.createSimplePlatformVisual(platform.data);
+                
+                // Make sure the new graphics is interactive and draggable
+                if (platform.graphics) {
+                    platform.graphics.setInteractive();
+                    this.input.setDraggable(platform.graphics);
+                    platform.graphics.platformData = { ...platform.data };
+                }
+                
+                // Destroy old graphics
+                oldGraphics.destroy();
+            } else {
+                // Just rotation changed - update directly
+                platform.graphics.setAngle(angle * 180 / Math.PI);
+            }
+        } else if (type === 'circle') {
+            // For circles, we can't easily check/update radius, so recreate if needed
+            const oldGraphics = platform.graphics;
+            platform.graphics = this.createSimplePlatformVisual(platform.data);
+            
+            // Make sure the new graphics is interactive and draggable
+            if (platform.graphics) {
+                platform.graphics.setInteractive();
+                this.input.setDraggable(platform.graphics);
+                platform.graphics.platformData = { ...platform.data };
+            }
+            
+            // Destroy old graphics
+            oldGraphics.destroy();
         }
-        
-        // Create new platform instance
-        platform.instance = this.createPlatformInstance(platform.data);
-        platform.visual = platform.instance.container || platform.instance.graphics;
-        
-        // Update editor container reference
-        platform.container.platformInstance = platform.instance;
         
         // Reapply selection highlighting if needed
         if (this.selectedPlatform === platform) {
@@ -872,15 +957,12 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     highlightSelectedPlatform(platform) {
-        // Add selection highlight to platform instance
-        if (platform.instance && platform.instance.graphics) {
-            // Check if graphics object has setStrokeStyle method (standard platforms)
-            if (typeof platform.instance.graphics.setStrokeStyle === 'function') {
-                platform.instance.graphics.setStrokeStyle(4, 0x00ff00, 1);
-            }
-            // For special platforms with custom graphics, we could add other highlighting methods here
+        // Add selection highlight to platform graphics
+        if (platform.graphics) {
+            platform.graphics.setStrokeStyle(4, 0x00ff00, 1);
         }
     }
+    
     
     updateHandlePositions(platform) {
         if (!platform.handles) return;
@@ -917,14 +999,14 @@ export default class MapEditor extends Phaser.Scene {
                     rotationDistance = 30; // Default distance for other shapes
                 }
                 
-                // Rotate the rotation handle position
+                // Rotate the rotation handle position and add platform position
                 const rotatedPos = rotatePoint(0, -rotationDistance, angle);
-                handle.setPosition(rotatedPos.x, rotatedPos.y);
+                handle.setPosition(platform.data.x + rotatedPos.x, platform.data.y + rotatedPos.y);
                 
                 // Also update the rotation icon position (next item in array)
                 const iconIndex = index + 1;
                 if (iconIndex < platform.handles.length && !platform.handles[iconIndex].handleType) {
-                    platform.handles[iconIndex].setPosition(rotatedPos.x, rotatedPos.y);
+                    platform.handles[iconIndex].setPosition(platform.data.x + rotatedPos.x, platform.data.y + rotatedPos.y);
                 }
             } else {
                 // Handle resize handles
@@ -945,7 +1027,7 @@ export default class MapEditor extends Phaser.Scene {
                             positions[resizeHandleCount].y, 
                             angle
                         );
-                        handle.setPosition(rotatedPos.x, rotatedPos.y);
+                        handle.setPosition(platform.data.x + rotatedPos.x, platform.data.y + rotatedPos.y);
                     }
                 } else if (type === 'circle') {
                     const positions = [
@@ -961,7 +1043,7 @@ export default class MapEditor extends Phaser.Scene {
                             positions[resizeHandleCount].y, 
                             angle
                         );
-                        handle.setPosition(rotatedPos.x, rotatedPos.y);
+                        handle.setPosition(platform.data.x + rotatedPos.x, platform.data.y + rotatedPos.y);
                     }
                 }
                 resizeHandleCount++;
@@ -970,7 +1052,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     updateHandles(platform) {
-        this.clearHandlesFromContainer(platform);
+        this.clearHandles(platform);
         this.addHandlesToPlatform(platform);
     }
     
@@ -1003,9 +1085,6 @@ export default class MapEditor extends Phaser.Scene {
             }
         });
         
-        // Double-click to create platforms (manual detection)
-        this.setupDoubleClickDetection();
-        
         // Setup drag events for platforms
         this.setupPlatformDragging();
     }
@@ -1016,10 +1095,8 @@ export default class MapEditor extends Phaser.Scene {
         const worldX = pointer.worldX;
         const worldY = pointer.worldY;
         
-        // Check if clicking on existing objects first
-        if (this.isClickOnEntity(worldX, worldY) || 
-            this.platforms.some(p => this.isContainerAtPosition(p, worldX, worldY)) ||
-            this.stickers.some(s => s.containsPoint(worldX, worldY))) {
+        // Don't create on top of entities
+        if (this.isClickOnEntity(worldX, worldY)) {
             return;
         }
         
@@ -1168,47 +1245,31 @@ export default class MapEditor extends Phaser.Scene {
     
     
     addPlatformToScene(platformData) {
-        // Create actual platform instance using unified system
-        const platformInstance = this.createPlatformInstance(platformData);
+        // In edit mode, just create simple graphics - no physics
+        const graphics = this.createSimplePlatformVisual(platformData);
         
-        if (!platformInstance) {
-            console.error('Failed to create platform instance for:', platformData);
+        if (!graphics) {
+            console.error('Failed to create platform visual for:', platformData);
             return null;
         }
         
-        // Create editor container for handles and selection (transparent overlay)
-        const editorContainer = this.add.container(platformData.x, platformData.y);
+        // Make the graphics object interactive and draggable
+        graphics.setInteractive();
+        this.input.setDraggable(graphics);
         
-        // Make editor container draggable with proper size based on platform type
-        // Set size and ensure center-based interaction area
-        if (platformData.type === 'rectangle' || platformData.type === 'trapezoid') {
-            editorContainer.setSize(platformData.width, platformData.height);
-        } else if (platformData.type === 'circle') {
-            const diameter = platformData.radius * 2;
-            editorContainer.setSize(diameter, diameter);
-        } else {
-            // Default fallback
-            editorContainer.setSize(100, 100);
-        }
+        // Store platform data on the graphics object
+        graphics.platformData = { ...platformData };
         
-        // Set interactive area with center origin to match coordinate system
-        editorContainer.setInteractive();
-        this.input.setDraggable(editorContainer);
-        editorContainer.platformData = platformData;
-        editorContainer.platformInstance = platformInstance;
-        
+        // Create platform object
         const platform = {
             data: platformData,
-            instance: platformInstance,        // Actual platform instance
-            container: editorContainer,        // Editor-only container for handles
-            visual: platformInstance.container || platformInstance.graphics,  // Reference to visual
+            graphics: graphics,
             id: platformData.id,
             handles: []
         };
         
         this.platforms.push(platform);
         this.mapData.platforms = this.platforms.map(p => p.data);
-        this.mapData.stickers = this.stickers.map(s => s.toJSON());
         
         return platform;
     }
@@ -1259,7 +1320,72 @@ export default class MapEditor extends Phaser.Scene {
         }
     }
     
-    // Removed createPlatformVisual - now using unified platform instances
+    createSimplePlatformVisual(platformData) {
+        const { type, x, y, width, height, radius, color = '#666666', angle = 0, platformType = 'standard' } = platformData;
+        
+        // Get appropriate color for platform type
+        let fillColor;
+        if (platformType === 'standard' || !platformType) {
+            fillColor = parseInt(color.replace('#', '0x'));
+        } else {
+            // Use default colors for special platform types
+            const specialColors = {
+                ice: 0xb3e5fc,
+                bouncy: 0xff69b4,
+                electric: 0xffff00,
+                fire: 0xf44336
+            };
+            fillColor = specialColors[platformType] || parseInt(color.replace('#', '0x'));
+        }
+        
+        let graphics;
+        
+        switch (type) {
+            case 'rectangle':
+                graphics = this.add.rectangle(x, y, width, height, fillColor);
+                graphics.setStrokeStyle(2, 0x333333);
+                graphics.setDepth(0);
+                break;
+                
+            case 'circle':
+                graphics = this.add.circle(x, y, radius, fillColor);
+                graphics.setStrokeStyle(2, 0x333333);
+                graphics.setDepth(0);
+                break;
+                
+            case 'polygon':
+                const vertices = this.generatePolygonVertices(0, 0, radius, platformData.sides || 6);
+                graphics = this.add.polygon(x, y, vertices, fillColor);
+                graphics.setStrokeStyle(2, 0x333333);
+                graphics.setDepth(0);
+                break;
+                
+            case 'trapezoid':
+                const trapVertices = this.generateTrapezoidVertices(0, 0, width, height, platformData.slope || 0.3);
+                graphics = this.add.polygon(x, y, trapVertices, fillColor);
+                graphics.setStrokeStyle(2, 0x333333);
+                graphics.setDepth(0);
+                break;
+                
+            default:
+                console.warn(`Unknown platform type: ${type}`);
+                return null;
+        }
+        
+        // Apply rotation
+        if (graphics && angle !== 0) {
+            graphics.setAngle(angle * 180 / Math.PI); // Convert radians to degrees
+        }
+        
+        // Set proper rendering properties to avoid artifacts
+        if (graphics) {
+            graphics.setDepth(0);
+            // Ensure origin is centered for proper rotation
+            graphics.setOrigin(0.5, 0.5);
+        }
+        
+        return graphics;
+    }
     
     generatePolygonVertices(centerX, centerY, radius, sides) {
         const vertices = [];
@@ -1290,7 +1416,7 @@ export default class MapEditor extends Phaser.Scene {
         // Deselect previous platform
         if (this.selectedPlatform) {
             this.clearPlatformHighlight(this.selectedPlatform);
-            this.clearHandlesFromContainer(this.selectedPlatform);
+            this.clearHandles(this.selectedPlatform);
         }
         
         // Select new platform
@@ -1383,19 +1509,15 @@ export default class MapEditor extends Phaser.Scene {
     
     clearPlatformHighlight(platform) {
         // Reset platform graphics to default styling
-        if (platform.instance && platform.instance.graphics) {
-            // Check if graphics object has setStrokeStyle method (standard platforms)
-            if (typeof platform.instance.graphics.setStrokeStyle === 'function') {
-                platform.instance.graphics.setStrokeStyle(2, 0x333333, 1);
-            }
-            // For special platforms with custom graphics, no action needed (they maintain their own styling)
+        if (platform.graphics) {
+            platform.graphics.setStrokeStyle(2, 0x333333, 1);
         }
     }
     
-    clearHandlesFromContainer(platform) {
+    clearHandles(platform) {
         if (platform.handles) {
             platform.handles.forEach(handle => {
-                platform.container.remove(handle);
+                // Handles are now standalone objects, not children of container
                 handle.destroy();
             });
             platform.handles = [];
@@ -1437,7 +1559,9 @@ export default class MapEditor extends Phaser.Scene {
         handlePositions.forEach(pos => {
             const handle = this.createResizeHandle(pos, platform, 'rectangle');
             this.setupHandleInteraction(handle);
-            platform.container.add(handle);
+            // Position handle in world space relative to platform
+            handle.x = platform.data.x + pos.x;
+            handle.y = platform.data.y + pos.y;
             platform.handles.push(handle);
         });
     }
@@ -1494,7 +1618,9 @@ export default class MapEditor extends Phaser.Scene {
         handlePositions.forEach(pos => {
             const handle = this.createResizeHandle(pos, platform, 'circle');
             this.setupHandleInteraction(handle);
-            platform.container.add(handle);
+            // Position handle in world space relative to platform
+            handle.x = platform.data.x + pos.x;
+            handle.y = platform.data.y + pos.y;
             platform.handles.push(handle);
             
             console.log('Created circle handle:', pos.type, 'interactive:', handle.input.enabled);
@@ -1511,8 +1637,12 @@ export default class MapEditor extends Phaser.Scene {
         
         this.setupRotationHandleInteraction(handle, rotationIcon);
         
-        platform.container.add(handle);
-        platform.container.add(rotationIcon);
+        // Position handle and icon in world space
+        handle.x = platform.data.x + rotatedPos.x;
+        handle.y = platform.data.y + rotatedPos.y;
+        rotationIcon.x = platform.data.x + rotatedPos.x;
+        rotationIcon.y = platform.data.y + rotatedPos.y;
+        
         platform.handles.push(handle, rotationIcon);
         
         console.log('Created rotation handle for platform type:', type);
@@ -1570,7 +1700,7 @@ export default class MapEditor extends Phaser.Scene {
     deleteSelectedPlatform() {
         if (this.selectedPlatform) {
             // Clear resize handles first
-            this.clearHandlesFromContainer(this.selectedPlatform);
+            this.clearHandles(this.selectedPlatform);
             
             // Destroy the platform instance (which destroys container and physics body)
             if (this.selectedPlatform.instance && this.selectedPlatform.instance.destroy) {
@@ -1640,9 +1770,20 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     initializeTestPlatforms() {
-        // Since we're using unified platform instances, we don't need separate test platforms
-        // The platform instances already have physics bodies and visuals
-        console.log(`Test mode: Using ${this.platforms.length} unified platform instances`);
+        // Create platform instances with physics for test mode
+        this.testPlatforms = [];
+        
+        this.platforms.forEach(platform => {
+            const instance = this.createPlatformInstance(platform.data);
+            if (instance) {
+                this.testPlatforms.push({
+                    data: platform.data,
+                    instance: instance
+                });
+            }
+        });
+        
+        console.log(`Test mode: Created ${this.testPlatforms.length} platform instances for testing`);
     }
     
     setupTestModePhysics() {
@@ -1652,9 +1793,16 @@ export default class MapEditor extends Phaser.Scene {
     
     hideEditorVisuals() {
         this.wormSprite.setVisible(false);
+        this.goalSprite.setVisible(false);
+        
+        // Hide platform graphics
         this.platforms.forEach(platform => {
-            if (platform.container) {
-                platform.container.setVisible(false);
+            if (platform.graphics) {
+                platform.graphics.setVisible(false);
+            }
+            // Hide handles too
+            if (platform.handles) {
+                platform.handles.forEach(handle => handle.setVisible(false));
             }
         });
     }
@@ -1675,6 +1823,16 @@ export default class MapEditor extends Phaser.Scene {
             this.testWorm = null;
         }
         
+        // Remove test physics bodies
+        if (this.testPlatforms) {
+            this.testPlatforms.forEach(testPlatform => {
+                if (testPlatform.instance && testPlatform.instance.destroy) {
+                    testPlatform.instance.destroy();
+                }
+            });
+            this.testPlatforms = [];
+        }
+        
         // Remove mouse constraint
         if (this.mouseConstraint) {
             this.matter.world.removeConstraint(this.mouseConstraint);
@@ -1688,10 +1846,14 @@ export default class MapEditor extends Phaser.Scene {
         this.wormSprite.setVisible(true);
         this.goalSprite.setVisible(true);
         
-        // Show all editor platform containers when returning to editor mode
+        // Show all editor platform graphics when returning to editor mode
         this.platforms.forEach(platform => {
-            if (platform.container) {
-                platform.container.setVisible(true);
+            if (platform.graphics) {
+                platform.graphics.setVisible(true);
+            }
+            // Show handles for selected platform
+            if (platform === this.selectedPlatform && platform.handles) {
+                platform.handles.forEach(handle => handle.setVisible(true));
             }
         });
         
@@ -2592,27 +2754,27 @@ TESTING TIPS:
     }
     
     // Platform detection methods
-    isContainerAtPosition(platform, x, y) {
-        if (!platform.container) return false;
+    isPlatformAtPosition(platform, x, y) {
+        if (!platform.graphics) return false;
         
         const { type } = platform.data;
-        const { x: containerX, y: containerY } = platform.container;
+        const { x: graphicsX, y: graphicsY } = platform.graphics;
         
-        return this.checkCollisionByType(type, platform.data, containerX, containerY, x, y);
+        return this.checkCollisionByType(type, platform.data, graphicsX, graphicsY, x, y);
     }
     
-    checkCollisionByType(type, data, containerX, containerY, x, y) {
+    checkCollisionByType(type, data, platformX, platformY, x, y) {
         switch (type) {
             case 'rectangle':
             case 'trapezoid':
-                return this.isPointInRectangle(x, y, containerX, containerY, data.width, data.height);
+                return this.isPointInRectangle(x, y, platformX, platformY, data.width, data.height);
                 
             case 'circle':
-                return this.isPointInCircle(x, y, containerX, containerY, data.radius);
+                return this.isPointInCircle(x, y, platformX, platformY, data.radius);
                 
             case 'polygon':
             case 'custom':
-                return this.isPointInCircle(x, y, containerX, containerY, data.radius || 50);
+                return this.isPointInCircle(x, y, platformX, platformY, data.radius || 50);
             
             default:
                 return false;
@@ -2721,16 +2883,6 @@ TESTING TIPS:
         );
     }
     
-    setupDoubleClickDetection() {
-        let lastClickTime = 0;
-        this.input.on('pointerup', (pointer) => {
-            const now = Date.now();
-            if (now - lastClickTime < this.CONFIG.TIMING.DOUBLE_CLICK_THRESHOLD) {
-                this.createItemAtPointer(pointer);
-            }
-            lastClickTime = now;
-        });
-    }
     
     destroy() {
         // Clean up event listeners
