@@ -774,18 +774,19 @@ export default class MapEditor extends Phaser.Scene {
         const data = platform.data;
         const original = this.resizeStartData;
         
-        // dragX, dragY are world coordinates since handles are positioned in world space
-        // Convert to relative coordinates from platform center
-        let relativeX = dragX - data.x;
-        let relativeY = dragY - data.y;
+        // dragX, dragY are world coordinates where the handle is being dragged to
+        // Convert drag position to relative coordinates from original platform center
+        let relativeX = dragX - original.x;
+        let relativeY = dragY - original.y;
         
         // Account for platform rotation by rotating the relative coordinates back
-        if (data.angle) {
-            const unrotated = this.rotatePoint(relativeX, relativeY, -data.angle);
+        if (original.angle) {
+            const unrotated = this.rotatePoint(relativeX, relativeY, -original.angle);
             relativeX = unrotated.x;
             relativeY = unrotated.y;
         }
         
+        // Apply grid snapping to the relative position
         if (this.getGridSnapEnabled()) {
             relativeX = Math.round(relativeX / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE;
             relativeY = Math.round(relativeY / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE;
@@ -797,17 +798,25 @@ export default class MapEditor extends Phaser.Scene {
             this.resizeCircleFromHandle(data, original, handle.handleType, relativeX, relativeY);
         }
         
-        // During resize: Use scale instead of recreating to avoid artifacts
+        // During resize: Update position and scale for preview
         if (platform.graphics) {
             if (data.type === 'rectangle' || data.type === 'trapezoid') {
                 // Calculate scale based on new size vs original size
                 const scaleX = data.width / this.resizeStartData.width;
                 const scaleY = data.height / this.resizeStartData.height;
                 platform.graphics.setScale(scaleX, scaleY);
+                
+                // Update position - ensure integer values to avoid sub-pixel jitter
+                platform.graphics.x = Math.round(data.x);
+                platform.graphics.y = Math.round(data.y);
             } else if (data.type === 'circle') {
                 // For circles, uniform scale based on radius
                 const scale = data.radius / this.resizeStartData.radius;
                 platform.graphics.setScale(scale, scale);
+                
+                // Ensure integer position
+                platform.graphics.x = Math.round(data.x);
+                platform.graphics.y = Math.round(data.y);
             }
             
             // Update handle positions to follow the resize
@@ -819,31 +828,65 @@ export default class MapEditor extends Phaser.Scene {
     resizeRectangleFromHandle(data, original, handleType, relativeX, relativeY) {
         const minSize = 20;
         
-        // With center-based coordinates, relativeX and relativeY are distances from center
+        // Get the original bounds
+        const originalLeft = original.x - original.width / 2;
+        const originalRight = original.x + original.width / 2;
+        const originalTop = original.y - original.height / 2;
+        const originalBottom = original.y + original.height / 2;
+        
+        // Calculate new bounds based on which handle is being dragged
+        let newLeft = originalLeft;
+        let newRight = originalRight;
+        let newTop = originalTop;
+        let newBottom = originalBottom;
+        
         switch (handleType) {
-            case 'nw':
-                // Northwest handle: both width and height grow outward from center
-                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
-                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
+            case 'nw': // Northwest - move top-left corner
+                newLeft = original.x + relativeX;
+                newTop = original.y + relativeY;
                 break;
-            case 'ne':
-                // Northeast handle: width grows right, height grows up
-                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
-                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
+            case 'ne': // Northeast - move top-right corner
+                newRight = original.x + relativeX;
+                newTop = original.y + relativeY;
                 break;
-            case 'sw':
-                // Southwest handle: width grows left, height grows down
-                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
-                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
+            case 'sw': // Southwest - move bottom-left corner
+                newLeft = original.x + relativeX;
+                newBottom = original.y + relativeY;
                 break;
-            case 'se':
-                // Southeast handle: both width and height grow outward from center
-                data.width = Math.max(minSize, Math.abs(relativeX) * 2);
-                data.height = Math.max(minSize, Math.abs(relativeY) * 2);
+            case 'se': // Southeast - move bottom-right corner
+                newRight = original.x + relativeX;
+                newBottom = original.y + relativeY;
                 break;
         }
         
-        console.log(`New size: ${data.width}x${data.height}`);
+        // Calculate new dimensions and position
+        let newWidth = Math.max(minSize, Math.abs(newRight - newLeft));
+        let newHeight = Math.max(minSize, Math.abs(newBottom - newTop));
+        let newCenterX = (newLeft + newRight) / 2;
+        let newCenterY = (newTop + newBottom) / 2;
+        
+        // Apply grid snapping to dimensions and position if enabled
+        const snapSize = this.CONFIG.GRID.SNAP_SIZE;
+        if (this.getGridSnapEnabled()) {
+            newWidth = Math.round(newWidth / snapSize) * snapSize;
+            newHeight = Math.round(newHeight / snapSize) * snapSize;
+            newCenterX = Math.round(newCenterX / snapSize) * snapSize;
+            newCenterY = Math.round(newCenterY / snapSize) * snapSize;
+        } else {
+            // Round to integers to avoid sub-pixel values
+            newWidth = Math.round(newWidth);
+            newHeight = Math.round(newHeight);
+            newCenterX = Math.round(newCenterX);
+            newCenterY = Math.round(newCenterY);
+        }
+        
+        // Update the platform data
+        data.width = newWidth;
+        data.height = newHeight;
+        data.x = newCenterX;
+        data.y = newCenterY;
+        
+        console.log(`New size: ${data.width}x${data.height} at (${data.x}, ${data.y})`);
     }
     
     resizeCircleFromHandle(data, original, handleType, relativeX, relativeY) {
@@ -1068,6 +1111,7 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-V', () => this.selectedTool = 'custom');
         this.input.keyboard.on('keydown-TAB', () => this.toggleTestMode());
         this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
+        this.input.keyboard.on('keydown-BACKSPACE', () => this.deleteSelectedPlatform());
         
         // Copy/paste support
         this.input.keyboard.on('keydown', (event) => {
