@@ -12,7 +12,83 @@ export default class MapEditor extends Phaser.Scene {
     constructor() {
         super({ key: 'MapEditor' });
         
-        // Editor state
+        this.CONFIG = this.initializeConfig();
+        this.initializeState();
+        this.initializeMapData();
+        this.initializeStorage();
+    }
+    
+    initializeConfig() {
+        return {
+            GRID: {
+                CHAR_WIDTH: 96,
+                CHAR_HEIGHT: 48,
+                ROW_SPACING: 96,
+                SNAP_SIZE: 8
+            },
+            CAMERA: {
+                EDITOR_ZOOM: 0.8,
+                TEST_ZOOM: 1.0,
+                MIN_ZOOM: 0.2,
+                MAX_ZOOM: 3.0,
+                ZOOM_SPEED: 0.1,
+                PAN_SPEED: 20,
+                MARGIN: 500
+            },
+            WORM: {
+                BASE_RADIUS: 15,
+                SEGMENT_SIZES: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+                SEGMENT_SPACING: 25,
+                EYE_OFFSET_RATIO: 0.4,
+                EYE_SIZE: 2
+            },
+            ENTITIES: {
+                DEFAULT_WORM_START: { x: 200, y: 900 },
+                DEFAULT_GOAL: { x: 1700, y: 200 },
+                WORM_SPRITE_RADIUS: 20,
+                GOAL_SPRITE_RADIUS: 25
+            },
+            DEFAULTS: {
+                MAP_DIMENSIONS: { width: 1920, height: 1152 },
+                PLATFORM_SIZES: {
+                    rectangle: { width: 96, height: 48 },
+                    circle: { radius: 40 },
+                    polygon: { radius: 40, sides: 6 },
+                    trapezoid: { width: 96, height: 48, slope: 0.3 }
+                },
+                PHYSICS: {
+                    friction: 0.8,
+                    frictionStatic: 1.0,
+                    restitution: 0
+                },
+                PLATFORM_COLORS: {
+                    standard: '#ff6b6b',
+                    ice: '#b3e5fc',
+                    bouncy: '#ff69b4',
+                    electric: '#ffff00',
+                    fire: '#f44336'
+                }
+            },
+            HANDLES: {
+                SIZE: 12,
+                CIRCLE_SIZE: 6,
+                ROTATION_SIZE: 8,
+                COLOR: 0x00ffff,
+                STROKE_COLOR: 0x0088aa,
+                HOVER_COLOR: 0xffff88,
+                ROTATION_COLOR: 0xff4444,
+                ROTATION_STROKE_COLOR: 0xaa2222,
+                DEPTH: 300
+            },
+            TIMING: {
+                AUTO_SAVE_DELAY: 100,
+                DOUBLE_CLICK_THRESHOLD: 400,
+                VICTORY_DISPLAY_DURATION: 3000
+            }
+        };
+    }
+    
+    initializeState() {
         this.isTestMode = false;
         this.selectedTool = 'rectangle';
         this.selectedPlatform = null;
@@ -20,75 +96,54 @@ export default class MapEditor extends Phaser.Scene {
         this.platforms = [];
         this.stickers = [];
         this.entities = {
-            wormStart: { x: 200, y: 900 },
-            goal: { x: 1700, y: 200 }
+            wormStart: { ...this.CONFIG.ENTITIES.DEFAULT_WORM_START },
+            goal: { ...this.CONFIG.ENTITIES.DEFAULT_GOAL }
         };
-        
-        // Simple selection and resize handles
-        this.selectedPlatform = null;
         this.resizeHandles = [];
         this.isResizing = false;
         this.activeResizeHandle = null;
+        this.toolSettings = this.createDefaultToolSettings();
+        this.autoSaveTimer = null;
+        this.eventListeners = []; // Track all event listeners for cleanup
+    }
+    
+    createDefaultToolSettings() {
+        return {
+            platformColor: this.CONFIG.DEFAULTS.PLATFORM_COLORS.standard,
+            platformType: "standard",
+            ...this.CONFIG.DEFAULTS.PHYSICS,
+            polygonSides: 6,
+            polygonRadius: 2,
+            trapezoidSlope: 0.3,
+            stickerText: "New Sticker",
+            stickerPreset: "tip",
+            stickerFontSize: "18px",
+            stickerColor: "#ffffff"
+        };
+    }
+    
+    initializeMapData() {
+        this.entities = {
+            wormStart: { ...this.CONFIG.ENTITIES.DEFAULT_WORM_START },
+            goal: { ...this.CONFIG.ENTITIES.DEFAULT_GOAL }
+        };
         
-        // Grid settings
-        this.CHAR_WIDTH = 96;  // Visual grid spacing (matches game)
-        this.CHAR_HEIGHT = 48;
-        this.ROW_SPACING = 96; // Visual grid spacing (matches game)
-        this.SNAP_SIZE = 8;    // Fine snap resolution
-        // Note: gridSnapEnabled is now read from React PropertyPanel via window.editorCallbacks
-        
-        // Map settings
         this.mapData = {
             metadata: {
                 name: "New Map",
                 difficulty: 1,
                 description: "A custom level"
             },
-            dimensions: {
-                width: 1920,
-                height: 1152
-            },
+            dimensions: { ...this.CONFIG.DEFAULTS.MAP_DIMENSIONS },
             entities: this.entities,
             platforms: this.platforms,
             stickers: this.stickers
         };
-        
-        // Tool settings
-        this.toolSettings = {
-            platformColor: "#ff6b6b",
-            platformType: "standard",
-            friction: 0.8,
-            frictionStatic: 1.0,
-            restitution: 0,
-            polygonSides: 6,
-            polygonRadius: 2,
-            trapezoidSlope: 0.3,
-            // Sticker settings
-            stickerText: "New Sticker",
-            stickerPreset: "tip",
-            stickerFontSize: "18px",
-            stickerColor: "#ffffff"
-        };
-        
-        // Input will be set up in create() method
-        
-        // UI elements
-        this.wormSprite = null;
-        this.wormText = null;
-        this.goalSprite = null;
-        this.testWorm = null;
-        
-        // Auto-save settings - 100ms delay as requested for server integration
-        this.autoSaveTimer = null;
-        this.autoSaveDelay = 100; // Auto-save 100ms after last change
-        
-        // Saved maps list
+    }
+    
+    initializeStorage() {
         this.savedMaps = this.getSavedMaps();
-        
-        // Try to restore the current editing session
         this.restoreEditingSession();
-        
-        // Check for server-provided map data
         this.initializeWithServerData();
     }
     
@@ -113,8 +168,8 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         // Use pixel dimensions directly with fallbacks
-        const levelWidth = this.mapData.dimensions?.width || 1920;
-        const levelHeight = this.mapData.dimensions?.height || 1152;
+        const levelWidth = this.mapData.dimensions?.width || this.CONFIG.DEFAULTS.MAP_DIMENSIONS.width;
+        const levelHeight = this.mapData.dimensions?.height || this.CONFIG.DEFAULTS.MAP_DIMENSIONS.height;
         
         console.log('MapEditor create() - dimensions:', { width: levelWidth, height: levelHeight });
         console.log('MapEditor create() - mapData:', this.mapData);
@@ -305,7 +360,7 @@ export default class MapEditor extends Phaser.Scene {
         // Set new timer
         this.autoSaveTimer = setTimeout(() => {
             this.saveEditingSession();
-        }, this.autoSaveDelay);
+        }, this.CONFIG.TIMING.AUTO_SAVE_DELAY);
     }
     
     saveEditingSession() {
@@ -313,7 +368,6 @@ export default class MapEditor extends Phaser.Scene {
             // Update map data with current state
             this.mapData.entities = this.entities;
             this.mapData.platforms = this.platforms.map(p => p.data);
-        this.mapData.stickers = this.stickers.map(s => s.toJSON());
             this.mapData.stickers = this.stickers.map(s => s.toJSON());
             this.mapData.metadata.modified = new Date().toISOString();
             
@@ -343,41 +397,45 @@ export default class MapEditor extends Phaser.Scene {
         const graphics = this.add.graphics();
         graphics.lineStyle(1, 0x444444, 0.5);
         
+        this.drawGridLines(graphics, width, height);
+        this.drawGridMarkers(width, height);
+        
+        graphics.strokePath();
+        graphics.setDepth(-100);
+        this.gridGraphics = graphics;
+    }
+    
+    drawGridLines(graphics, width, height) {
         // Vertical lines
-        for (let x = 0; x <= width; x += this.CHAR_WIDTH) {
+        for (let x = 0; x <= width; x += this.CONFIG.GRID.CHAR_WIDTH) {
             graphics.moveTo(x, 0);
             graphics.lineTo(x, height);
         }
         
         // Horizontal lines
-        for (let y = 0; y <= height; y += this.ROW_SPACING) {
+        for (let y = 0; y <= height; y += this.CONFIG.GRID.ROW_SPACING) {
             graphics.moveTo(0, y);
             graphics.lineTo(width, y);
         }
+    }
+    
+    drawGridMarkers(width, height) {
+        const gridStyle = { fontSize: '12px', color: '#888888' };
+        const markerSpacing = 5;
         
-        graphics.strokePath();
-        graphics.setDepth(-100);
-        
-        this.gridGraphics = graphics;
-        
-        // Add grid markers every 5 lines
-        for (let x = 0; x <= width; x += this.CHAR_WIDTH * 5) {
-            const gridX = x / this.CHAR_WIDTH;
+        // Horizontal markers
+        for (let x = 0; x <= width; x += this.CONFIG.GRID.CHAR_WIDTH * markerSpacing) {
+            const gridX = x / this.CONFIG.GRID.CHAR_WIDTH;
             if (gridX > 0) {
-                this.add.text(x - 10, height + 10, `${gridX}`, {
-                    fontSize: '12px',
-                    color: '#888888'
-                });
+                this.add.text(x - 10, height + 10, `${gridX}`, gridStyle);
             }
         }
         
-        for (let y = 0; y <= height; y += this.ROW_SPACING * 5) {
-            const gridY = y / this.ROW_SPACING;
+        // Vertical markers
+        for (let y = 0; y <= height; y += this.CONFIG.GRID.ROW_SPACING * markerSpacing) {
+            const gridY = y / this.CONFIG.GRID.ROW_SPACING;
             if (gridY > 0) {
-                this.add.text(-25, height - y - 6, `${gridY}`, {
-                    fontSize: '12px',
-                    color: '#888888'
-                });
+                this.add.text(-25, height - y - 6, `${gridY}`, gridStyle);
             }
         }
     }
@@ -390,20 +448,28 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createEntitySprites() {
-        // Ensure entities exist before accessing them
+        this.ensureEntitiesExist();
+        this.createWormSprite();
+        this.createGoalSprite();
+        this.setupEntityDragging();
+        this.createReferenceWorm();
+    }
+    
+    ensureEntitiesExist() {
         if (!this.entities || !this.entities.wormStart) {
             console.error('Entities not available in createEntitySprites, using defaults');
             this.entities = {
-                wormStart: { x: 200, y: 900 },
-                goal: { x: 1700, y: 200 }
+                wormStart: { ...this.CONFIG.ENTITIES.DEFAULT_WORM_START },
+                goal: { ...this.CONFIG.ENTITIES.DEFAULT_GOAL }
             };
         }
+    }
+    
+    createWormSprite() {
+        const { x: wormX, y: wormY } = this.entities.wormStart;
+        const radius = this.CONFIG.ENTITIES.WORM_SPRITE_RADIUS;
         
-        // Create worm start indicator using pixel coordinates
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
-        
-        this.wormSprite = this.add.circle(wormX, wormY, 20, 0x00ff00, 0.7);
+        this.wormSprite = this.add.circle(wormX, wormY, radius, 0x00ff00, 0.7);
         this.wormSprite.setStrokeStyle(3, 0x00aa00);
         this.wormSprite.setInteractive();
         this.wormSprite.setDepth(50);
@@ -413,20 +479,14 @@ export default class MapEditor extends Phaser.Scene {
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(51);
-        
-        // Create goal indicator using pixel coordinates
-        const goalX = this.entities.goal.x;
-        const goalY = this.entities.goal.y;
+    }
+    
+    createGoalSprite() {
+        const { x: goalX, y: goalY } = this.entities.goal;
         
         this.goalSprite = this.add.star(goalX, goalY, 5, 15, 25, 0xffd700);
         this.goalSprite.setInteractive();
         this.goalSprite.setDepth(50);
-        
-        // Make entities draggable
-        this.setupEntityDragging();
-        
-        // Create reference worm for scale visualization
-        this.createReferenceWorm();
     }
     
     setupEntityDragging() {
@@ -434,116 +494,131 @@ export default class MapEditor extends Phaser.Scene {
         
         this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
             if (!this.isTestMode) {
-                if (this.getGridSnapEnabled()) {
-                    dragX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
-                    dragY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
-                }
-                
-                gameObject.x = dragX;
-                gameObject.y = dragY;
-                
-                // Update entity positions
-                if (gameObject === this.wormSprite) {
-                    this.entities.wormStart = { x: dragX, y: dragY };
-                    if (this.wormText) {
-                        this.wormText.setPosition(dragX, dragY);
-                    }
-                    this.updateReferenceWormPosition();
-                    this.autoSave();
-                } else if (gameObject === this.goalSprite) {
-                    this.entities.goal = { x: dragX, y: dragY };
-                    this.autoSave();
-                }
+                const snappedPos = this.applyGridSnap(dragX, dragY);
+                this.updateEntityPosition(gameObject, snappedPos.x, snappedPos.y);
             }
         });
         
-        // Ensure pixel-perfect positioning when drag ends
         this.input.on('dragend', (pointer, gameObject) => {
-            if (!this.isTestMode && (gameObject === this.wormSprite || gameObject === this.goalSprite)) {
-                // Round positions to pixels
-                const roundedX = Math.round(gameObject.x);
-                const roundedY = Math.round(gameObject.y);
-                
-                gameObject.x = roundedX;
-                gameObject.y = roundedY;
-                
-                // Update entity data with rounded positions
-                if (gameObject === this.wormSprite) {
-                    this.entities.wormStart = { x: roundedX, y: roundedY };
-                    if (this.wormText) {
-                        this.wormText.setPosition(roundedX, roundedY);
-                    }
-                    this.updateReferenceWormPosition();
-                } else if (gameObject === this.goalSprite) {
-                    this.entities.goal = { x: roundedX, y: roundedY };
-                }
-                this.autoSave();
+            if (!this.isTestMode && this.isEntitySprite(gameObject)) {
+                this.finalizeEntityPosition(gameObject);
             }
         });
+    }
+    
+    applyGridSnap(x, y) {
+        if (this.getGridSnapEnabled()) {
+            return {
+                x: Math.round(x / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE,
+                y: Math.round(y / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE
+            };
+        }
+        return { x, y };
+    }
+    
+    updateEntityPosition(gameObject, x, y) {
+        gameObject.x = x;
+        gameObject.y = y;
+        
+        if (gameObject === this.wormSprite) {
+            this.entities.wormStart = { x, y };
+            if (this.wormText) {
+                this.wormText.setPosition(x, y);
+            }
+            this.updateReferenceWormPosition();
+        } else if (gameObject === this.goalSprite) {
+            this.entities.goal = { x, y };
+        }
+        this.autoSave();
+    }
+    
+    isEntitySprite(gameObject) {
+        return gameObject === this.wormSprite || gameObject === this.goalSprite;
+    }
+    
+    finalizeEntityPosition(gameObject) {
+        const roundedX = Math.round(gameObject.x);
+        const roundedY = Math.round(gameObject.y);
+        
+        gameObject.x = roundedX;
+        gameObject.y = roundedY;
+        
+        if (gameObject === this.wormSprite) {
+            this.entities.wormStart = { x: roundedX, y: roundedY };
+            if (this.wormText) {
+                this.wormText.setPosition(roundedX, roundedY);
+            }
+            this.updateReferenceWormPosition();
+        } else if (gameObject === this.goalSprite) {
+            this.entities.goal = { x: roundedX, y: roundedY };
+        }
+        this.autoSave();
     }
     
     createReferenceWorm() {
-        // Create a visual reference worm to show scale and positioning
-        // This gives a better sense of the actual worm size relative to platforms
-        
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
-        
-        // Worm configuration matching DoubleWorm defaults
-        const baseRadius = 15;
-        const segmentSizes = [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8];
-        const segmentSpacing = 25; // Approximate spacing between segments
+        const { x: wormX, y: wormY } = this.entities.wormStart;
+        const { BASE_RADIUS, SEGMENT_SIZES, SEGMENT_SPACING, EYE_OFFSET_RATIO, EYE_SIZE } = this.CONFIG.WORM;
         
         this.referenceWormSegments = [];
         
-        // Create worm segments as simple circles (positioned vertically downwards)
-        segmentSizes.forEach((sizeMultiplier, index) => {
-            const segmentRadius = baseRadius * sizeMultiplier;
-            const segmentX = wormX;
-            const segmentY = wormY + (index * segmentSpacing); // Vertical positioning
-            
-            // Create segment circle with semi-transparent appearance
-            const segment = this.add.circle(segmentX, segmentY, segmentRadius, 0x44aa44, 0.4);
-            segment.setStrokeStyle(1, 0x228822, 0.6);
-            segment.setDepth(5); // Below entity markers but above grid
-            
+        // Create worm segments
+        SEGMENT_SIZES.forEach((sizeMultiplier, index) => {
+            const segment = this.createWormSegment(wormX, wormY, index, sizeMultiplier, BASE_RADIUS, SEGMENT_SPACING);
             this.referenceWormSegments.push(segment);
         });
         
-        // Add a simple head indicator
-        const head = this.referenceWormSegments[0];
-        if (head) {
-            // Add eyes to the head
-            const eyeOffset = baseRadius * 0.4;
-            const leftEye = this.add.circle(head.x - eyeOffset/2, head.y - eyeOffset/2, 2, 0x000000);
-            const rightEye = this.add.circle(head.x + eyeOffset/2, head.y - eyeOffset/2, 2, 0x000000);
-            leftEye.setDepth(6);
-            rightEye.setDepth(6);
-            
-            this.referenceWormSegments.push(leftEye, rightEye);
-        }
+        // Add eyes to the head
+        this.addWormEyes(wormX, wormY, BASE_RADIUS, EYE_OFFSET_RATIO, EYE_SIZE);
         
-        console.log(`Created reference worm with ${segmentSizes.length} segments at (${wormX}, ${wormY})`);
+        console.log(`Created reference worm with ${SEGMENT_SIZES.length} segments at (${wormX}, ${wormY})`);
+    }
+    
+    createWormSegment(wormX, wormY, index, sizeMultiplier, baseRadius, segmentSpacing) {
+        const segmentRadius = baseRadius * sizeMultiplier;
+        const segmentX = wormX;
+        const segmentY = wormY + (index * segmentSpacing);
+        
+        const segment = this.add.circle(segmentX, segmentY, segmentRadius, 0x44aa44, 0.4);
+        segment.setStrokeStyle(1, 0x228822, 0.6);
+        segment.setDepth(5);
+        
+        return segment;
+    }
+    
+    addWormEyes(wormX, wormY, baseRadius, eyeOffsetRatio, eyeSize) {
+        const head = this.referenceWormSegments[0];
+        if (!head) return;
+        
+        const eyeOffset = baseRadius * eyeOffsetRatio;
+        const leftEye = this.add.circle(head.x - eyeOffset/2, head.y - eyeOffset/2, eyeSize, 0x000000);
+        const rightEye = this.add.circle(head.x + eyeOffset/2, head.y - eyeOffset/2, eyeSize, 0x000000);
+        
+        [leftEye, rightEye].forEach(eye => {
+            eye.setDepth(6);
+            this.referenceWormSegments.push(eye);
+        });
     }
     
     updateReferenceWormPosition() {
-        // Update reference worm position when worm start position changes
         if (!this.referenceWormSegments || this.referenceWormSegments.length === 0) return;
         
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
-        const segmentSpacing = 25;
+        const { x: wormX, y: wormY } = this.entities.wormStart;
+        const { SEGMENT_SPACING, BASE_RADIUS, EYE_OFFSET_RATIO } = this.CONFIG.WORM;
         
-        // Update main segments (excluding eyes)
+        this.updateWormSegmentPositions(wormX, wormY, SEGMENT_SPACING);
+        this.updateWormEyePositions(wormX, wormY, BASE_RADIUS, EYE_OFFSET_RATIO);
+    }
+    
+    updateWormSegmentPositions(wormX, wormY, segmentSpacing) {
         const mainSegments = this.referenceWormSegments.slice(0, -2);
         mainSegments.forEach((segment, index) => {
-            segment.setPosition(wormX + (index * segmentSpacing), wormY);
+            segment.setPosition(wormX, wormY + (index * segmentSpacing));
         });
-        
-        // Update eyes if they exist
+    }
+    
+    updateWormEyePositions(wormX, wormY, baseRadius, eyeOffsetRatio) {
         if (this.referenceWormSegments.length >= 2) {
-            const baseRadius = 15;
-            const eyeOffset = baseRadius * 0.4;
+            const eyeOffset = baseRadius * eyeOffsetRatio;
             const leftEye = this.referenceWormSegments[this.referenceWormSegments.length - 2];
             const rightEye = this.referenceWormSegments[this.referenceWormSegments.length - 1];
             
@@ -591,23 +666,20 @@ export default class MapEditor extends Phaser.Scene {
             
             // Handle platform movement
             if (gameObject.platformData && !gameObject.handleType) {
-                if (this.getGridSnapEnabled()) {
-                    dragX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
-                    dragY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
-                }
+                const snappedPos = this.applyGridSnap(dragX, dragY);
                 
-                gameObject.x = dragX;
-                gameObject.y = dragY;
+                gameObject.x = snappedPos.x;
+                gameObject.y = snappedPos.y;
                 
                 // Update platform data (no handle recreation here)
                 const platform = this.platforms.find(p => p.container === gameObject);
                 if (platform) {
-                    platform.data.x = dragX;
-                    platform.data.y = dragY;
+                    platform.data.x = snappedPos.x;
+                    platform.data.y = snappedPos.y;
                     
                     // Synchronize platform instance position with editor container
                     if (platform.instance && platform.instance.setPosition) {
-                        platform.instance.setPosition(dragX, dragY);
+                        platform.instance.setPosition(snappedPos.x, snappedPos.y);
                     }
                     
                     this.autoSave();
@@ -616,15 +688,8 @@ export default class MapEditor extends Phaser.Scene {
             
             // Handle sticker movement
             if (gameObject.stickerInstance) {
-                let newX = dragX;
-                let newY = dragY;
-                
-                if (this.getGridSnapEnabled()) {
-                    newX = Math.round(dragX / this.SNAP_SIZE) * this.SNAP_SIZE;
-                    newY = Math.round(dragY / this.SNAP_SIZE) * this.SNAP_SIZE;
-                }
-                
-                gameObject.stickerInstance.setPosition(newX, newY);
+                const snappedPos = this.applyGridSnap(dragX, dragY);
+                gameObject.stickerInstance.setPosition(snappedPos.x, snappedPos.y);
                 this.autoSave();
             }
         });
@@ -686,8 +751,8 @@ export default class MapEditor extends Phaser.Scene {
         let relativeY = dragY;
         
         if (this.getGridSnapEnabled()) {
-            relativeX = Math.round(relativeX / this.SNAP_SIZE) * this.SNAP_SIZE;
-            relativeY = Math.round(relativeY / this.SNAP_SIZE) * this.SNAP_SIZE;
+            relativeX = Math.round(relativeX / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE;
+            relativeY = Math.round(relativeY / this.CONFIG.GRID.SNAP_SIZE) * this.CONFIG.GRID.SNAP_SIZE;
         }
         
         if (data.type === 'rectangle' || data.type === 'trapezoid') {
@@ -928,87 +993,18 @@ export default class MapEditor extends Phaser.Scene {
         
         // Camera controls - mouse wheel scroll (with Ctrl+wheel for zoom)
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-            const camera = this.cameras.main;
-            
-            // Prevent default browser scroll
-            if (pointer.event) {
-                pointer.event.preventDefault();
-            }
-            
-            // Check if Ctrl is held for zoom, otherwise scroll
-            if (pointer.event && pointer.event.ctrlKey) {
-                // Zoom mode with Ctrl+wheel
-                const zoomSpeed = 0.1;
-                const oldZoom = camera.zoom;
-                
-                if (deltaY < 0) {
-                    // Zoom in
-                    camera.zoom = Phaser.Math.Clamp(camera.zoom + zoomSpeed, 0.2, 3.0);
-                } else {
-                    // Zoom out
-                    camera.zoom = Phaser.Math.Clamp(camera.zoom - zoomSpeed, 0.2, 3.0);
-                }
-                
-                // Zoom towards mouse cursor position
-                if (camera.zoom !== oldZoom) {
-                    const worldPoint = camera.getWorldPoint(pointer.x, pointer.y);
-                    const zoomRatio = camera.zoom / oldZoom;
-                    
-                    // Adjust camera position to zoom towards cursor
-                    camera.scrollX += (worldPoint.x - camera.scrollX) * (1 - 1/zoomRatio);
-                    camera.scrollY += (worldPoint.y - camera.scrollY) * (1 - 1/zoomRatio);
-                }
-            } else {
-                // Pan mode - normal wheel scrolling
-                const panSpeed = 20 / camera.zoom; // Adjust speed based on zoom level
-                
-                if (pointer.event && pointer.event.shiftKey) {
-                    // Shift+wheel = horizontal scroll
-                    camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
-                } else {
-                    // Normal wheel = vertical scroll
-                    camera.scrollY += deltaY > 0 ? panSpeed : -panSpeed;
-                }
-            }
-            
-            // Allow camera to pan beyond world boundaries with margin
-            const mapWidth = this.mapData.dimensions.width;
-            const mapHeight = this.mapData.dimensions.height;
-            const margin = 500; // 500 pixel margin around the world
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, -margin, Math.max(-margin, mapWidth - camera.width / camera.zoom + margin));
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, -margin, Math.max(-margin, mapHeight - camera.height / camera.zoom + margin));
-            
-            // Update camera info display
-            this.updateCameraInfoDisplay();
+            this.handleWheelInput(pointer, deltaY);
         });
         
         // Pan with middle mouse
         this.input.on('pointermove', (pointer) => {
             if (pointer.middleButtonDown()) {
-                const camera = this.cameras.main;
-                camera.scrollX -= pointer.velocity.x / camera.zoom;
-                camera.scrollY -= pointer.velocity.y / camera.zoom;
-                
-                // Constrain to bounds
-                const mapWidth = this.mapData.dimensions.width;
-                const mapHeight = this.mapData.dimensions.height;
-                camera.scrollX = Phaser.Math.Clamp(camera.scrollX, 0, Math.max(0, mapWidth - camera.width / camera.zoom));
-                camera.scrollY = Phaser.Math.Clamp(camera.scrollY, 0, Math.max(0, mapHeight - camera.height / camera.zoom));
-                
-                // Update camera info display
-                this.updateCameraInfoDisplay();
+                this.handleMiddleMousePan(pointer);
             }
         });
         
         // Double-click to create platforms (manual detection)
-        let lastClickTime = 0;
-        this.input.on('pointerup', (pointer) => {
-            const now = Date.now();
-            if (now - lastClickTime < 400) { // 400ms double-click threshold
-                this.createItemAtPointer(pointer);
-            }
-            lastClickTime = now;
-        });
+        this.setupDoubleClickDetection();
         
         // Setup drag events for platforms
         this.setupPlatformDragging();
@@ -1049,34 +1045,43 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createDefaultPlatform(x, y) {
-        let snapX = x, snapY = y;
-        if (this.getGridSnapEnabled()) {
-            snapX = Math.round(x / this.SNAP_SIZE) * this.SNAP_SIZE;
-            snapY = Math.round(y / this.SNAP_SIZE) * this.SNAP_SIZE;
-        }
-        
+        const snappedPos = this.applyGridSnap(x, y);
         const toolSettings = this.getToolSettings();
         const selectedTool = this.getSelectedTool();
         
-        const defaultSizes = {
-            rectangle: { width: 96, height: 48 },
-            circle: { radius: 40 },
-            polygon: { radius: 40, sides: toolSettings.polygonSides },
-            trapezoid: { width: 96, height: 48, slope: toolSettings.trapezoidSlope }
-        };
-        
-        const size = defaultSizes[selectedTool];
+        const size = this.getPlatformSize(selectedTool, toolSettings);
         if (!size) return null;
         
         console.log(`Creating platform data: toolSettings.platformType=${toolSettings.platformType}, toolSettings.platformColor=${toolSettings.platformColor}`);
         
-        const baseData = {
+        const baseData = this.createBasePlatformData(selectedTool, snappedPos.x, snappedPos.y, toolSettings);
+        return { ...baseData, ...size };
+    }
+    
+    getPlatformSize(selectedTool, toolSettings) {
+        const defaultSizes = {
+            ...this.CONFIG.DEFAULTS.PLATFORM_SIZES,
+            polygon: { 
+                radius: this.CONFIG.DEFAULTS.PLATFORM_SIZES.polygon.radius, 
+                sides: toolSettings.polygonSides 
+            },
+            trapezoid: { 
+                ...this.CONFIG.DEFAULTS.PLATFORM_SIZES.trapezoid, 
+                slope: toolSettings.trapezoidSlope 
+            }
+        };
+        
+        return defaultSizes[selectedTool];
+    }
+    
+    createBasePlatformData(selectedTool, x, y, toolSettings) {
+        return {
             id: `platform_${Date.now()}`,
             type: selectedTool,
             platformType: toolSettings.platformType,
-            x: snapX,
-            y: snapY,
-            rotation: 0, // Default rotation in radians
+            x,
+            y,
+            angle: 0,
             color: toolSettings.platformColor,
             physics: {
                 friction: toolSettings.friction,
@@ -1084,27 +1089,19 @@ export default class MapEditor extends Phaser.Scene {
                 restitution: toolSettings.restitution
             }
         };
-        
-        return { ...baseData, ...size };
     }
     
     createDefaultSticker(x, y) {
-        let snapX = x, snapY = y;
-        if (this.getGridSnapEnabled()) {
-            snapX = Math.round(x / this.SNAP_SIZE) * this.SNAP_SIZE;
-            snapY = Math.round(y / this.SNAP_SIZE) * this.SNAP_SIZE;
-        }
-        
+        const snappedPos = this.applyGridSnap(x, y);
         const toolSettings = this.getToolSettings();
         
-        // Get preset configuration
         const presets = Sticker.getPresets();
         const presetConfig = presets[toolSettings.stickerPreset] || presets.tip;
         
-        const stickerData = {
+        return {
             id: `sticker_${Date.now()}`,
-            x: snapX,
-            y: snapY,
+            x: snappedPos.x,
+            y: snappedPos.y,
             text: toolSettings.stickerText,
             config: {
                 ...presetConfig,
@@ -1112,8 +1109,6 @@ export default class MapEditor extends Phaser.Scene {
                 color: toolSettings.stickerColor
             }
         };
-        
-        return stickerData;
     }
     
     addStickerToScene(stickerData) {
@@ -1423,20 +1418,9 @@ export default class MapEditor extends Phaser.Scene {
     
     createRectangleHandles(platform) {
         const { width, height, angle = 0 } = platform.data;
-        
-        // Helper function to rotate a point around origin
-        const rotatePoint = (x, y, rotation) => {
-            const cos = Math.cos(rotation);
-            const sin = Math.sin(rotation);
-            return {
-                x: x * cos - y * sin,
-                y: x * sin + y * cos
-            };
-        };
-        
-        // Corner handles relative to center origin (like circles)
         const halfWidth = width / 2;
         const halfHeight = height / 2;
+        
         const basePositions = [
             { x: -halfWidth, y: -halfHeight, type: 'nw' },
             { x: halfWidth, y: -halfHeight, type: 'ne' },
@@ -1444,50 +1428,56 @@ export default class MapEditor extends Phaser.Scene {
             { x: halfWidth, y: halfHeight, type: 'se' }
         ];
         
-        // Apply rotation to handle positions
         const handlePositions = basePositions.map(pos => ({
-            x: rotatePoint(pos.x, pos.y, angle).x,
-            y: rotatePoint(pos.x, pos.y, angle).y,
+            x: this.rotatePoint(pos.x, pos.y, angle).x,
+            y: this.rotatePoint(pos.x, pos.y, angle).y,
             type: pos.type
         }));
         
         handlePositions.forEach(pos => {
-            const handle = this.add.rectangle(pos.x, pos.y, 12, 12, 0x00ffff);
-            handle.setStrokeStyle(2, 0x0088aa);
-            handle.setInteractive();
-            handle.handleType = pos.type;
-            handle.platformData = platform.data;
-            handle.setDepth(300); // High depth so they're on top
-            
-            // Use Phaser's drag system
-            this.input.setDraggable(handle);
-            
-            // Visual feedback
-            handle.on('pointerover', () => handle.setFillStyle(0xffff88));
-            handle.on('pointerout', () => handle.setFillStyle(0x00ffff));
-            
-            // Add to container and track it
+            const handle = this.createResizeHandle(pos, platform, 'rectangle');
+            this.setupHandleInteraction(handle);
             platform.container.add(handle);
             platform.handles.push(handle);
-            
-            console.log('Created handle:', pos.type, 'interactive:', handle.input.enabled);
         });
+    }
+    
+    rotatePoint(x, y, rotation) {
+        const cos = Math.cos(rotation);
+        const sin = Math.sin(rotation);
+        return {
+            x: x * cos - y * sin,
+            y: x * sin + y * cos
+        };
+    }
+    
+    createResizeHandle(pos, platform, shapeType) {
+        const { SIZE, COLOR, STROKE_COLOR, DEPTH } = this.CONFIG.HANDLES;
+        const handleSize = shapeType === 'rectangle' ? SIZE : this.CONFIG.HANDLES.CIRCLE_SIZE;
+        
+        const handle = shapeType === 'rectangle' 
+            ? this.add.rectangle(pos.x, pos.y, handleSize, handleSize, COLOR)
+            : this.add.circle(pos.x, pos.y, handleSize, COLOR);
+            
+        handle.setStrokeStyle(2, STROKE_COLOR);
+        handle.setInteractive();
+        handle.handleType = pos.type;
+        handle.platformData = platform.data;
+        handle.setDepth(DEPTH);
+        
+        this.input.setDraggable(handle);
+        return handle;
+    }
+    
+    setupHandleInteraction(handle) {
+        const { HOVER_COLOR, COLOR } = this.CONFIG.HANDLES;
+        handle.on('pointerover', () => handle.setFillStyle(HOVER_COLOR));
+        handle.on('pointerout', () => handle.setFillStyle(COLOR));
     }
     
     createCircleHandles(platform) {
         const { radius, angle = 0 } = platform.data;
         
-        // Helper function to rotate a point around origin
-        const rotatePoint = (x, y, rotation) => {
-            const cos = Math.cos(rotation);
-            const sin = Math.sin(rotation);
-            return {
-                x: x * cos - y * sin,
-                y: x * sin + y * cos
-            };
-        };
-        
-        // Four resize handles around the circle relative to container center
         const basePositions = [
             { x: 0, y: -radius, type: 'n' },
             { x: radius, y: 0, type: 'e' },
@@ -1495,29 +1485,15 @@ export default class MapEditor extends Phaser.Scene {
             { x: -radius, y: 0, type: 'w' }
         ];
         
-        // Apply rotation to handle positions
         const handlePositions = basePositions.map(pos => ({
-            x: rotatePoint(pos.x, pos.y, angle).x,
-            y: rotatePoint(pos.x, pos.y, angle).y,
+            x: this.rotatePoint(pos.x, pos.y, angle).x,
+            y: this.rotatePoint(pos.x, pos.y, angle).y,
             type: pos.type
         }));
         
         handlePositions.forEach(pos => {
-            const handle = this.add.circle(pos.x, pos.y, 6, 0x00ffff);
-            handle.setStrokeStyle(2, 0x0088aa);
-            handle.setInteractive();
-            handle.handleType = pos.type;
-            handle.platformData = platform.data;
-            handle.setDepth(300); // High depth so they're on top
-            
-            // Use Phaser's drag system
-            this.input.setDraggable(handle);
-            
-            // Visual feedback
-            handle.on('pointerover', () => handle.setFillStyle(0xffff88));
-            handle.on('pointerout', () => handle.setFillStyle(0x00ffff));
-            
-            // Add to container and track it
+            const handle = this.createResizeHandle(pos, platform, 'circle');
+            this.setupHandleInteraction(handle);
             platform.container.add(handle);
             platform.handles.push(handle);
             
@@ -1527,37 +1503,45 @@ export default class MapEditor extends Phaser.Scene {
     
     createRotationHandle(platform) {
         const { type, radius, width, height, angle = 0 } = platform.data;
+        const rotationDistance = this.getRotationHandleDistance(type, radius, height);
+        const rotatedPos = this.rotatePoint(0, -rotationDistance, angle);
         
-        // Helper function to rotate a point around origin
-        const rotatePoint = (x, y, rotation) => {
-            const cos = Math.cos(rotation);
-            const sin = Math.sin(rotation);
-            return {
-                x: x * cos - y * sin,
-                y: x * sin + y * cos
-            };
-        };
+        const handle = this.createRotationHandleSprite(rotatedPos, platform);
+        const rotationIcon = this.createRotationIcon(rotatedPos);
         
-        // Position rotation handle at the top edge of the shape
-        let rotationDistance;
+        this.setupRotationHandleInteraction(handle, rotationIcon);
+        
+        platform.container.add(handle);
+        platform.container.add(rotationIcon);
+        platform.handles.push(handle, rotationIcon);
+        
+        console.log('Created rotation handle for platform type:', type);
+    }
+    
+    getRotationHandleDistance(type, radius, height) {
         if (type === 'circle') {
-            rotationDistance = radius; // Right at the edge of the circle
+            return radius;
         } else if (type === 'rectangle' || type === 'trapezoid') {
-            rotationDistance = height / 2; // Right at the top edge of the rectangle
-        } else {
-            rotationDistance = 30; // Default distance for other shapes
+            return height / 2;
         }
+        return 30; // Default distance
+    }
+    
+    createRotationHandleSprite(position, platform) {
+        const { ROTATION_SIZE, ROTATION_COLOR, ROTATION_STROKE_COLOR, DEPTH } = this.CONFIG.HANDLES;
         
-        // Apply rotation to handle position
-        const rotatedPos = rotatePoint(0, -rotationDistance, angle);
-        const handle = this.add.circle(rotatedPos.x, rotatedPos.y, 8, 0xff4444);
-        handle.setStrokeStyle(2, 0xaa2222);
+        const handle = this.add.circle(position.x, position.y, ROTATION_SIZE, ROTATION_COLOR);
+        handle.setStrokeStyle(2, ROTATION_STROKE_COLOR);
         handle.setInteractive();
         handle.handleType = 'rotation';
         handle.platformData = platform.data;
-        handle.setDepth(300);
+        handle.setDepth(DEPTH);
         
-        // Add rotation icon indicator
+        this.input.setDraggable(handle);
+        return handle;
+    }
+    
+    createRotationIcon(position) {
         const rotationIcon = this.add.graphics();
         rotationIcon.lineStyle(2, 0xffffff);
         rotationIcon.strokeCircle(0, 0, 4);
@@ -1566,29 +1550,21 @@ export default class MapEditor extends Phaser.Scene {
         rotationIcon.moveTo(2, -2);
         rotationIcon.lineTo(-2, 2);
         rotationIcon.strokePath();
-        rotationIcon.setPosition(rotatedPos.x, rotatedPos.y);
-        rotationIcon.setDepth(301);
+        rotationIcon.setPosition(position.x, position.y);
+        rotationIcon.setDepth(this.CONFIG.HANDLES.DEPTH + 1);
         
-        // Make it draggable
-        this.input.setDraggable(handle);
-        
-        // Visual feedback
+        return rotationIcon;
+    }
+    
+    setupRotationHandleInteraction(handle, rotationIcon) {
         handle.on('pointerover', () => {
             handle.setFillStyle(0xff6666);
             rotationIcon.setAlpha(1.2);
         });
         handle.on('pointerout', () => {
-            handle.setFillStyle(0xff4444);
+            handle.setFillStyle(this.CONFIG.HANDLES.ROTATION_COLOR);
             rotationIcon.setAlpha(1.0);
         });
-        
-        // Add both handle and icon to container
-        platform.container.add(handle);
-        platform.container.add(rotationIcon);
-        platform.handles.push(handle);
-        platform.handles.push(rotationIcon); // Track the icon too for cleanup
-        
-        console.log('Created rotation handle for platform type:', type);
     }
     
     deleteSelectedPlatform() {
@@ -1637,50 +1613,53 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     enterTestMode() {
-        // Create temporary JsonMapBase scene to test the map
+        this.prepareMapDataForTesting();
+        this.createTestWorm();
+        this.initializeTestPlatforms();
+        this.setupTestModePhysics();
+        this.setupTestModeCamera();
+        this.hideEditorVisuals();
+        this.showTestModeIndicator();
+    }
+    
+    prepareMapDataForTesting() {
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
         this.mapData.stickers = this.stickers.map(s => s.toJSON());
-        
-        // Spawn test worm using pixel coordinates
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
+    }
+    
+    createTestWorm() {
+        const { x: wormX, y: wormY } = this.entities.wormStart;
+        const { BASE_RADIUS, SEGMENT_SIZES } = this.CONFIG.WORM;
         
         this.testWorm = new DoubleWorm(this, wormX, wormY, {
-            baseRadius: 15,
-            segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+            baseRadius: BASE_RADIUS,
+            segmentSizes: SEGMENT_SIZES,
             showDebug: false
         });
-        
-        // Create physics bodies and special platforms for testing
-        this.testPlatformBodies = [];
-        this.testSpecialPlatforms = [];
-        this.testPlatformVisuals = [];
-        // No need to create additional physics bodies - using unified platform instances
-        // The platform instances from the editor already have physics bodies and visuals
+    }
+    
+    initializeTestPlatforms() {
+        // Since we're using unified platform instances, we don't need separate test platforms
+        // The platform instances already have physics bodies and visuals
         console.log(`Test mode: Using ${this.platforms.length} unified platform instances`);
-        
-        // Set up collision detection for special platforms
+    }
+    
+    setupTestModePhysics() {
         this.setupSpecialPlatformCollisions();
-        
-        // Add mouse constraint for debugging physics in test mode
         this.setupMouseConstraint();
-        
-        // Set up camera to follow worm
-        this.setupTestModeCamera();
-        
-        // Hide editor entity sprites during test (but keep goal visible)
+    }
+    
+    hideEditorVisuals() {
         this.wormSprite.setVisible(false);
-        // Keep goal sprite visible during test mode so player can see the target
-        
-        // Hide all editor platform visuals during test mode
         this.platforms.forEach(platform => {
             if (platform.container) {
                 platform.container.setVisible(false);
             }
         });
-        
-        // Show test mode indicator
+    }
+    
+    showTestModeIndicator() {
         this.testModeText = this.add.text(20, 20, 'TEST MODE - Press TAB to exit', {
             fontSize: '20px',
             color: '#ff0000',
@@ -1696,26 +1675,6 @@ export default class MapEditor extends Phaser.Scene {
             this.testWorm = null;
         }
         
-        // Remove test platform bodies
-        if (this.testPlatformBodies) {
-            this.testPlatformBodies.forEach(body => {
-                if (body && body.world) {
-                    this.matter.world.remove(body);
-                }
-            });
-            this.testPlatformBodies = [];
-        }
-        
-        // Destroy special platforms
-        if (this.testSpecialPlatforms) {
-            this.testSpecialPlatforms.forEach(platform => {
-                if (platform && platform.destroy) {
-                    platform.destroy();
-                }
-            });
-            this.testSpecialPlatforms = [];
-        }
-        
         // Remove mouse constraint
         if (this.mouseConstraint) {
             this.matter.world.removeConstraint(this.mouseConstraint);
@@ -1725,38 +1684,11 @@ export default class MapEditor extends Phaser.Scene {
         // Reset camera
         this.resetEditorCamera();
         
-        // Remove test platform visuals
-        if (this.testPlatformVisuals) {
-            console.log(`Cleaning up ${this.testPlatformVisuals.length} test platform visuals`);
-            this.testPlatformVisuals.forEach((visual, index) => {
-                if (visual && visual.destroy) {
-                    console.log(`Destroying visual ${index}:`, visual.type || 'unknown');
-                    visual.destroy();
-                } else {
-                    console.warn(`Visual ${index} is null or has no destroy method:`, visual);
-                }
-            });
-            this.testPlatformVisuals = [];
-        }
-        
-        // Additional cleanup: Remove any remaining test mode objects
-        // This catches any visuals that might not have been properly tracked
-        this.children.getChildren().forEach(child => {
-            // Look for objects that might be test platform visuals based on their properties
-            if (child && child.depth === 10 && 
-                (child.type === 'Rectangle' || child.type === 'Circle' || child.type === 'Polygon') &&
-                child !== this.wormSprite && child !== this.goalSprite && 
-                !this.platforms.some(p => p.visual === child)) {
-                console.log(`Cleaning up orphaned test visual:`, child.type, child.x, child.y);
-                child.destroy();
-            }
-        });
-        
         // Show entity sprites
         this.wormSprite.setVisible(true);
         this.goalSprite.setVisible(true);
         
-        // Show all editor platform visuals when returning to editor mode
+        // Show all editor platform containers when returning to editor mode
         this.platforms.forEach(platform => {
             if (platform.container) {
                 platform.container.setVisible(true);
@@ -1771,7 +1703,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createPhysicsBodyForPlatform(platformData) {
-        const { type, physics = {}, rotation = 0 } = platformData;
+        const { type, physics = {}, angle = 0 } = platformData;
         const defaultPhysics = {
             isStatic: true,
             friction: 0.8,
@@ -1800,10 +1732,10 @@ export default class MapEditor extends Phaser.Scene {
                 const vertices = [];
                 
                 for (let i = 0; i < sides; i++) {
-                    const angle = (2 * Math.PI * i / sides) + rotation;
+                    const angleRad = (2 * Math.PI * i / sides) + angle;
                     vertices.push({
-                        x: polyX + polyRadius * Math.cos(angle),
-                        y: polyY + polyRadius * Math.sin(angle)
+                        x: polyX + polyRadius * Math.cos(angleRad),
+                        y: polyY + polyRadius * Math.sin(angleRad)
                     });
                 }
                 
@@ -1838,8 +1770,8 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         // Apply rotation to the physics body
-        if (body && rotation !== 0) {
-            this.matter.body.setAngle(body, rotation);
+        if (body && angle !== 0) {
+            this.matter.body.setAngle(body, angle);
         }
         
         return body;
@@ -1854,7 +1786,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createTestPlatformVisual(platformData) {
-        const { type, color, rotation = 0 } = platformData;
+        const { type, color, angle = 0 } = platformData;
         const colorValue = parseInt(color.replace('#', '0x'));
         
         let visual;
@@ -1877,10 +1809,10 @@ export default class MapEditor extends Phaser.Scene {
                 const { x: polyX, y: polyY, sides, radius: polyRadius } = platformData;
                 const vertices = [];
                 for (let i = 0; i < sides; i++) {
-                    const angle = (2 * Math.PI * i / sides) + rotation;
+                    const angleRad = (2 * Math.PI * i / sides) + angle;
                     vertices.push({
-                        x: polyX + polyRadius * Math.cos(angle),
-                        y: polyY + polyRadius * Math.sin(angle)
+                        x: polyX + polyRadius * Math.cos(angleRad),
+                        y: polyY + polyRadius * Math.sin(angleRad)
                     });
                 }
                 visual = this.add.polygon(polyX, polyY, vertices, colorValue);
@@ -1889,16 +1821,20 @@ export default class MapEditor extends Phaser.Scene {
                 
             case 'trapezoid':
                 const { x: trapX, y: trapY, width: trapWidth, height: trapHeight, slope = 0 } = platformData;
+                // Match the physics body positioning (center of bounds)
+                const trapCenterX = trapX + trapWidth / 2;
+                const trapCenterY = trapY + trapHeight / 2;
                 const halfWidth = trapWidth / 2;
                 const halfHeight = trapHeight / 2;
                 const slopeOffset = slope * halfHeight;
+                // Create vertices relative to center
                 const trapVertices = [
-                    { x: trapX - halfWidth + slopeOffset, y: trapY - halfHeight },
-                    { x: trapX + halfWidth - slopeOffset, y: trapY - halfHeight },
-                    { x: trapX + halfWidth, y: trapY + halfHeight },
-                    { x: trapX - halfWidth, y: trapY + halfHeight }
+                    { x: -halfWidth + slopeOffset, y: -halfHeight },
+                    { x: halfWidth - slopeOffset, y: -halfHeight },
+                    { x: halfWidth, y: halfHeight },
+                    { x: -halfWidth, y: halfHeight }
                 ];
-                visual = this.add.polygon(trapX, trapY, trapVertices, colorValue);
+                visual = this.add.polygon(trapCenterX, trapCenterY, trapVertices, colorValue);
                 visual.setStrokeStyle(2, 0x000000, 0.8);
                 break;
                 
@@ -1914,14 +1850,14 @@ export default class MapEditor extends Phaser.Scene {
         if (visual) {
             visual.setDepth(10);
             // Apply rotation to test visuals
-            visual.setRotation(rotation);
+            visual.setRotation(angle);
         }
         
         return visual;
     }
     
     createSpecialPlatformForTest(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, color, rotation = 0 } = platformData;
+        const { type, platformType, x, y, width, height, radius, physics = {}, color, angle = 0 } = platformData;
         
         // Adjust coordinates for top-left origin (like regular physics bodies)
         let centerX, centerY;
@@ -1944,7 +1880,7 @@ export default class MapEditor extends Phaser.Scene {
         const config = {
             color: parseInt((color || '#ff6b6b').replace('#', '0x')),
             shape: type, // Pass the shape type (rectangle, circle, etc.)
-            angle: rotation, // Pass rotation to special platforms
+            angle: angle, // Pass angle to special platforms
             ...physics,
         };
         
@@ -2036,38 +1972,43 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     setupTestModeCamera() {
-        // Create camera target if it doesn't exist
+        this.createCameraTarget();
+        this.configureCameraFollowing();
+    }
+    
+    createCameraTarget() {
         if (!this.cameraTarget) {
-            const wormX = this.entities.wormStart.x;
-            const wormY = this.entities.wormStart.y;
+            const { x: wormX, y: wormY } = this.entities.wormStart;
             this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 0);
         }
+    }
+    
+    configureCameraFollowing() {
+        const camera = this.cameras.main;
+        camera.startFollow(this.cameraTarget, true);
         
-        // Set camera to follow the target with smooth movement
-        this.cameras.main.startFollow(this.cameraTarget, true);
-        
-        // Use compatible camera methods
-        if (this.cameras.main.setLerpFactor) {
-            this.cameras.main.setLerpFactor(0.1, 0.1); // Smooth following if available
+        if (camera.setLerpFactor) {
+            camera.setLerpFactor(0.1, 0.1);
         }
-        if (this.cameras.main.setDeadzone) {
-            this.cameras.main.setDeadzone(100, 100); // Dead zone for smoother movement
+        if (camera.setDeadzone) {
+            camera.setDeadzone(100, 100);
         }
-        this.cameras.main.setZoom(1); // Reset zoom to 1:1
+        camera.setZoom(this.CONFIG.CAMERA.TEST_ZOOM);
     }
     
     resetEditorCamera() {
-        // Stop following and reset camera to editor mode
-        this.cameras.main.stopFollow();
-        this.cameras.main.setZoom(0.8); // Back to editor zoom
-        this.cameras.main.centerOn(this.mapData.dimensions.width / 2, this.mapData.dimensions.height / 2);
+        const camera = this.cameras.main;
+        const { width, height } = this.mapData.dimensions;
         
-        // Use compatible camera methods - only call if they exist
-        if (this.cameras.main.setLerpFactor) {
-            this.cameras.main.setLerpFactor(1, 1); // Instant movement in editor
+        camera.stopFollow();
+        camera.setZoom(this.CONFIG.CAMERA.EDITOR_ZOOM);
+        camera.centerOn(width / 2, height / 2);
+        
+        if (camera.setLerpFactor) {
+            camera.setLerpFactor(1, 1);
         }
-        if (this.cameras.main.setDeadzone) {
-            this.cameras.main.setDeadzone(0, 0); // No deadzone in editor
+        if (camera.setDeadzone) {
+            camera.setDeadzone(0, 0);
         }
     }
     
@@ -2160,26 +2101,39 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     clearAllPlatforms() {
-        this.platforms.forEach(platform => {
-            if (platform.visual) {
-                platform.visual.destroy();
-            }
-        });
+        this.platforms.forEach(platform => this.destroyPlatform(platform));
         this.platforms = [];
         this.selectedPlatform = null;
         this.mapData.platforms = [];
     }
     
+    destroyPlatform(platform) {
+        if (platform.instance && platform.instance.destroy) {
+            platform.instance.destroy();
+        }
+        if (platform.container) {
+            platform.container.destroy();
+        }
+        if (platform.visual && platform.visual.destroy) {
+            platform.visual.destroy();
+        }
+    }
+    
     updateEntityPositions() {
-        const wormX = this.entities.wormStart.x;
-        const wormY = this.entities.wormStart.y;
+        this.updateWormPosition();
+        this.updateGoalPosition();
+    }
+    
+    updateWormPosition() {
+        const { x: wormX, y: wormY } = this.entities.wormStart;
         this.wormSprite.setPosition(wormX, wormY);
         if (this.wormText) {
             this.wormText.setPosition(wormX, wormY);
         }
-        
-        const goalX = this.entities.goal.x;
-        const goalY = this.entities.goal.y;
+    }
+    
+    updateGoalPosition() {
+        const { x: goalX, y: goalY } = this.entities.goal;
         this.goalSprite.setPosition(goalX, goalY);
     }
     
@@ -2509,10 +2463,21 @@ TESTING TIPS:
     
     updateCameraControls(delta) {
         const camera = this.cameras.main;
-        const cameraSpeed = 200 / camera.zoom; // Adjust speed based on zoom level
-        const moveDistance = (cameraSpeed * delta) / 1000; // Convert to pixels per frame
+        const moveDistance = this.calculateCameraMoveDistance(camera, delta);
+        const moved = this.processCameraKeyInput(camera, moveDistance);
         
-        // IJKL and arrow key camera movement
+        if (moved) {
+            this.constrainCameraToMapBounds(camera);
+            this.updateCameraInfoDisplay();
+        }
+    }
+    
+    calculateCameraMoveDistance(camera, delta) {
+        const cameraSpeed = 200 / camera.zoom;
+        return (cameraSpeed * delta) / 1000;
+    }
+    
+    processCameraKeyInput(camera, moveDistance) {
         let moved = false;
         
         if (this.cameraKeys.I.isDown || this.cursors.up.isDown) {
@@ -2532,20 +2497,7 @@ TESTING TIPS:
             moved = true;
         }
         
-        // Constrain camera to map bounds
-        if (moved) {
-            const bounds = camera.getBounds();
-            const mapWidth = this.mapData.dimensions.width;
-            const mapHeight = this.mapData.dimensions.height;
-            
-            // Allow camera to pan beyond world boundaries with margin
-            const margin = 500; // 500 pixel margin around the world
-            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, -margin, Math.max(-margin, mapWidth - camera.width / camera.zoom + margin));
-            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, -margin, Math.max(-margin, mapHeight - camera.height / camera.zoom + margin));
-            
-            // Update camera info display
-            this.updateCameraInfoDisplay();
-        }
+        return moved;
     }
     
     update(time, delta) {
@@ -2582,52 +2534,60 @@ TESTING TIPS:
     checkGoalCollision() {
         if (!this.testWorm || !this.testWorm.segments) return;
         
-        const goalX = this.entities.goal.x;
-        const goalY = this.entities.goal.y;
-        const goalRadius = 25; // Star collision radius
+        const { x: goalX, y: goalY } = this.entities.goal;
+        const goalRadius = this.CONFIG.ENTITIES.GOAL_SPRITE_RADIUS;
         
-        // Check if any worm segment touches the goal
         for (let i = 0; i < this.testWorm.segments.length; i++) {
-            const segment = this.testWorm.segments[i];
-            const distance = Phaser.Math.Distance.Between(
-                segment.position.x, segment.position.y,
-                goalX, goalY
-            );
-            
-            const segmentRadius = this.testWorm.segmentRadii[i] || 15;
-            const collisionDistance = segmentRadius + goalRadius;
-            
-            if (distance < collisionDistance) {
+            if (this.isWormSegmentTouchingGoal(this.testWorm.segments[i], i, goalX, goalY, goalRadius)) {
                 this.showTestVictory();
                 return;
             }
         }
     }
     
+    isWormSegmentTouchingGoal(segment, segmentIndex, goalX, goalY, goalRadius) {
+        const distance = Phaser.Math.Distance.Between(
+            segment.position.x, segment.position.y,
+            goalX, goalY
+        );
+        
+        const segmentRadius = this.testWorm.segmentRadii[segmentIndex] || this.CONFIG.WORM.BASE_RADIUS;
+        const collisionDistance = segmentRadius + goalRadius;
+        
+        return distance < collisionDistance;
+    }
+    
     showTestVictory() {
-        // Create victory notification
-        const victoryText = this.add.text(this.scale.width / 2, this.scale.height / 2, 'GOAL REACHED!', {
+        const victoryText = this.createVictoryText();
+        const instructionText = this.createVictoryInstructionText();
+        this.scheduleVictoryTextRemoval(victoryText, instructionText);
+    }
+    
+    createVictoryText() {
+        return this.add.text(this.scale.width / 2, this.scale.height / 2, 'GOAL REACHED!', {
             fontSize: '48px',
             color: '#ffd700',
             stroke: '#000000',
             strokeThickness: 4
         }).setOrigin(0.5).setScrollFactor(0).setDepth(2000);
-        
-        const instructionText = this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, 'Press SPACE to return to editing', {
+    }
+    
+    createVictoryInstructionText() {
+        return this.add.text(this.scale.width / 2, this.scale.height / 2 + 60, 'Press SPACE to return to editing', {
             fontSize: '20px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.8)',
             padding: { x: 15, y: 8 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(2000);
-        
-        // Auto-remove after 3 seconds
-        this.time.delayedCall(3000, () => {
-            if (victoryText && victoryText.active) {
-                victoryText.destroy();
-            }
-            if (instructionText && instructionText.active) {
-                instructionText.destroy();
-            }
+    }
+    
+    scheduleVictoryTextRemoval(victoryText, instructionText) {
+        this.time.delayedCall(this.CONFIG.TIMING.VICTORY_DISPLAY_DURATION, () => {
+            [victoryText, instructionText].forEach(text => {
+                if (text && text.active) {
+                    text.destroy();
+                }
+            });
         });
     }
     
@@ -2636,64 +2596,189 @@ TESTING TIPS:
         if (!platform.container) return false;
         
         const { type } = platform.data;
-        const containerX = platform.container.x;
-        const containerY = platform.container.y;
+        const { x: containerX, y: containerY } = platform.container;
         
+        return this.checkCollisionByType(type, platform.data, containerX, containerY, x, y);
+    }
+    
+    checkCollisionByType(type, data, containerX, containerY, x, y) {
         switch (type) {
             case 'rectangle':
             case 'trapezoid':
-                const halfW = platform.data.width / 2;
-                const halfH = platform.data.height / 2;
-                return (x >= containerX - halfW && x <= containerX + halfW &&
-                        y >= containerY - halfH && y <= containerY + halfH);
+                return this.isPointInRectangle(x, y, containerX, containerY, data.width, data.height);
                 
             case 'circle':
-                const distance = Phaser.Math.Distance.Between(containerX, containerY, x, y);
-                return distance <= platform.data.radius;
+                return this.isPointInCircle(x, y, containerX, containerY, data.radius);
                 
             case 'polygon':
             case 'custom':
-                // Simple radius check for now
-                const distance2 = Phaser.Math.Distance.Between(containerX, containerY, x, y);
-                return distance2 <= (platform.data.radius || 50);
+                return this.isPointInCircle(x, y, containerX, containerY, data.radius || 50);
+            
+            default:
+                return false;
         }
-        
-        return false;
+    }
+    
+    isPointInRectangle(x, y, centerX, centerY, width, height) {
+        const halfW = width / 2;
+        const halfH = height / 2;
+        return (x >= centerX - halfW && x <= centerX + halfW &&
+                y >= centerY - halfH && y <= centerY + halfH);
+    }
+    
+    isPointInCircle(x, y, centerX, centerY, radius) {
+        const distance = Phaser.Math.Distance.Between(centerX, centerY, x, y);
+        return distance <= radius;
     }
     
     isClickOnEntity(x, y) {
-        // Check if clicking on worm sprite (circle with 20px radius)
-        if (this.wormSprite && this.wormSprite.visible) {
-            const wormDistance = Phaser.Math.Distance.Between(
-                this.wormSprite.x, this.wormSprite.y, x, y
-            );
-            if (wormDistance <= 20) {
-                return true;
-            }
+        return this.isClickOnWorm(x, y) || this.isClickOnGoal(x, y);
+    }
+    
+    isClickOnWorm(x, y) {
+        if (!this.wormSprite || !this.wormSprite.visible) return false;
+        
+        const distance = Phaser.Math.Distance.Between(this.wormSprite.x, this.wormSprite.y, x, y);
+        return distance <= this.CONFIG.ENTITIES.WORM_SPRITE_RADIUS;
+    }
+    
+    isClickOnGoal(x, y) {
+        if (!this.goalSprite || !this.goalSprite.visible) return false;
+        
+        const distance = Phaser.Math.Distance.Between(this.goalSprite.x, this.goalSprite.y, x, y);
+        return distance <= this.CONFIG.ENTITIES.GOAL_SPRITE_RADIUS;
+    }
+    
+    // Camera and input helper methods
+    handleWheelInput(pointer, deltaY) {
+        const camera = this.cameras.main;
+        
+        if (pointer.event) {
+            pointer.event.preventDefault();
         }
         
-        // Check if clicking on goal sprite (star shape, approximate with radius)
-        if (this.goalSprite && this.goalSprite.visible) {
-            const goalDistance = Phaser.Math.Distance.Between(
-                this.goalSprite.x, this.goalSprite.y, x, y
-            );
-            if (goalDistance <= 25) { // Star is slightly larger
-                return true;
-            }
+        if (pointer.event && pointer.event.ctrlKey) {
+            this.handleCameraZoom(pointer, camera, deltaY);
+        } else {
+            this.handleCameraPan(pointer, camera, deltaY);
         }
         
-        return false;
+        this.constrainCameraToMapBounds(camera);
+        this.updateCameraInfoDisplay();
+    }
+    
+    handleCameraZoom(pointer, camera, deltaY) {
+        const { ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM } = this.CONFIG.CAMERA;
+        const oldZoom = camera.zoom;
+        
+        if (deltaY < 0) {
+            camera.zoom = Phaser.Math.Clamp(camera.zoom + ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM);
+        } else {
+            camera.zoom = Phaser.Math.Clamp(camera.zoom - ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM);
+        }
+        
+        if (camera.zoom !== oldZoom) {
+            const worldPoint = camera.getWorldPoint(pointer.x, pointer.y);
+            const zoomRatio = camera.zoom / oldZoom;
+            
+            camera.scrollX += (worldPoint.x - camera.scrollX) * (1 - 1/zoomRatio);
+            camera.scrollY += (worldPoint.y - camera.scrollY) * (1 - 1/zoomRatio);
+        }
+    }
+    
+    handleCameraPan(pointer, camera, deltaY) {
+        const panSpeed = this.CONFIG.CAMERA.PAN_SPEED / camera.zoom;
+        
+        if (pointer.event && pointer.event.shiftKey) {
+            camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
+        } else {
+            camera.scrollY += deltaY > 0 ? panSpeed : -panSpeed;
+        }
+    }
+    
+    handleMiddleMousePan(pointer) {
+        const camera = this.cameras.main;
+        camera.scrollX -= pointer.velocity.x / camera.zoom;
+        camera.scrollY -= pointer.velocity.y / camera.zoom;
+        
+        this.constrainCameraToMapBounds(camera);
+        this.updateCameraInfoDisplay();
+    }
+    
+    constrainCameraToMapBounds(camera) {
+        const { width: mapWidth, height: mapHeight } = this.mapData.dimensions;
+        const { MARGIN } = this.CONFIG.CAMERA;
+        
+        camera.scrollX = Phaser.Math.Clamp(
+            camera.scrollX, 
+            -MARGIN, 
+            Math.max(-MARGIN, mapWidth - camera.width / camera.zoom + MARGIN)
+        );
+        camera.scrollY = Phaser.Math.Clamp(
+            camera.scrollY, 
+            -MARGIN, 
+            Math.max(-MARGIN, mapHeight - camera.height / camera.zoom + MARGIN)
+        );
+    }
+    
+    setupDoubleClickDetection() {
+        let lastClickTime = 0;
+        this.input.on('pointerup', (pointer) => {
+            const now = Date.now();
+            if (now - lastClickTime < this.CONFIG.TIMING.DOUBLE_CLICK_THRESHOLD) {
+                this.createItemAtPointer(pointer);
+            }
+            lastClickTime = now;
+        });
     }
     
     destroy() {
-        // Clean up dat.gui instance
-        // if (this.gui) {
-        //     this.gui.destroy();
-        //     this.gui = null;
-        // }
+        // Clean up event listeners
+        this.cleanupEventListeners();
+        
+        // Clear auto-save timer
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
+        
+        // Clean up platforms
+        this.platforms.forEach(platform => {
+            if (platform.instance && platform.instance.destroy) {
+                platform.instance.destroy();
+            }
+            if (platform.container) {
+                platform.container.destroy();
+            }
+        });
+        this.platforms = [];
+        
+        // Clean up stickers
+        this.stickers.forEach(sticker => {
+            if (sticker && sticker.destroy) {
+                sticker.destroy();
+            }
+        });
+        this.stickers = [];
         
         // Call parent destroy
         super.destroy();
+    }
+    
+    cleanupEventListeners() {
+        // Remove all tracked event listeners
+        this.eventListeners.forEach(({ target, event, handler }) => {
+            if (target && target.off) {
+                target.off(event, handler);
+            }
+        });
+        this.eventListeners = [];
+        
+        // Remove collision event listeners
+        if (this.matter && this.matter.world) {
+            this.matter.world.off('collisionstart');
+            this.matter.world.off('collisionend');
+        }
     }
     
 }

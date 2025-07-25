@@ -3,7 +3,7 @@
     "name": "Bounce Platform Test",
     "difficulty": 1,
     "description": "Test map for bouncy platforms with chamfered corners",
-    "modified": "2025-07-25T13:29:32.168Z"
+    "modified": "2025-07-25T16:35:32.075Z"
   },
   "dimensions": {
     "width": 1920,
@@ -12,7 +12,7 @@
   "entities": {
     "wormStart": {
       "x": 200,
-      "y": 952
+      "y": 752
     },
     "goal": {
       "x": 1720,
@@ -40,8 +40,8 @@
       "id": "platform_1753413200651",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 768,
-      "y": 480,
+      "x": 512,
+      "y": 672,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -56,8 +56,8 @@
       "id": "platform_1753413868290",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 672,
-      "y": 768,
+      "x": 768,
+      "y": 680,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -65,14 +65,15 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 96,
-      "height": 48
+      "width": 192,
+      "height": 48,
+      "angle": -0.015350399554425742
     },
     {
       "id": "platform_1753413875957",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 792,
+      "x": 968,
       "y": 960,
       "rotation": 0,
       "color": "#ff6b6b",
@@ -88,8 +89,8 @@
       "id": "platform_1753449763722",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 976,
-      "y": 696,
+      "x": 392,
+      "y": 1128,
       "rotation": 0,
       "color": "#ff69b4",
       "physics": {
@@ -97,15 +98,15 @@
         "frictionStatic": 0.9,
         "restitution": 0.3
       },
-      "width": 96,
+      "width": 960,
       "height": 48
     },
     {
       "id": "platform_1753450164151",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 1160,
-      "y": 648,
+      "x": 952,
+      "y": 720,
       "rotation": 0,
       "color": "#ff69b4",
       "physics": {
@@ -120,8 +121,8 @@
       "id": "platform_1753450170480",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 608,
-      "y": 896,
+      "x": 864,
+      "y": 832,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {

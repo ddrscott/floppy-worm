@@ -17,13 +17,13 @@ export default class BouncyPlatform extends PlatformBase {
         this.createChamferedGraphics();
         
         // Bouncy-specific properties
-        this.bounceForce = config.bounceForce || 0.1; // Increased from 0.003
-        this.minimumImpactSpeed = config.minimumImpactSpeed || 0.5; // Reduced from 2
+        this.bounceForce = config.bounceForce || 0.015; // Bounce force similar to other platforms
+        this.minimumImpactSpeed = config.minimumImpactSpeed || 0.1; // Lower threshold for bouncing
         this.bounceSound = config.bounceSound || null;
         
         // Animation properties
         this.baseScaleX = 1;
-        this.baseScaleY = 1;
+        this.baseScaleY = 1.5;
         this.squishAmount = 0.1;
         this.squishDuration = 150;
         
@@ -160,15 +160,21 @@ export default class BouncyPlatform extends PlatformBase {
             }
         });
         
-        // Color flash effect
-        const originalTint = this.graphics.fillColor;
-        this.graphics.setFillStyle(0xffeb3b); // Bright yellow flash
-        
-        this.scene.time.delayedCall(100, () => {
-            if (this.graphics) {
-                this.graphics.setFillStyle(originalTint);
-            }
-        });
+        // Flash effect using a temporary white overlay rectangle
+        if (this.graphics) {
+            // Create a temporary white flash overlay
+            const flashOverlay = this.scene.add.rectangle(0, 0, this.width, this.height, 0xffffff, 0.6);
+            flashOverlay.setBlendMode(Phaser.BlendModes.ADD); // Additive blending for bright flash
+            this.container.add(flashOverlay);
+            
+            // Remove the flash overlay after a brief moment
+            this.scene.time.delayedCall(100, () => {
+                if (flashOverlay && flashOverlay.active) {
+                    this.container.remove(flashOverlay);
+                    flashOverlay.destroy();
+                }
+            });
+        }
     }
     
     update(delta) {

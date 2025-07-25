@@ -53,7 +53,7 @@ async function loadAllMapData() {
                     for (const mapInfo of listResult.maps) {
                         const key = mapInfo.filename.replace('.json', '');
                         try {
-                            const response = await fetch(`/api/maps/${mapInfo.filename}/get`);
+                            const response = await fetch(`/api/maps/${mapInfo.filename}`);
                             if (response.ok) {
                                 const result = await response.json();
                                 if (result.mapData) {

@@ -460,7 +460,7 @@ export default function MapEdit() {
         }
 
         // Load from the server API
-        const response = await fetch(`/api/maps/${filename}/get`);
+        const response = await fetch(`/api/maps/${filename}`);
         
         if (response.ok) {
           const result = await response.json();
