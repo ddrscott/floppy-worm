@@ -3,7 +3,7 @@
     "name": "Try Angles",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-25T02:08:39.540Z"
+    "modified": "2025-07-25T22:56:10.622Z"
   },
   "dimensions": {
     "width": 1000,
@@ -11,12 +11,12 @@
   },
   "entities": {
     "wormStart": {
-      "x": 932,
-      "y": 528
+      "x": 912,
+      "y": 612
     },
     "goal": {
-      "x": 800,
-      "y": 200
+      "x": 864,
+      "y": 180
     }
   },
   "platforms": [
@@ -24,8 +24,8 @@
       "id": "platform_1753376364464",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 130,
-      "y": 593,
+      "x": 240,
+      "y": 720,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -33,16 +33,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 1193,
-      "height": 67,
+      "width": 864,
+      "height": 96,
       "angle": 0.6808707331966737
     },
     {
       "id": "platform_1753376366495",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 876,
-      "y": 373,
+      "x": 840,
+      "y": 348,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -55,28 +55,11 @@
       "angle": -0.8167008387322117
     },
     {
-      "id": "platform_1753376622885",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 227,
-      "y": 186,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 810,
-      "height": 60,
-      "angle": 0.7401324860317139
-    },
-    {
       "id": "platform_1753376928347",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 672,
-      "y": 932,
+      "x": 648,
+      "y": 948,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -87,6 +70,23 @@
       "width": 259,
       "height": 79,
       "angle": -0.8374948639838635
+    },
+    {
+      "id": 1753483906711,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 180,
+      "y": 156,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 624,
+      "height": 96,
+      "angle": 0.6808707331966737
     }
   ],
   "stickers": []
