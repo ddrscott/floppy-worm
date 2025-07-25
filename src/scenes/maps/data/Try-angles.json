@@ -3,7 +3,7 @@
     "name": "Try Angles",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-24T17:10:56.189Z"
+    "modified": "2025-07-25T02:08:39.540Z"
   },
   "dimensions": {
     "width": 1000,
@@ -24,8 +24,8 @@
       "id": "platform_1753376364464",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 176,
-      "y": 543,
+      "x": 130,
+      "y": 593,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -50,8 +50,8 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 726,
-      "height": 69,
+      "width": 670,
+      "height": 110,
       "angle": -0.8167008387322117
     },
     {
@@ -88,5 +88,6 @@
       "height": 79,
       "angle": -0.8374948639838635
     }
-  ]
+  ],
+  "stickers": []
 }
