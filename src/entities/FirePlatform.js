@@ -34,9 +34,9 @@ export default class FirePlatform extends PlatformBase {
     }
     
     createFireEffects() {
-        // Create flame particle emitter
+        // Create flame particle emitter (positioned relative to container)
         try {
-            this.flameEmitter = this.scene.add.particles(this.x, this.y - this.height/2, '__DEFAULT', {
+            this.flameEmitter = this.scene.add.particles(0, -this.height/2, '__DEFAULT', {
                 scale: { start: 0.3, end: 0 },
                 speed: { min: 20, max: 60 },
                 lifespan: { min: 300, max: 800 },
@@ -51,20 +51,24 @@ export default class FirePlatform extends PlatformBase {
                     quantity: 1
                 }
             });
+            
+            // Add flame emitter to container
+            this.container.add(this.flameEmitter);
         } catch (e) {
             // Fallback: no particles
             this.flameEmitter = null;
         }
         
-        // Create heat distortion effect
+        // Create heat distortion effect (positioned at 0,0 relative to container)
         this.heatField = this.scene.add.graphics();
-        this.heatField.setPosition(this.x, this.y);
-        this.heatField.setAngle(this.config.angle);
         this.heatField.setDepth(-1);
         
-        // Create smoke emitter
+        // Add heat field to container
+        this.container.add(this.heatField);
+        
+        // Create smoke emitter (positioned relative to container)
         try {
-            this.smokeEmitter = this.scene.add.particles(this.x, this.y - this.height/2 - 20, '__DEFAULT', {
+            this.smokeEmitter = this.scene.add.particles(0, -this.height/2 - 20, '__DEFAULT', {
                 scale: { start: 0.2, end: 0.6 },
                 speed: { min: 10, max: 30 },
                 lifespan: { min: 1000, max: 2000 },
@@ -78,6 +82,9 @@ export default class FirePlatform extends PlatformBase {
                     source: new Phaser.Geom.Rectangle(-this.width/4, -10, this.width/2, 20)
                 }
             });
+            
+            // Add smoke emitter to container
+            this.container.add(this.smokeEmitter);
         } catch (e) {
             // Fallback: no particles
             this.smokeEmitter = null;

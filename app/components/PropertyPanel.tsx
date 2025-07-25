@@ -239,7 +239,21 @@ export default function PropertyPanel({
             <label className="block text-sm font-medium mb-1">Platform Type</label>
             <select
               value={toolSettings.platformType}
-              onChange={(e) => onToolSettingsChange({ ...toolSettings, platformType: e.target.value })}
+              onChange={(e) => {
+                const newType = e.target.value;
+                const colors = {
+                  'normal': '#ff6b6b',
+                  'ice': '#b3e5fc',
+                  'bouncy': '#ff69b4', 
+                  'electric': '#ffff00',
+                  'fire': '#f44336'
+                };
+                onToolSettingsChange({ 
+                  ...toolSettings, 
+                  platformType: newType,
+                  platformColor: colors[newType] || '#ff6b6b'
+                });
+              }}
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             >
               {Object.entries(platformTypes).map(([value, label]) => (
