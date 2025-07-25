@@ -1,36 +1,61 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 
-export async function action({ request, params }: ActionFunctionArgs) {
-  if (request.method !== "POST") {
-    throw new Response("Method not allowed", { status: 405 });
-  }
-
+export async function loader({ params }: LoaderFunctionArgs) {
   const { filename } = params;
   
   if (!filename) {
     throw new Response("Filename is required", { status: 400 });
   }
   
-  const formData = await request.formData();
-  const mapDataString = formData.get("mapData");
-  
-  if (typeof mapDataString !== "string") {
-    throw new Response("Invalid map data", { status: 400 });
-  }
+  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", filename);
   
   try {
-    // Validate JSON before saving
+    const content = await readFile(mapPath, 'utf-8');
+    const mapData = JSON.parse(content);
+    
+    return json({ mapData, filename });
+  } catch (error) {
+    console.error(`Failed to load map ${filename}:`, error);
+    return json({ error: "Map not found" }, { status: 404 });
+  }
+}
+
+export async function action({ request, params }: ActionFunctionArgs) {
+  const { filename } = params;
+  
+  if (!filename) {
+    throw new Response("Filename is required", { status: 400 });
+  }
+  
+  if (request.method !== "POST") {
+    throw new Response("Method not allowed", { status: 405 });
+  }
+  
+  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", filename);
+  
+  try {
+    const formData = await request.formData();
+    const mapDataString = formData.get("mapData");
+    
+    if (!mapDataString || typeof mapDataString !== "string") {
+      throw new Response("Invalid map data", { status: 400 });
+    }
+    
+    // Validate JSON
     const mapData = JSON.parse(mapDataString);
     
-    const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", filename);
-    await writeFile(mapPath, JSON.stringify(mapData, null, 2));
+    // Write the file with pretty formatting
+    await writeFile(mapPath, JSON.stringify(mapData, null, 2), 'utf-8');
     
-    return json({ success: true, message: "Map saved successfully" });
+    return json({ success: true, filename });
   } catch (error) {
-    console.error("Failed to save map:", error);
-    return json({ success: false, error: "Failed to save map data" }, { status: 500 });
+    console.error(`Failed to save map ${filename}:`, error);
+    if (error instanceof SyntaxError) {
+      return json({ error: "Invalid JSON data" }, { status: 400 });
+    }
+    return json({ error: "Failed to save map" }, { status: 500 });
   }
 }

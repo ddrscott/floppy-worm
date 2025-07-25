@@ -25,7 +25,7 @@ export default function MapView() {
         }
 
         // Load from the server API
-        const response = await fetch(`/api/maps/${filename}/get`);
+        const response = await fetch(`/api/maps/${filename}`);
         
         if (response.ok) {
           const result = await response.json();
@@ -79,6 +79,12 @@ export default function MapView() {
           Map: {mapData.title || filename}
         </h1>
         <div className="flex gap-2">
+          <Link
+            to={`/test/${filename.replace('.json', '')}`}
+            className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+          >
+            Test Map
+          </Link>
           <Link
             to={`/maps/${encodeURIComponent(filename)}/edit`}
             className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"

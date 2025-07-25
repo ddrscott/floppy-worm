@@ -142,9 +142,15 @@ export default function MapsIndex() {
                   </a>
                   <a
                     href={`/maps/${encodeURIComponent(map.filename)}`}
-                    className="text-green-600 hover:text-green-900"
+                    className="text-green-600 hover:text-green-900 mr-4"
                   >
                     View
+                  </a>
+                  <a
+                    href={`/test/${map.filename.replace('.json', '')}`}
+                    className="text-orange-600 hover:text-orange-900"
+                  >
+                    Test
                   </a>
                 </td>
               </tr>
