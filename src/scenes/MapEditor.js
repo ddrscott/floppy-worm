@@ -24,16 +24,16 @@ export default class MapEditor extends Phaser.Scene {
                 CHAR_WIDTH: 96,
                 CHAR_HEIGHT: 48,
                 ROW_SPACING: 96,
-                SNAP_SIZE: 8
+                SNAP_SIZE: 12 
             },
             CAMERA: {
                 EDITOR_ZOOM: 0.8,
                 TEST_ZOOM: 1.0,
-                MIN_ZOOM: 0.2,
-                MAX_ZOOM: 3.0,
-                ZOOM_SPEED: 0.1,
-                PAN_SPEED: 20,
-                MARGIN: 500
+                MIN_ZOOM: 0.5,
+                MAX_ZOOM: 2.0,
+                ZOOM_SPEED: 0.05,
+                PAN_SPEED: 10,
+                MARGIN: 300
             },
             WORM: {
                 BASE_RADIUS: 15,
@@ -203,9 +203,7 @@ export default class MapEditor extends Phaser.Scene {
         // Setup input
         this.setupInput();
         
-        // Allow interaction with all objects under pointer, not just the topmost
-        // This enables double-click creation even when clicking on existing platforms
-        this.input.topOnly = false;
+        // Keep default topOnly = true so we only interact with the topmost object
         
         // Combined click handler for selection and double-click creation
         let lastClickTime = 0;
@@ -268,21 +266,21 @@ export default class MapEditor extends Phaser.Scene {
     
     createCameraInfoDisplay() {
         // Create camera info text display
-        this.cameraInfoText = this.add.text(10, 10, '', {
-            fontSize: '14px',
-            fill: '#ffffff',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            padding: { x: 8, y: 4 }
-        }).setScrollFactor(0).setDepth(1000);
+        // this.cameraInfoText = this.add.text(10, 10, '', {
+        //     fontSize: '14px',
+        //     fill: '#ffffff',
+        //     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        //     padding: { x: 8, y: 4 }
+        // }).setScrollFactor(0).setDepth(1000);
         
-        // Create controls help text
-        this.controlsHelpText = this.add.text(10, this.cameras.main.height - 100, 
-            'Controls:\nIJKL/Arrows: Move camera\nWASD: Control worm (test mode)\nMouse wheel: Scroll vertically\nShift+wheel: Scroll horizontally\nCtrl+wheel: Zoom in/out\nMiddle mouse: Pan\nDouble-click: Create platform', {
-            fontSize: '12px',
-            fill: '#ffffff',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            padding: { x: 8, y: 4 }
-        }).setScrollFactor(0).setDepth(1000);
+        // // Create controls help text
+        // this.controlsHelpText = this.add.text(10, this.cameras.main.height - 100, 
+        //     'Controls:\nIJKL/Arrows: Move camera\nWASD: Control worm (test mode)\nMouse wheel: Scroll vertically\nShift+wheel: Scroll horizontally\nCtrl+wheel: Zoom in/out\nMiddle mouse: Pan\nDouble-click: Create platform', {
+        //     fontSize: '12px',
+        //     fill: '#ffffff',
+        //     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        //     padding: { x: 8, y: 4 }
+        // }).setScrollFactor(0).setDepth(1000);
         
         this.updateCameraInfoDisplay();
     }
@@ -887,7 +885,12 @@ export default class MapEditor extends Phaser.Scene {
         const angle = Math.atan2(dragY - platform.data.y, dragX - platform.data.x);
         
         // Convert to rotation (add 90 degrees so "up" is 0 rotation)
-        const rotation = angle + Math.PI / 2;
+        let rotation = angle + Math.PI / 2;
+        
+        // Snap to 5-degree increments
+        const snapAngleDegrees = 5;
+        const snapAngleRadians = snapAngleDegrees * Math.PI / 180;
+        rotation = Math.round(rotation / snapAngleRadians) * snapAngleRadians;
         
         // Update platform data (use 'angle' to match platform instance config)
         platform.data.angle = rotation;
@@ -1066,6 +1069,17 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-TAB', () => this.toggleTestMode());
         this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
         
+        // Copy/paste support
+        this.input.keyboard.on('keydown', (event) => {
+            if ((event.ctrlKey || event.metaKey)) {
+                if (event.key === 'c' || event.key === 'C') {
+                    this.copySelectedPlatform();
+                } else if (event.key === 'v' || event.key === 'V') {
+                    this.pastePlatform();
+                }
+            }
+        });
+        
         // Set up controls
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
@@ -1075,7 +1089,7 @@ export default class MapEditor extends Phaser.Scene {
         
         // Camera controls - mouse wheel scroll (with Ctrl+wheel for zoom)
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-            this.handleWheelInput(pointer, deltaY);
+            this.handleWheelInput(pointer, deltaX, deltaY);
         });
         
         // Pan with middle mouse
@@ -1702,14 +1716,9 @@ export default class MapEditor extends Phaser.Scene {
             // Clear resize handles first
             this.clearHandles(this.selectedPlatform);
             
-            // Destroy the platform instance (which destroys container and physics body)
-            if (this.selectedPlatform.instance && this.selectedPlatform.instance.destroy) {
-                this.selectedPlatform.instance.destroy();
-            }
-            
-            // Also destroy the editor container if it exists separately
-            if (this.selectedPlatform.container) {
-                this.selectedPlatform.container.destroy();
+            // Destroy the graphics
+            if (this.selectedPlatform.graphics) {
+                this.selectedPlatform.graphics.destroy();
             }
             
             // Remove from platforms array
@@ -1720,11 +1729,49 @@ export default class MapEditor extends Phaser.Scene {
             
             // Update map data
             this.mapData.platforms = this.platforms.map(p => p.data);
-            this.mapData.stickers = this.stickers.map(s => s.toJSON());
             
             this.selectedPlatform = null;
             this.autoSave();
         }
+    }
+    
+    copySelectedPlatform() {
+        if (this.selectedPlatform) {
+            // Deep copy the platform data
+            this.copiedPlatformData = JSON.parse(JSON.stringify(this.selectedPlatform.data));
+            this.pasteOffsetCount = 0; // Reset paste offset counter
+            console.log('Copied platform:', this.copiedPlatformData);
+        }
+    }
+    
+    pastePlatform() {
+        if (!this.copiedPlatformData) {
+            console.log('No platform data to paste');
+            return;
+        }
+        
+        // Create new platform data with offset position
+        const newPlatformData = JSON.parse(JSON.stringify(this.copiedPlatformData));
+        
+        // Generate new ID
+        newPlatformData.id = Date.now();
+        
+        // Increment paste offset for multiple pastes
+        this.pasteOffsetCount = (this.pasteOffsetCount || 0) + 1;
+        
+        // Offset from the original copied position with increasing offset for each paste
+        const offsetAmount = this.CONFIG.GRID.SNAP_SIZE * this.pasteOffsetCount;
+        newPlatformData.x = this.copiedPlatformData.x + offsetAmount;
+        newPlatformData.y = this.copiedPlatformData.y + offsetAmount;
+        
+        // Add the new platform
+        const newPlatform = this.addPlatformToScene(newPlatformData);
+        
+        // Select the new platform
+        this.selectPlatform(newPlatform);
+        
+        this.autoSave();
+        console.log('Pasted platform at:', newPlatformData.x, newPlatformData.y);
     }
     
     toggleTestMode() {
@@ -2635,7 +2682,7 @@ TESTING TIPS:
     }
     
     calculateCameraMoveDistance(camera, delta) {
-        const cameraSpeed = 200 / camera.zoom;
+        const cameraSpeed = 100 / camera.zoom; // Reduced from 200 to 100
         return (cameraSpeed * delta) / 1000;
     }
     
@@ -2812,7 +2859,7 @@ TESTING TIPS:
     }
     
     // Camera and input helper methods
-    handleWheelInput(pointer, deltaY) {
+    handleWheelInput(pointer, deltaX, deltaY) {
         const camera = this.cameras.main;
         
         if (pointer.event) {
@@ -2822,7 +2869,7 @@ TESTING TIPS:
         if (pointer.event && pointer.event.ctrlKey) {
             this.handleCameraZoom(pointer, camera, deltaY);
         } else {
-            this.handleCameraPan(pointer, camera, deltaY);
+            this.handleCameraPan(pointer, camera, deltaX, deltaY);
         }
         
         this.constrainCameraToMapBounds(camera);
@@ -2848,13 +2895,22 @@ TESTING TIPS:
         }
     }
     
-    handleCameraPan(pointer, camera, deltaY) {
+    handleCameraPan(pointer, camera, deltaX, deltaY) {
         const panSpeed = this.CONFIG.CAMERA.PAN_SPEED / camera.zoom;
         
-        if (pointer.event && pointer.event.shiftKey) {
-            camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
-        } else {
-            camera.scrollY += deltaY > 0 ? panSpeed : -panSpeed;
+        // Handle horizontal scrolling (e.g., trackpad horizontal swipe)
+        if (deltaX !== 0) {
+            camera.scrollX += deltaX > 0 ? panSpeed : -panSpeed;
+        }
+        
+        // Handle vertical scrolling
+        if (deltaY !== 0) {
+            // Shift+scroll for horizontal pan (legacy support)
+            if (pointer.event && pointer.event.shiftKey) {
+                camera.scrollX += deltaY > 0 ? panSpeed : -panSpeed;
+            } else {
+                camera.scrollY += deltaY > 0 ? panSpeed : -panSpeed;
+            }
         }
     }
     
@@ -2869,18 +2925,23 @@ TESTING TIPS:
     
     constrainCameraToMapBounds(camera) {
         const { width: mapWidth, height: mapHeight } = this.mapData.dimensions;
-        const { MARGIN } = this.CONFIG.CAMERA;
         
-        camera.scrollX = Phaser.Math.Clamp(
-            camera.scrollX, 
-            -MARGIN, 
-            Math.max(-MARGIN, mapWidth - camera.width / camera.zoom + MARGIN)
-        );
-        camera.scrollY = Phaser.Math.Clamp(
-            camera.scrollY, 
-            -MARGIN, 
-            Math.max(-MARGIN, mapHeight - camera.height / camera.zoom + MARGIN)
-        );
+        // Use 25% of viewport dimensions as margin
+        const marginX = camera.width * 0.25 / camera.zoom;
+        const marginY = camera.height * 0.25 / camera.zoom;
+        
+        // Calculate camera view dimensions
+        const cameraViewWidth = camera.width / camera.zoom;
+        const cameraViewHeight = camera.height / camera.zoom;
+        
+        // Allow camera to move beyond map bounds by the margin amount
+        const minX = -marginX;
+        const maxX = mapWidth - cameraViewWidth + marginX;
+        const minY = -marginY;
+        const maxY = mapHeight - cameraViewHeight + marginY;
+        
+        camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, Math.max(minX, maxX));
+        camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, Math.max(minY, maxY));
     }
     
     
