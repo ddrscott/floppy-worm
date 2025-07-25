@@ -132,39 +132,6 @@ export default function PropertyPanel({
               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"
             />
           </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowNewMapModal(true)}
-              className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm"
-            >
-              New Map
-            </button>
-            <button
-              onClick={onSaveToLibrary}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm"
-            >
-              Save to Library
-            </button>
-          </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={onExportJSON}
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-sm"
-            >
-              Export JSON
-            </button>
-            <label className="px-3 py-2 bg-orange-600 hover:bg-orange-700 rounded-md text-sm cursor-pointer">
-              Import JSON
-              <input
-                type="file"
-                accept=".json"
-                onChange={(e) => e.target.files?.[0] && onImportJSON(e.target.files[0])}
-                className="hidden"
-              />
-            </label>
-          </div>
         </div>
       </div>
 

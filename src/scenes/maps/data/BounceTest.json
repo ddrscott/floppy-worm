@@ -3,7 +3,7 @@
     "name": "Bounce Platform Test",
     "difficulty": 1,
     "description": "Test map for bouncy platforms with chamfered corners",
-    "modified": "2025-07-25T16:35:32.075Z"
+    "modified": "2025-07-25T18:45:36.227Z"
   },
   "dimensions": {
     "width": 1920,
@@ -40,8 +40,8 @@
       "id": "platform_1753413200651",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 512,
-      "y": 672,
+      "x": 640,
+      "y": 616,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -49,15 +49,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 96,
-      "height": 48
+      "width": 336,
+      "height": 80,
+      "angle": 0.7828894578803668
     },
     {
       "id": "platform_1753413868290",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 768,
-      "y": 680,
+      "x": 1128,
+      "y": 464,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -65,9 +66,9 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 192,
-      "height": 48,
-      "angle": -0.015350399554425742
+      "width": 400,
+      "height": 112,
+      "angle": 0.0004041796133269493
     },
     {
       "id": "platform_1753413875957",
@@ -89,7 +90,7 @@
       "id": "platform_1753449763722",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 392,
+      "x": 624,
       "y": 1128,
       "rotation": 0,
       "color": "#ff69b4",
@@ -105,8 +106,8 @@
       "id": "platform_1753450164151",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 952,
-      "y": 720,
+      "x": 1192,
+      "y": 736,
       "rotation": 0,
       "color": "#ff69b4",
       "physics": {
@@ -115,7 +116,8 @@
         "restitution": 0.3
       },
       "width": 96,
-      "height": 48
+      "height": 48,
+      "angle": -0.17265977725248494
     },
     {
       "id": "platform_1753450170480",

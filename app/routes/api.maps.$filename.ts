@@ -10,7 +10,9 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Filename is required", { status: 400 });
   }
   
-  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", filename);
+  // Ensure filename has .json extension
+  const fileWithExt = filename.endsWith('.json') ? filename : `${filename}.json`;
+  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", fileWithExt);
   
   try {
     const content = await readFile(mapPath, 'utf-8');
@@ -34,7 +36,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
     throw new Response("Method not allowed", { status: 405 });
   }
   
-  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", filename);
+  // Ensure filename has .json extension
+  const fileWithExt = filename.endsWith('.json') ? filename : `${filename}.json`;
+  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", fileWithExt);
   
   try {
     const formData = await request.formData();
