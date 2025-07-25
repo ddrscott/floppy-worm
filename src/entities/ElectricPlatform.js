@@ -17,7 +17,7 @@ export default class ElectricPlatform extends PlatformBase {
         this.shockForce = config.shockForce || 0.005;
         this.shockRadius = config.shockRadius || 100;
         this.shockDuration = config.shockDuration || 200;
-        this.rechargeDuration = config.rechargeDuration || 1000;
+        this.rechargeDuration = config.rechargeDuration || 200;
         this.isCharged = true;
         this.lastShockTime = 0;
         
