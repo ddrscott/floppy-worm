@@ -255,7 +255,8 @@ export default class MapEditor extends Phaser.Scene {
         // Setup camera - remove built-in bounds to use manual constraints
         this.cameras.main.removeBounds();
         this.cameras.main.setZoom(0.8);
-        this.cameras.main.centerOn(levelWidth / 2, levelHeight / 2);
+        // Center camera on worm start position
+        this.cameras.main.centerOn(this.entities.wormStart.x, this.entities.wormStart.y);
         
         // Add camera info display
         this.createCameraInfoDisplay();
@@ -334,6 +335,9 @@ export default class MapEditor extends Phaser.Scene {
             
             // Store reference globally so server can access the scene
             window.mapEditorScene = this;
+            
+            // Also expose test method globally for debugging
+            window.testPlatformTypeChange = () => this.testPropertyUpdate();
             
             console.log('MapEditor initialized with entities:', this.entities);
         }
@@ -1381,6 +1385,10 @@ export default class MapEditor extends Phaser.Scene {
     createSimplePlatformVisual(platformData) {
         const { type, x, y, width, height, radius, color = '#666666', angle = 0, platformType = 'standard' } = platformData;
         
+        console.log('createSimplePlatformVisual called with:', {
+            type, x, y, width, height, radius, color, angle, platformType
+        });
+        
         // Get appropriate color for platform type
         let fillColor;
         if (platformType === 'standard' || !platformType) {
@@ -1442,6 +1450,8 @@ export default class MapEditor extends Phaser.Scene {
             graphics.setOrigin(0.5, 0.5);
         }
         
+        console.log('createSimplePlatformVisual returning:', graphics ? `${type} graphics object` : 'null');
+        
         return graphics;
     }
     
@@ -1487,8 +1497,142 @@ export default class MapEditor extends Phaser.Scene {
         
         // Notify React PropertyPanel of platform selection
         if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+            console.log('MapEditor: Calling onPlatformSelect with platform:', platform);
+            console.log('MapEditor: Platform data being sent to React:', JSON.stringify(platform?.data, null, 2));
             window.editorCallbacks.onPlatformSelect(platform);
+        } else {
+            console.warn('MapEditor: editorCallbacks.onPlatformSelect not available');
         }
+    }
+    
+    destroyPlatform(platform) {
+        // Clear selection if this platform is selected
+        if (this.selectedPlatform === platform) {
+            this.selectedPlatform = null;
+        }
+        
+        // Destroy graphics object
+        if (platform.graphics) {
+            platform.graphics.destroy();
+        }
+        
+        // Destroy handles
+        if (platform.handles) {
+            platform.handles.forEach(handle => {
+                if (handle && handle.destroy) {
+                    handle.destroy();
+                }
+            });
+            platform.handles = [];
+        }
+        
+        // Remove from platforms array (will be re-added by caller)
+        const index = this.platforms.indexOf(platform);
+        if (index >= 0) {
+            this.platforms.splice(index, 1);
+        }
+    }
+    
+    recreateEntirePlatform(platform) {
+        // Store current state
+        const wasSelected = this.selectedPlatform === platform;
+        const platformIndex = this.platforms.indexOf(platform);
+        
+        // Remove old platform from array but don't destroy yet
+        if (platformIndex >= 0) {
+            this.platforms.splice(platformIndex, 1);
+        }
+        
+        // Clear selection and handles first
+        if (this.selectedPlatform === platform) {
+            this.selectedPlatform = null;
+        }
+        
+        // Destroy graphics and handles
+        if (platform.graphics) {
+            platform.graphics.destroy();
+        }
+        if (platform.handles) {
+            platform.handles.forEach(handle => {
+                if (handle && handle.destroy) {
+                    handle.destroy();
+                }
+            });
+            platform.handles = [];
+        }
+        
+        // Create new platform with updated data (this will push to end of array)
+        const newPlatform = this.addPlatformToScene(platform.data);
+        
+        // Move new platform to correct position in array
+        if (platformIndex >= 0 && platformIndex < this.platforms.length - 1) {
+            // Remove from end
+            const movedPlatform = this.platforms.pop();
+            // Insert at correct position
+            this.platforms.splice(platformIndex, 0, movedPlatform);
+        }
+        
+        // Update map data
+        this.mapData.platforms = this.platforms.map(p => p.data);
+        
+        // Restore selection
+        if (wasSelected) {
+            this.selectPlatform(newPlatform);
+        }
+        
+        return newPlatform;
+    }
+    
+    setDefaultPropertiesForType(platformData, type) {
+        // Set default properties based on the new type, preserving position and color
+        const currentX = platformData.x;
+        const currentY = platformData.y;
+        const currentColor = platformData.color;
+        const currentPhysics = platformData.physics || {};
+        
+        switch (type) {
+            case 'rectangle':
+                platformData.width = platformData.width || 100;
+                platformData.height = platformData.height || 50;
+                // Remove circle/polygon specific properties
+                delete platformData.radius;
+                delete platformData.sides;
+                delete platformData.slope;
+                break;
+                
+            case 'circle':
+                platformData.radius = platformData.radius || 50;
+                // Remove rectangle/polygon specific properties
+                delete platformData.width;
+                delete platformData.height;
+                delete platformData.sides;
+                delete platformData.slope;
+                break;
+                
+            case 'polygon':
+                platformData.radius = platformData.radius || 50;
+                platformData.sides = platformData.sides || 6;
+                // Remove rectangle/trapezoid specific properties
+                delete platformData.width;
+                delete platformData.height;
+                delete platformData.slope;
+                break;
+                
+            case 'trapezoid':
+                platformData.width = platformData.width || 100;
+                platformData.height = platformData.height || 50;
+                platformData.slope = platformData.slope || 0.5;
+                // Remove circle/polygon specific properties
+                delete platformData.radius;
+                delete platformData.sides;
+                break;
+        }
+        
+        // Preserve essential properties
+        platformData.x = currentX;
+        platformData.y = currentY;
+        platformData.color = currentColor;
+        platformData.physics = currentPhysics;
     }
     
     updatePlatformProperty(property, value) {
@@ -1497,73 +1641,111 @@ export default class MapEditor extends Phaser.Scene {
         const platform = this.selectedPlatform;
         const oldValue = platform.data[property];
         
+        console.log(`updatePlatformProperty called: ${property} = ${value} (was ${oldValue})`);
+        console.log('Current platform data before update:', JSON.stringify(platform.data, null, 2));
+        
         // Update the data
         platform.data[property] = value;
         
-        // Handle position changes
+        // Handle different property changes
         if (property === 'x' || property === 'y') {
-            // Update physics body position
-            if (platform.instance && platform.instance.body) {
-                platform.instance.body.setPosition(platform.data.x, platform.data.y);
-            }
-            
             // Update graphics position
-            if (platform.container) {
-                platform.container.setPosition(platform.data.x, platform.data.y);
+            if (platform.graphics) {
+                platform.graphics.x = platform.data.x;
+                platform.graphics.y = platform.data.y;
+            }
+            this.updateHandlePositions(platform);
+        }
+        
+        // Handle platform type change (normal, ice, bouncy, electric, fire)
+        else if (property === 'platformType') {
+            console.log('Handling platformType change from', platform.data.platformType, 'to', value);
+            
+            // Update the platform type (affects color and physics, not shape)
+            platform.data.platformType = value;
+            
+            console.log('Platform data after platformType change:', JSON.stringify(platform.data, null, 2));
+            
+            // Recreate visual to update color
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            console.log('New platform created with new type:', newPlatform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
             }
         }
         
-        // Handle size changes for rectangles
-        else if ((property === 'width' || property === 'height') && platform.data.shape === 'rectangle') {
-            // Recreate the platform with new dimensions
-            this.recreatePlatform(platform);
+        // Handle shape change (rectangle, circle, polygon, trapezoid) - SAME as platformType for now
+        else if (property === 'shape') {
+            console.log('Handling shape change from', platform.data.type, 'to', value);
+            
+            // Update the actual type property
+            platform.data.type = value;
+            
+            // Set default properties for the new shape
+            this.setDefaultPropertiesForType(platform.data, value);
+            
+            console.log('Platform data after shape change:', JSON.stringify(platform.data, null, 2));
+            
+            // Completely recreate the platform
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            console.log('New platform created with new shape:', newPlatform);
+            
+            // Update the React property panel to show new shape's properties
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
-        // Handle radius changes for circles
-        else if (property === 'radius' && platform.data.shape === 'circle') {
-            // Recreate the platform with new radius
-            this.recreatePlatform(platform);
+        // Handle color change
+        else if (property === 'color') {
+            this.recreateEntirePlatform(platform);
         }
         
-        // Handle other properties that might need platform recreation
+        // Handle size changes for rectangles and trapezoids
+        else if ((property === 'width' || property === 'height') && (platform.data.type === 'rectangle' || platform.data.type === 'trapezoid')) {
+            this.recreateEntirePlatform(platform);
+        }
+        
+        // Handle radius changes
+        else if (property === 'radius' && (platform.data.type === 'circle' || platform.data.type === 'polygon')) {
+            this.recreateEntirePlatform(platform);
+        }
+        
+        // Handle polygon sides change
+        else if (property === 'polygonSides' && platform.data.type === 'polygon') {
+            platform.data.sides = value;
+            this.recreateEntirePlatform(platform);
+        }
+        
+        // Handle trapezoid slope change
+        else if (property === 'trapezoidSlope' && platform.data.type === 'trapezoid') {
+            platform.data.slope = value;
+            this.recreateEntirePlatform(platform);
+        }
+        
+        // Handle physics properties (store for test mode)
         else if (property === 'friction' || property === 'frictionStatic' || property === 'restitution') {
-            // Update physics properties
-            if (platform.instance && platform.instance.body) {
-                platform.instance.body.setFriction(platform.data.friction || 0.8);
-                platform.instance.body.setFrictionStatic(platform.data.frictionStatic || 0.9);
-                platform.instance.body.setBounce(platform.data.restitution || 0.3);
-            }
+            // Just update the data - physics will be applied in test mode
+            platform.data.physics = platform.data.physics || {};
+            platform.data.physics[property] = value;
         }
         
         console.log(`Updated platform ${property}: ${oldValue} -> ${value}`);
     }
     
-    recreatePlatform(platform) {
-        const wasSelected = this.selectedPlatform === platform;
-        const index = this.platforms.indexOf(platform);
-        
-        // Store current position and data
-        const currentData = { ...platform.data };
-        
-        // Remove old platform
-        if (platform.container) {
-            platform.container.destroy();
-        }
-        if (platform.instance && platform.instance.body) {
-            this.matter.world.remove(platform.instance.body);
-        }
-        
-        // Create new platform with updated data
-        const newPlatform = this.addPlatformToScene(currentData);
-        
-        // Replace in platforms array
-        this.platforms[index] = newPlatform;
-        
-        // Restore selection if it was selected
-        if (wasSelected) {
-            this.selectPlatform(newPlatform);
+    // Test method to verify React-Phaser communication
+    testPropertyUpdate() {
+        console.log('testPropertyUpdate called - React-Phaser communication working!');
+        console.log('Selected platform:', this.selectedPlatform);
+        if (this.selectedPlatform) {
+            console.log('Selected platform data:', JSON.stringify(this.selectedPlatform.data, null, 2));
         }
     }
+    
     
     clearPlatformHighlight(platform) {
         // Reset platform graphics to default styling

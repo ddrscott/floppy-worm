@@ -1,23 +1,24 @@
 {
-    "metadata": {
-        "name": "Right",
-        "difficulty": 1,
-        "description": "To the Right"
+  "metadata": {
+    "name": "Right",
+    "difficulty": 1,
+    "description": "To the Right",
+    "modified": "2025-07-25T22:50:05.160Z"
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 400
+  },
+  "entities": {
+    "wormStart": {
+      "x": 228,
+      "y": 84
     },
-    "dimensions": {
-        "width": 1024,
-        "height": 400
-    },
-    "entities": {
-        "wormStart": {
-            "x": 240,
-            "y":  50
-        },
-        "goal": {
-            "x": 800,
-            "y": 350
-        }
-    },
-    "platforms": [
-    ]
+    "goal": {
+      "x": 800,
+      "y": 350
+    }
+  },
+  "platforms": [],
+  "stickers": []
 }

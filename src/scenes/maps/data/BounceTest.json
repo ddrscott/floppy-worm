@@ -3,7 +3,7 @@
     "name": "Bounce Platform Test",
     "difficulty": 1,
     "description": "Test map for bouncy platforms with chamfered corners",
-    "modified": "2025-07-25T19:19:01.857Z"
+    "modified": "2025-07-25T22:49:16.913Z"
   },
   "dimensions": {
     "width": 1920,
@@ -11,7 +11,7 @@
   },
   "entities": {
     "wormStart": {
-      "x": 552,
+      "x": 456,
       "y": 600
     },
     "goal": {
@@ -25,7 +25,7 @@
       "type": "rectangle",
       "platformType": "standard",
       "x": 1104,
-      "y": 872,
+      "y": 876,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -40,8 +40,8 @@
       "id": "platform_1753413200651",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 180,
-      "y": 900,
+      "x": 84,
+      "y": 1020,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -49,16 +49,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 336,
-      "height": 80,
+      "width": 408,
+      "height": 120,
       "angle": 0.7828894578803668
     },
     {
       "id": "platform_1753413868290",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 1128,
-      "y": 464,
+      "x": 1392,
+      "y": 480,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -66,16 +66,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 400,
-      "height": 112,
+      "width": 396,
+      "height": 96,
       "angle": 0.0004041796133269493
     },
     {
       "id": "platform_1753413875957",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 968,
-      "y": 960,
+      "x": 828,
+      "y": 972,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -90,7 +90,7 @@
       "id": "platform_1753449763722",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 1032,
+      "x": 960,
       "y": 1128,
       "rotation": 0,
       "color": "#ff69b4",
@@ -99,15 +99,15 @@
         "frictionStatic": 0.9,
         "restitution": 0.3
       },
-      "width": 2064,
-      "height": 72
+      "width": 1932,
+      "height": 60
     },
     {
       "id": "platform_1753450164151",
       "type": "rectangle",
       "platformType": "bouncy",
-      "x": 1192,
-      "y": 736,
+      "x": 1188,
+      "y": 732,
       "rotation": 0,
       "color": "#ff69b4",
       "physics": {
@@ -117,14 +117,14 @@
       },
       "width": 96,
       "height": 48,
-      "angle": -0.17265977725248494
+      "angle": 0
     },
     {
       "id": "platform_1753450170480",
       "type": "rectangle",
-      "platformType": "standard",
-      "x": 864,
-      "y": 832,
+      "platformType": "ice",
+      "x": 876,
+      "y": 816,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -136,21 +136,20 @@
       "height": 48
     },
     {
-      "id": 1753471110530,
+      "id": "platform_1753476652541",
       "type": "rectangle",
-      "platformType": "standard",
-      "x": 348,
-      "y": 876,
-      "rotation": 0,
-      "color": "#ff6b6b",
+      "platformType": "electric",
+      "x": 648,
+      "y": 900,
+      "angle": 0,
+      "color": "#ffff00",
       "physics": {
         "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
+        "frictionStatic": 0.9,
+        "restitution": 0.3
       },
-      "width": 336,
-      "height": 80,
-      "angle": 0.7828894578803668
+      "width": 60,
+      "height": 396
     }
   ],
   "stickers": []
