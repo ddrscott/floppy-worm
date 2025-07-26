@@ -128,6 +128,33 @@ export default class DoubleWorm extends WormBase {
                 }
             },
             
+            // Roll Physics - Transform worm into wheel using chord constraints
+            roll: {
+                // Chord patterns define which segments to connect
+                chordPatterns: [
+                    { skip: 7, count: 12 },       // Primary structure: 0→3, 3→6, 6→9, 9→0 (square)
+                ],
+                startStiffness: 0.05,            // Initial stiffness of chord constraints
+                endStiffness: 1,             // Stiffness of chord constraints when formed
+                chordDamping: 0.1,               // Damping for chord constraints
+                chordLengthMultiplier: 1,    // Multiplier for calculated chord length (tune wheel tightness)
+                
+                // Transition parameters
+                formationTime: 250,              // Time to form wheel shape (ms)
+                stiffnessEaseType: 'Cubic.easeInOut', // Easing for constraint stiffening
+                
+                // Control parameters
+                torqueMultiplier: 0.002,         // Stick input to torque conversion
+                maxAngularVelocity: 5,           // Maximum wheel spin speed (radians/sec)
+                exitVelocityBoost: 1.2,          // Multiplier for velocity on jump exit
+                
+                // Visual parameters
+                showChordLines: true,            // Draw chord constraints in roll mode
+                chordLineColor: 0x00ff00,        // Color of chord visualization
+                chordLineAlpha: 0.3,             // Transparency of chord lines
+                chordLineWidth: 2                // Width of chord lines
+            },
+            
             // Frame-rate Independence - Ensures consistent physics across different refresh rates
             targetFrameRate: 60,          // Target frame rate for physics calculations (fps)
                                          // All time-based calculations normalized to this rate
@@ -188,6 +215,22 @@ export default class DoubleWorm extends WormBase {
         
         // Initialize pulsating circles for stickiness visual feedback
         this.stickinessCircles = new Map(); // Map constraint → circle graphics
+        
+        // Initialize roll mode state
+        this.rollMode = {
+            active: false,                      // Whether roll mode is currently active
+            transitioning: false,               // Whether we're transitioning in/out
+            chordConstraints: [],               // Active chord constraints
+            chordGraphics: null,                // Graphics object for chord visualization
+            wheelCenter: { x: 0, y: 0 },        // Calculated center of wheel
+            angularVelocity: 0,                 // Current rotational velocity
+            transitionTween: null               // Active transition tween
+        };
+        
+        // Register the '1' key for roll mode activation
+        if (this.scene.input.keyboard) {
+            this.rollKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
+        }
         
         // Initialize anchor system
         this.anchors = {
@@ -469,6 +512,18 @@ export default class DoubleWorm extends WormBase {
             this.stickinessCircles.clear();
         }
         
+        // Clean up roll mode
+        if (this.rollMode) {
+            // Exit roll mode if active
+            if (this.rollMode.active || this.rollMode.transitioning) {
+                this.exitRollMode(false);
+            }
+            // Clean up any remaining graphics
+            if (this.rollMode.chordGraphics) {
+                this.rollMode.chordGraphics.destroy();
+            }
+        }
+        
         // Call parent destroy
         console.log('DoubleWorm.destroy() - Calling parent destroy');
         super.destroy();
@@ -483,6 +538,14 @@ export default class DoubleWorm extends WormBase {
         
         this.leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
         this.rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
+        
+        // Check for roll mode activation with '1' key
+        const oneKeyPressed = this.rollKey && this.rollKey.isDown;
+        
+        if (oneKeyPressed && !this.rollMode.active && !this.rollMode.transitioning) {
+            this.enterRollMode();
+        }
+        // Roll mode can only be exited via triggers (handled below)
 
         let leftStick, rightStick;
 
@@ -521,11 +584,24 @@ export default class DoubleWorm extends WormBase {
         const headStick = this.config.swapControls ? rightStick : leftStick;
         const tailStick = this.config.swapControls ? leftStick : rightStick;
         
-        // Update anchor positions using section-based processing
-        const sectionForces = this.updateSectionAnchors([
-            { section: this.sections.head, stick: headStick },
-            { section: this.sections.tail, stick: tailStick }
-        ]);
+        // Handle roll mode physics
+        if (this.rollMode.active) {
+            this.updateRollPhysics(leftStick.x, delta);
+            
+            // In roll mode, we still want to handle jump triggers for exit
+            // Skip normal movement updates
+        } else if (!this.rollMode.transitioning) {
+            // Normal movement mode
+            // Update anchor positions using section-based processing
+            const sectionForces = this.updateSectionAnchors([
+                { section: this.sections.head, stick: headStick },
+                { section: this.sections.tail, stick: tailStick }
+            ]);
+            
+            // Apply grounding force to middle segments to prevent flying
+            // Pass in the forces being applied to head and tail
+            this.applyGroundingForce(sectionForces.head, sectionForces.tail);
+        }
         
         // Handle triggers to attach/detach and stiffen springs
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
@@ -544,9 +620,18 @@ export default class DoubleWorm extends WormBase {
         const tailTriggerValue = this.config.swapControls ? 
             Math.max(leftTrigger, spacePressed ? 1.0 : 0) : 
             Math.max(rightTrigger, slashPressed ? 1.0 : 0);
-            
-        this.handleJumpSpring('head', headTriggerValue);
-        this.handleJumpSpring('tail', tailTriggerValue);
+        
+        // Check if either jump is triggered while in roll mode
+        if (this.rollMode.active && (headTriggerValue > 0.1 || tailTriggerValue > 0.1)) {
+            // Exit roll mode with jump boost
+            this.exitRollMode(true);
+        }
+        
+        // Handle jump springs normally (skip if transitioning out of roll)
+        if (!this.rollMode.transitioning) {
+            this.handleJumpSpring('head', headTriggerValue);
+            this.handleJumpSpring('tail', tailTriggerValue);
+        }
         
         // Update compression spring stiffness based on trigger values
         const maxTriggerValue = Math.max(headTriggerValue, tailTriggerValue);
@@ -555,22 +640,21 @@ export default class DoubleWorm extends WormBase {
              (this.config.jump.maxCompressionStiffness - this.config.jump.baseCompressionStiffness));
         this.updateCompressionStiffness(compressionStiffness);
         
-        // Determine which grab buttons control which sections based on swapControls
-        const headGrabActive = this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0;
-        const tailGrabActive = this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0;
-        
-        // Update stickiness system using section-based processing
-        this.updateStickinessSystemSections([
-            { section: this.sections.head, stick: headStick, active: headGrabActive },
-            { section: this.sections.tail, stick: tailStick, active: tailGrabActive }
-        ]);
-        
-        // Clean up invalid sticky constraints
-        this.cleanupInvalidStickyConstraints();
-        
-        // Apply grounding force to middle segments to prevent flying
-        // Pass in the forces being applied to head and tail
-        this.applyGroundingForce(sectionForces.head, sectionForces.tail);
+        // Skip stickiness system when in roll mode
+        if (!this.rollMode.active && !this.rollMode.transitioning) {
+            // Determine which grab buttons control which sections based on swapControls
+            const headGrabActive = this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0;
+            const tailGrabActive = this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0;
+            
+            // Update stickiness system using section-based processing
+            this.updateStickinessSystemSections([
+                { section: this.sections.head, stick: headStick, active: headGrabActive },
+                { section: this.sections.tail, stick: tailStick, active: tailGrabActive }
+            ]);
+            
+            // Clean up invalid sticky constraints
+            this.cleanupInvalidStickyConstraints();
+        }
     }
     
     applyGroundingForce(headForces, tailForces) {
@@ -1330,6 +1414,325 @@ export default class DoubleWorm extends WormBase {
         };
     }
     
+    // Roll mode methods
+    calculateWheelRadius() {
+        // Calculate ideal radius based on total segment perimeter
+        let totalPerimeter = 0;
+        this.segments.forEach((segment, i) => {
+            totalPerimeter += this.segmentRadii[i] * 2;
+        });
+        return totalPerimeter / (2 * Math.PI);
+    }
+    
+    calculateChordLength(fromIndex, toIndex, wheelRadius) {
+        const totalSegments = this.segments.length;
+        const skipCount = Math.abs(toIndex - fromIndex);
+        const angleRadians = (skipCount / totalSegments) * 2 * Math.PI;
+        // Chord length = 2 * radius * sin(angle/2)
+        const geometricLength = 2 * wheelRadius * Math.sin(angleRadians / 2);
+        return geometricLength * this.config.roll.chordLengthMultiplier;
+    }
+    
+    createChordConstraint(fromSegment, toSegment, length, stiffness = 0) {
+        return this.Matter.Constraint.create({
+            bodyA: fromSegment,
+            bodyB: toSegment,
+            length: length,
+            stiffness: stiffness, // Start at 0 for smooth transition
+            damping: this.config.roll.chordDamping,
+            render: {
+                visible: this.config.showDebug && this.config.roll.showChordLines,
+                strokeStyle: this.colorToHex(this.config.roll.chordLineColor),
+                lineWidth: this.config.roll.chordLineWidth
+            }
+        });
+    }
+    
+    createWheelConstraints() {
+        const wheelRadius = this.calculateWheelRadius();
+        const constraints = [];
+        
+        // Process each chord pattern
+        this.config.roll.chordPatterns.forEach(pattern => {
+            const { skip, count } = pattern;
+            
+            for (let i = 0; i < count; i++) {
+                const fromIndex = (i * skip) % this.segments.length;
+                const toIndex = ((i + 1) * skip) % this.segments.length;
+                
+                if (fromIndex !== toIndex) {
+                    const fromSegment = this.segments[fromIndex];
+                    const toSegment = this.segments[toIndex];
+                    const chordLength = this.calculateChordLength(fromIndex, toIndex, wheelRadius);
+                    
+                    const constraint = this.createChordConstraint(
+                        fromSegment,
+                        toSegment,
+                        chordLength,
+                        this.config.roll.startStiffness
+                    );
+                    
+                    constraints.push({
+                        constraint: constraint,
+                        fromIndex: fromIndex,
+                        toIndex: toIndex,
+                        targetStiffness: this.config.roll.endStiffness
+                    });
+                }
+            }
+        });
+        
+        // Add head-to-tail constraint to ensure closed wheel
+        const headSegment = this.segments[0];
+        const tailSegment = this.segments[this.segments.length - 1];
+        const headRadius = this.segmentRadii[0];
+        const tailRadius = this.segmentRadii[this.segments.length - 1];
+        
+        // Create constraint matching the normal segment connection pattern
+        const headTailConstraint = this.Matter.Constraint.create({
+            bodyA: tailSegment,
+            bodyB: headSegment,
+            pointA: { x: 0, y: tailRadius + 1 },  // Bottom of tail
+            pointB: { x: 0, y: -headRadius - 1 }, // Top of head
+            length: this.config.constraintLength,
+            stiffness: this.config.roll.startStiffness,
+            damping: this.config.roll.chordDamping,
+            render: {
+                visible: this.config.showDebug && this.config.roll.showChordLines,
+                strokeStyle: this.colorToHex(this.config.roll.chordLineColor),
+                lineWidth: this.config.roll.chordLineWidth
+            }
+        });
+        
+        constraints.push({
+            constraint: headTailConstraint,
+            fromIndex: 0,
+            toIndex: this.segments.length - 1,
+            targetStiffness: this.config.roll.endStiffness,
+            isHeadTail: true // Mark this as the special head-tail constraint
+        });
+        
+        return constraints;
+    }
+    
+    enterRollMode() {
+        if (this.rollMode.active || this.rollMode.transitioning) return;
+        
+        this.rollMode.transitioning = true;
+        
+        // Create chord constraints
+        this.rollMode.chordConstraints = this.createWheelConstraints();
+        
+        // Add constraints to world
+        this.rollMode.chordConstraints.forEach(constraintData => {
+            this.Matter.World.add(this.matter.world.localWorld, constraintData.constraint);
+        });
+        
+        // // Create graphics for chord visualization
+        // if (this.config.roll.showChordLines) {
+        //     this.rollMode.chordGraphics = this.scene.add.graphics();
+        //     this.rollMode.chordGraphics.setDepth(99); // Just below segment graphics
+        // }
+        
+        // Disable normal movement systems
+        this.disableNormalMovement();
+        
+        // Animate constraint stiffening
+        this.rollMode.transitionTween = this.scene.tweens.add({
+            targets: this.rollMode,
+            duration: this.config.roll.formationTime,
+            ease: this.config.roll.stiffnessEaseType,
+            onUpdate: (tween) => {
+                const progress = tween.progress;
+                // Update all chord constraint stiffnesses
+                this.rollMode.chordConstraints.forEach(constraintData => {
+                    constraintData.constraint.stiffness = progress * constraintData.targetStiffness;
+                });
+            },
+            onComplete: () => {
+                this.rollMode.active = true;
+                this.rollMode.transitioning = false;
+                this.rollMode.transitionTween = null;
+            }
+        });
+    }
+    
+    exitRollMode(withJump = false) {
+        if (!this.rollMode.active && !this.rollMode.transitioning) return;
+        
+        // Stop any ongoing transition
+        if (this.rollMode.transitionTween) {
+            this.rollMode.transitionTween.stop();
+            this.rollMode.transitionTween = null;
+        }
+        
+        // Calculate exit velocity boost if jumping
+        if (withJump && this.rollMode.active) {
+            this.applyRollExitBoost();
+        }
+        
+        // Remove all chord constraints
+        this.rollMode.chordConstraints.forEach(constraintData => {
+            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
+        });
+        this.rollMode.chordConstraints = [];
+        
+        // Clean up visualization
+        if (this.rollMode.chordGraphics) {
+            this.rollMode.chordGraphics.destroy();
+            this.rollMode.chordGraphics = null;
+        }
+        
+        // Re-enable normal movement
+        this.enableNormalMovement();
+        
+        // Reset state
+        this.rollMode.active = false;
+        this.rollMode.transitioning = false;
+        this.rollMode.angularVelocity = 0;
+    }
+    
+    disableNormalMovement() {
+        // Temporarily reduce anchor constraint stiffness
+        Object.values(this.anchors).forEach(anchorData => {
+            if (anchorData.constraint) {
+                anchorData.constraint.stiffness = 0.01; // Very weak during roll
+            }
+        });
+    }
+    
+    enableNormalMovement() {
+        // Restore anchor constraint stiffness
+        Object.values(this.anchors).forEach(anchorData => {
+            if (anchorData.constraint) {
+                anchorData.constraint.stiffness = this.anchorStiffness;
+            }
+        });
+    }
+    
+    applyRollExitBoost() {
+        // Convert angular velocity to linear velocity boost
+        const boost = this.config.roll.exitVelocityBoost;
+        const angularVel = this.rollMode.angularVelocity;
+        
+        // Apply tangential velocity to each segment
+        this.segments.forEach(segment => {
+            const dx = segment.position.x - this.rollMode.wheelCenter.x;
+            const dy = segment.position.y - this.rollMode.wheelCenter.y;
+            
+            // Tangential velocity components
+            const vx = -dy * angularVel * boost;
+            const vy = dx * angularVel * boost;
+            
+            this.Matter.Body.setVelocity(segment, {
+                x: segment.velocity.x + vx,
+                y: segment.velocity.y + vy
+            });
+        });
+    }
+    
+    updateRollPhysics(leftStickX, delta) {
+        if (!this.rollMode.active) return;
+        
+        // Update wheel center
+        let centerX = 0, centerY = 0;
+        this.segments.forEach(segment => {
+            centerX += segment.position.x;
+            centerY += segment.position.y;
+        });
+        this.rollMode.wheelCenter.x = centerX / this.segments.length;
+        this.rollMode.wheelCenter.y = centerY / this.segments.length;
+        
+        // Apply tangential forces based on stick input
+        const torque = leftStickX * this.config.roll.torqueMultiplier;
+        
+        this.segments.forEach(segment => {
+            // Vector from center to segment
+            const dx = segment.position.x - this.rollMode.wheelCenter.x;
+            const dy = segment.position.y - this.rollMode.wheelCenter.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0.01) { // Avoid division by zero
+                // Normalize and calculate perpendicular (tangent) direction
+                const nx = dx / distance;
+                const ny = dy / distance;
+                
+                // Perpendicular force for rotation
+                const forceX = -ny * torque * segment.mass;
+                const forceY = nx * torque * segment.mass;
+                
+                this.Matter.Body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+            }
+        });
+        
+        // Calculate and limit angular velocity
+        let totalAngularMomentum = 0;
+        let totalInertia = 0;
+        
+        this.segments.forEach(segment => {
+            const dx = segment.position.x - this.rollMode.wheelCenter.x;
+            const dy = segment.position.y - this.rollMode.wheelCenter.y;
+            const r = Math.sqrt(dx * dx + dy * dy);
+            
+            // Cross product of position and velocity gives angular momentum contribution
+            const angularMomentum = (dx * segment.velocity.y - dy * segment.velocity.x);
+            totalAngularMomentum += angularMomentum;
+            totalInertia += segment.mass * r * r;
+        });
+        
+        if (totalInertia > 0) {
+            this.rollMode.angularVelocity = totalAngularMomentum / totalInertia;
+            
+            // Limit angular velocity
+            if (Math.abs(this.rollMode.angularVelocity) > this.config.roll.maxAngularVelocity) {
+                this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;
+                
+                // Apply damping to keep within limits
+                this.segments.forEach(segment => {
+                    const dampingFactor = 0.98;
+                    this.Matter.Body.setVelocity(segment, {
+                        x: segment.velocity.x * dampingFactor,
+                        y: segment.velocity.y * dampingFactor
+                    });
+                });
+            }
+        }
+        
+        // Update chord visualization
+        this.updateRollVisualization();
+    }
+    
+    updateRollVisualization() {
+        if (!this.rollMode.chordGraphics || !this.config.roll.showChordLines) return;
+        
+        this.rollMode.chordGraphics.clear();
+        this.rollMode.chordGraphics.lineStyle(
+            this.config.roll.chordLineWidth,
+            this.config.roll.chordLineColor,
+            this.config.roll.chordLineAlpha
+        );
+        
+        // Draw each chord
+        this.rollMode.chordConstraints.forEach(constraintData => {
+            const { constraint } = constraintData;
+            const bodyA = constraint.bodyA;
+            const bodyB = constraint.bodyB;
+            
+            this.rollMode.chordGraphics.beginPath();
+            this.rollMode.chordGraphics.moveTo(bodyA.position.x, bodyA.position.y);
+            this.rollMode.chordGraphics.lineTo(bodyB.position.x, bodyB.position.y);
+            this.rollMode.chordGraphics.strokePath();
+        });
+        
+        // Optional: Draw wheel center indicator
+        this.rollMode.chordGraphics.fillStyle(this.config.roll.chordLineColor, 0.5);
+        this.rollMode.chordGraphics.fillCircle(
+            this.rollMode.wheelCenter.x,
+            this.rollMode.wheelCenter.y,
+            3
+        );
+    }
+    
     /**
      * Reset all dynamic constraints and states when worm is reset
      * Called by BaseLevelScene.resetWorm()
@@ -1407,6 +1810,11 @@ export default class DoubleWorm extends WormBase {
                 segment.friction = this.config.segmentFriction;
                 segment.frictionStatic = this.config.segmentFrictionStatic;
             });
+        }
+        
+        // Exit roll mode if active
+        if (this.rollMode && (this.rollMode.active || this.rollMode.transitioning)) {
+            this.exitRollMode(false);
         }
     }
 }
