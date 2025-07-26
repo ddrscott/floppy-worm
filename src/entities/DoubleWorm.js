@@ -1,4 +1,5 @@
 import WormBase from './WormBase';
+import Tick from '../utils/Tick.js';
 
 export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
@@ -132,20 +133,20 @@ export default class DoubleWorm extends WormBase {
             roll: {
                 // Chord patterns define which segments to connect
                 chordPatterns: [
-                    { skip: 7, count: 12 },       // Primary structure: 0→3, 3→6, 6→9, 9→0 (square)
+                    { skip: 7, count: 12 },     // Primary structure: 0→3, 3→6, 6→9, 9→0 (square)
                 ],
-                startStiffness: 0.05,            // Initial stiffness of chord constraints
-                endStiffness: 1,             // Stiffness of chord constraints when formed
-                chordDamping: 0.1,               // Damping for chord constraints
-                chordLengthMultiplier: 1,    // Multiplier for calculated chord length (tune wheel tightness)
+                startStiffness: 0.125,          // Initial stiffness of chord constraints
+                endStiffness: 0.5,              // Stiffness of chord constraints when formed
+                chordDamping: 0.9,              // Damping for chord constraints
+                chordLengthMultiplier: 1,       // Multiplier for calculated chord length (tune wheel tightness)
                 
                 // Transition parameters
                 formationTime: 250,              // Time to form wheel shape (ms)
                 stiffnessEaseType: 'Cubic.easeInOut', // Easing for constraint stiffening
                 
                 // Control parameters
-                torqueMultiplier: 0.002,         // Stick input to torque conversion
-                maxAngularVelocity: 5,           // Maximum wheel spin speed (radians/sec)
+                torqueMultiplier: 0.125,         // Stick input to torque conversion
+                maxAngularVelocity: 2,           // Maximum wheel spin speed (radians/sec)
                 exitVelocityBoost: 1.2,          // Multiplier for velocity on jump exit
             },
             
@@ -215,10 +216,12 @@ export default class DoubleWorm extends WormBase {
             active: false,                      // Whether roll mode is currently active
             transitioning: false,               // Whether we're transitioning in/out
             chordConstraints: [],               // Active chord constraints
-            chordGraphics: null,                // Graphics object for chord visualization
             wheelCenter: { x: 0, y: 0 },        // Calculated center of wheel
             angularVelocity: 0,                 // Current rotational velocity
-            transitionTween: null               // Active transition tween
+            transitionTween: null,              // Active transition tween
+            stickHistory: [],                   // History of stick positions for circular motion detection
+            lastStickAngle: null,              // Last stick angle for rotation tracking
+            accumulatedRotation: 0             // Total rotation accumulated
         };
         
         // Register the '1' key for roll mode activation
@@ -512,10 +515,6 @@ export default class DoubleWorm extends WormBase {
             if (this.rollMode.active || this.rollMode.transitioning) {
                 this.exitRollMode(false);
             }
-            // Clean up any remaining graphics
-            if (this.rollMode.chordGraphics) {
-                this.rollMode.chordGraphics.destroy();
-            }
         }
         
         // Call parent destroy
@@ -580,10 +579,10 @@ export default class DoubleWorm extends WormBase {
         
         // Handle roll mode physics
         if (this.rollMode.active) {
-            this.updateRollPhysics(leftStick.x, delta);
+            this.updateRollPhysics(delta);
+            this.processCrankingInput(headStick, delta);
             
-            // In roll mode, we still want to handle jump triggers for exit
-            // Skip normal movement updates
+            // Skip all normal movement in roll mode
         } else if (!this.rollMode.transitioning) {
             // Normal movement mode
             // Update anchor positions using section-based processing
@@ -724,13 +723,20 @@ export default class DoubleWorm extends WormBase {
         const restPos = anchorData.restPos;
         
         // Update rest position to follow the attached segment
-        restPos.x = segment.position.x;
-        restPos.y = segment.position.y;
+        // Skip this if in roll mode and this is the head anchor (it's already set to wheel center)
+        if (!(this.rollMode.active && section.name === 'head')) {
+            restPos.x = segment.position.x;
+            restPos.y = segment.position.y;
+        }
         
-        // When stick is centered, move anchor to segment position to prevent pullback
+        // When stick is centered, move anchor to appropriate position to prevent pullback
         if (Math.abs(stickState.x) <= this.config.stickDeadzone && Math.abs(stickState.y) <= this.config.stickDeadzone) {
-            this.Matter.Body.setPosition(anchorData.body, { x: segment.position.x, y: segment.position.y });
-            this.Matter.Body.setVelocity(anchorData.body, { x: 0, y: 0 });
+            // In roll mode, head anchor should center at wheel center
+            if (this.rollMode.active && section.name === 'head') {
+                this.Matter.Body.setPosition(anchorData.body, { x: restPos.x, y: restPos.y });
+            } else {
+                this.Matter.Body.setPosition(anchorData.body, { x: segment.position.x, y: segment.position.y });
+            }
         }
         
         // Apply position-based force only when stick is actively moved
@@ -753,7 +759,39 @@ export default class DoubleWorm extends WormBase {
                 const forceX = (dx / distance) * forceMagnitude;
                 const forceY = (dy / distance) * forceMagnitude;
                 
-                this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+                // In roll mode with head anchor, apply torque to the wheel instead of direct force
+                if (this.rollMode.active && section.name === 'head') {
+                    // Only apply force if we've detected circular motion
+                    const rotationThreshold = 0.3; // Radians of rotation needed
+                    
+                    if (Math.abs(this.rollMode.accumulatedRotation) > rotationThreshold) {
+                        // Apply rotation force based on accumulated rotation direction
+                        const rotationDirection = Math.sign(this.rollMode.accumulatedRotation);
+                        
+                        // Apply tangential forces to create rotation
+                        this.segments.forEach(seg => {
+                            const segDx = seg.position.x - this.rollMode.wheelCenter.x;
+                            const segDy = seg.position.y - this.rollMode.wheelCenter.y;
+                            const segDist = Math.sqrt(segDx * segDx + segDy * segDy);
+                            
+                            if (segDist > 0.1) {
+                                // Force perpendicular to radius (creates rotation)
+                                const forceMag = forceMagnitude * 0.02 * rotationDirection;
+                                const tangentX = -segDy / segDist * forceMag;
+                                const tangentY = segDx / segDist * forceMag;
+                                
+                                this.matter.body.applyForce(seg, seg.position, { x: tangentX, y: tangentY });
+                            }
+                        });
+                        
+                        // Decay accumulated rotation
+                        this.rollMode.accumulatedRotation *= 0.9;
+                    }
+                } else {
+                    // Normal force application
+                    this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
+                }
+                
                 totalForce.x += forceX;
                 totalForce.y += forceY;
             }
@@ -1558,12 +1596,6 @@ export default class DoubleWorm extends WormBase {
         });
         this.rollMode.chordConstraints = [];
         
-        // Clean up visualization
-        if (this.rollMode.chordGraphics) {
-            this.rollMode.chordGraphics.destroy();
-            this.rollMode.chordGraphics = null;
-        }
-        
         // Re-enable normal movement
         this.enableNormalMovement();
         
@@ -1574,15 +1606,32 @@ export default class DoubleWorm extends WormBase {
     }
     
     disableNormalMovement() {
-        // Temporarily reduce anchor constraint stiffness
-        Object.values(this.anchors).forEach(anchorData => {
-            if (anchorData.constraint) {
-                anchorData.constraint.stiffness = 0.01; // Very weak during roll
-            }
-        });
+        // Hide tail anchor visuals
+        if (this.anchors.tail.rangeGraphics) {
+            this.anchors.tail.rangeGraphics.visible = false;
+        }
+        if (this.anchors.tail.stickIndicator) {
+            this.anchors.tail.stickIndicator.visible = false;
+        }
+        
+        // Disable anchor constraints to allow free movement
+        if (this.anchors.tail.constraint) {
+            this.anchors.tail.constraint.stiffness = 0.000001;
+        }
+        if (this.anchors.head.constraint) {
+            this.anchors.head.constraint.stiffness = 0.000001;
+        }
     }
     
     enableNormalMovement() {
+        // Restore tail anchor visuals
+        if (this.anchors.tail.rangeGraphics) {
+            this.anchors.tail.rangeGraphics.visible = true;
+        }
+        if (this.anchors.tail.stickIndicator) {
+            this.anchors.tail.stickIndicator.visible = true;
+        }
+        
         // Restore anchor constraint stiffness
         Object.values(this.anchors).forEach(anchorData => {
             if (anchorData.constraint) {
@@ -1596,23 +1645,21 @@ export default class DoubleWorm extends WormBase {
         const boost = this.config.roll.exitVelocityBoost;
         const angularVel = this.rollMode.angularVelocity;
         
-        // Apply tangential velocity to each segment
+        // Apply tangential forces to maintain momentum
         this.segments.forEach(segment => {
             const dx = segment.position.x - this.rollMode.wheelCenter.x;
             const dy = segment.position.y - this.rollMode.wheelCenter.y;
             
-            // Tangential velocity components
-            const vx = -dy * angularVel * boost;
-            const vy = dx * angularVel * boost;
+            // Tangential force components
+            const forceMagnitude = angularVel * boost * segment.mass * 0.1;
+            const fx = -dy * forceMagnitude;
+            const fy = dx * forceMagnitude;
             
-            this.Matter.Body.setVelocity(segment, {
-                x: segment.velocity.x + vx,
-                y: segment.velocity.y + vy
-            });
+            this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
         });
     }
     
-    updateRollPhysics(leftStickX, delta) {
+    updateRollPhysics(delta) {
         if (!this.rollMode.active) return;
         
         // Update wheel center
@@ -1624,27 +1671,19 @@ export default class DoubleWorm extends WormBase {
         this.rollMode.wheelCenter.x = centerX / this.segments.length;
         this.rollMode.wheelCenter.y = centerY / this.segments.length;
         
-        // Apply tangential forces based on stick input
-        const torque = leftStickX * this.config.roll.torqueMultiplier;
-        
-        this.segments.forEach(segment => {
-            // Vector from center to segment
-            const dx = segment.position.x - this.rollMode.wheelCenter.x;
-            const dy = segment.position.y - this.rollMode.wheelCenter.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+        // Move the head anchor to the wheel center
+        const headAnchor = this.anchors.head;
+        if (headAnchor.body) {
+            // Update anchor rest position to wheel center
+            headAnchor.restPos.x = this.rollMode.wheelCenter.x;
+            headAnchor.restPos.y = this.rollMode.wheelCenter.y;
             
-            if (distance > 0.01) { // Avoid division by zero
-                // Normalize and calculate perpendicular (tangent) direction
-                const nx = dx / distance;
-                const ny = dy / distance;
-                
-                // Perpendicular force for rotation
-                const forceX = -ny * torque * segment.mass;
-                const forceY = nx * torque * segment.mass;
-                
-                this.Matter.Body.applyForce(segment, segment.position, { x: forceX, y: forceY });
-            }
-        });
+            // Position the anchor body at the wheel center
+            this.Matter.Body.setPosition(headAnchor.body, {
+                x: this.rollMode.wheelCenter.x,
+                y: this.rollMode.wheelCenter.y
+            });
+        }
         
         // Calculate and limit angular velocity
         let totalAngularMomentum = 0;
@@ -1663,21 +1702,74 @@ export default class DoubleWorm extends WormBase {
         
         if (totalInertia > 0) {
             this.rollMode.angularVelocity = totalAngularMomentum / totalInertia;
+            // Limit angular velocity using forces instead of setVelocity
+            // Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
             
-            // Limit angular velocity
             if (Math.abs(this.rollMode.angularVelocity) > this.config.roll.maxAngularVelocity) {
                 this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;
                 
-                // Apply damping to keep within limits
+                // Apply opposing forces to slow down rotation naturally
+                const deltaSeconds = delta / 1000;
+                const deltaMultiplier = deltaSeconds * this.config.targetFrameRate;
+                
                 this.segments.forEach(segment => {
-                    const dampingFactor = 0.98;
-                    this.Matter.Body.setVelocity(segment, {
-                        x: segment.velocity.x * dampingFactor,
-                        y: segment.velocity.y * dampingFactor
-                    });
+                    const force = 1 * deltaMultiplier;
+                    const fx = segment.velocity.x * force;
+                    const fy = segment.velocity.y * force;
+                    this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
                 });
             }
         }
+    }
+    
+    processCrankingInput(stick, delta) {
+        // Calculate delta time in seconds for frame-rate independence
+        const deltaSeconds = delta / 1000;
+        const deltaMultiplier = deltaSeconds * this.config.targetFrameRate;
+        
+        // Only process if stick is outside deadzone
+        if (Math.abs(stick.x) <= this.config.stickDeadzone && Math.abs(stick.y) <= this.config.stickDeadzone) {
+            // Reset tracking when stick returns to center
+            this.rollMode.lastStickAngle = null;
+            this.rollMode.accumulatedRotation = 0;
+            return;
+        }
+        
+        // Calculate stick angle
+        const stickAngle = Math.atan2(stick.y, stick.x);
+        const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
+        
+        if (this.rollMode.lastStickAngle !== null) {
+            // Calculate angle difference
+            let angleDiff = stickAngle - this.rollMode.lastStickAngle;
+            
+            // Normalize to [-PI, PI]
+            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            
+            // Only count as rotation if the change is significant but not a jump
+            if (Math.abs(angleDiff) < Math.PI / 2 && Math.abs(angleDiff) > 0.05) {
+                // Scale by stick magnitude and delta time - fuller circles = more force
+                const rotationForce = angleDiff * stickMagnitude * this.config.roll.torqueMultiplier * deltaMultiplier;
+                
+                // Apply pure torque to the wheel
+                this.segments.forEach(seg => {
+                    const dx = seg.position.x - this.rollMode.wheelCenter.x;
+                    const dy = seg.position.y - this.rollMode.wheelCenter.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist > 0.1) {
+                        // Tangential force for rotation
+                        const fx = -dy / dist * rotationForce;
+                        const fy = dx / dist * rotationForce;
+                        
+                        this.matter.body.applyForce(seg, seg.position, { x: fx, y: fy });
+                    }
+                });
+            }
+        }
+        
+        this.rollMode.lastStickAngle = stickAngle;
     }
     
     /**
