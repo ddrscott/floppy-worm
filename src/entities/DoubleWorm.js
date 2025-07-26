@@ -147,12 +147,6 @@ export default class DoubleWorm extends WormBase {
                 torqueMultiplier: 0.002,         // Stick input to torque conversion
                 maxAngularVelocity: 5,           // Maximum wheel spin speed (radians/sec)
                 exitVelocityBoost: 1.2,          // Multiplier for velocity on jump exit
-                
-                // Visual parameters
-                showChordLines: true,            // Draw chord constraints in roll mode
-                chordLineColor: 0x00ff00,        // Color of chord visualization
-                chordLineAlpha: 0.3,             // Transparency of chord lines
-                chordLineWidth: 2                // Width of chord lines
             },
             
             // Frame-rate Independence - Ensures consistent physics across different refresh rates
@@ -1441,9 +1435,7 @@ export default class DoubleWorm extends WormBase {
             stiffness: stiffness, // Start at 0 for smooth transition
             damping: this.config.roll.chordDamping,
             render: {
-                visible: this.config.showDebug && this.config.roll.showChordLines,
-                strokeStyle: this.colorToHex(this.config.roll.chordLineColor),
-                lineWidth: this.config.roll.chordLineWidth
+                visible: this.config.showDebug,
             }
         });
     }
@@ -1497,11 +1489,6 @@ export default class DoubleWorm extends WormBase {
             length: this.config.constraintLength,
             stiffness: this.config.roll.startStiffness,
             damping: this.config.roll.chordDamping,
-            render: {
-                visible: this.config.showDebug && this.config.roll.showChordLines,
-                strokeStyle: this.colorToHex(this.config.roll.chordLineColor),
-                lineWidth: this.config.roll.chordLineWidth
-            }
         });
         
         constraints.push({
@@ -1527,13 +1514,7 @@ export default class DoubleWorm extends WormBase {
         this.rollMode.chordConstraints.forEach(constraintData => {
             this.Matter.World.add(this.matter.world.localWorld, constraintData.constraint);
         });
-        
-        // // Create graphics for chord visualization
-        // if (this.config.roll.showChordLines) {
-        //     this.rollMode.chordGraphics = this.scene.add.graphics();
-        //     this.rollMode.chordGraphics.setDepth(99); // Just below segment graphics
-        // }
-        
+
         // Disable normal movement systems
         this.disableNormalMovement();
         
@@ -1697,40 +1678,6 @@ export default class DoubleWorm extends WormBase {
                 });
             }
         }
-        
-        // Update chord visualization
-        this.updateRollVisualization();
-    }
-    
-    updateRollVisualization() {
-        if (!this.rollMode.chordGraphics || !this.config.roll.showChordLines) return;
-        
-        this.rollMode.chordGraphics.clear();
-        this.rollMode.chordGraphics.lineStyle(
-            this.config.roll.chordLineWidth,
-            this.config.roll.chordLineColor,
-            this.config.roll.chordLineAlpha
-        );
-        
-        // Draw each chord
-        this.rollMode.chordConstraints.forEach(constraintData => {
-            const { constraint } = constraintData;
-            const bodyA = constraint.bodyA;
-            const bodyB = constraint.bodyB;
-            
-            this.rollMode.chordGraphics.beginPath();
-            this.rollMode.chordGraphics.moveTo(bodyA.position.x, bodyA.position.y);
-            this.rollMode.chordGraphics.lineTo(bodyB.position.x, bodyB.position.y);
-            this.rollMode.chordGraphics.strokePath();
-        });
-        
-        // Optional: Draw wheel center indicator
-        this.rollMode.chordGraphics.fillStyle(this.config.roll.chordLineColor, 0.5);
-        this.rollMode.chordGraphics.fillCircle(
-            this.rollMode.wheelCenter.x,
-            this.rollMode.wheelCenter.y,
-            3
-        );
     }
     
     /**
