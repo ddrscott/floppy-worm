@@ -221,7 +221,8 @@ export default class DoubleWorm extends WormBase {
             transitionTween: null,              // Active transition tween
             stickHistory: [],                   // History of stick positions for circular motion detection
             lastStickAngle: null,              // Last stick angle for rotation tracking
-            accumulatedRotation: 0             // Total rotation accumulated
+            accumulatedRotation: 0,             // Total rotation accumulated
+            buttonWasPressed: false             // Track previous button state for edge detection
         };
         
         // Register the '1' key for roll mode activation
@@ -532,13 +533,24 @@ export default class DoubleWorm extends WormBase {
         this.leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
         this.rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
         
-        // Check for roll mode activation with '1' key
+        // Check for roll mode activation/deactivation with '1' key or gamepad button 0
         const oneKeyPressed = this.rollKey && this.rollKey.isDown;
+        const gamepadButton0 = pad && pad.buttons[0] && pad.buttons[0].pressed;
+        const rollButtonPressed = oneKeyPressed || gamepadButton0;
         
-        if (oneKeyPressed && !this.rollMode.active && !this.rollMode.transitioning) {
-            this.enterRollMode();
+        // Detect button press edge (not held)
+        if (rollButtonPressed && !this.rollMode.buttonWasPressed && !this.rollMode.transitioning) {
+            if (!this.rollMode.active) {
+                // Enter roll mode
+                this.enterRollMode();
+            } else {
+                // Exit roll mode without jump boost
+                this.exitRollMode(false);
+            }
         }
-        // Roll mode can only be exited via triggers (handled below)
+        
+        // Update button state for next frame
+        this.rollMode.buttonWasPressed = rollButtonPressed;
 
         let leftStick, rightStick;
 
@@ -1624,7 +1636,22 @@ export default class DoubleWorm extends WormBase {
     }
     
     enableNormalMovement() {
-        // Restore tail anchor visuals
+        // First, reposition anchors to their correct attached segments
+        Object.values(this.anchors).forEach(anchorData => {
+            if (anchorData.body && anchorData.attachIndex < this.segments.length) {
+                const attachSegment = this.segments[anchorData.attachIndex];
+                // Set position to attached segment
+                this.Matter.Body.setPosition(anchorData.body, {
+                    x: attachSegment.position.x,
+                    y: attachSegment.position.y
+                });
+                // Update rest position
+                anchorData.restPos.x = attachSegment.position.x;
+                anchorData.restPos.y = attachSegment.position.y;
+            }
+        });
+        
+        // Then restore tail anchor visuals (after positioning)
         if (this.anchors.tail.rangeGraphics) {
             this.anchors.tail.rangeGraphics.visible = true;
         }
@@ -1632,7 +1659,7 @@ export default class DoubleWorm extends WormBase {
             this.anchors.tail.stickIndicator.visible = true;
         }
         
-        // Restore anchor constraint stiffness
+        // Finally restore anchor constraint stiffness
         Object.values(this.anchors).forEach(anchorData => {
             if (anchorData.constraint) {
                 anchorData.constraint.stiffness = this.anchorStiffness;
