@@ -10,6 +10,9 @@ import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
 import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
+import GhostRecorder from '../components/ghost/GhostRecorder';
+import GhostPlayer from '../components/ghost/GhostPlayer';
+import GhostStorage from '../components/ghost/GhostStorage';
 
 export default class JsonMapBase extends BaseLevelScene {
     constructor(config = {}) {
@@ -51,6 +54,12 @@ export default class JsonMapBase extends BaseLevelScene {
         this.buttonMWasPressed = false;
         this.button0WasPressed = false;
         this.button1WasPressed = false;
+        
+        // Ghost system
+        this.ghostRecorder = null;
+        this.ghostPlayer = null;
+        this.ghostStorage = new GhostStorage();
+        this.ghostVisible = true;
     }
     
     getDefaultMapData() {
@@ -118,6 +127,17 @@ export default class JsonMapBase extends BaseLevelScene {
             this.controlsDisplay.destroy();
             this.controlsDisplay = null;
         }
+        
+        // Cleanup ghost system
+        if (this.ghostRecorder) {
+            this.ghostRecorder.reset();
+            this.ghostRecorder = null;
+        }
+        
+        if (this.ghostPlayer) {
+            this.ghostPlayer.destroy();
+            this.ghostPlayer = null;
+        }
     }
 
     create() {
@@ -155,6 +175,9 @@ export default class JsonMapBase extends BaseLevelScene {
         
         // Set up controls
         this.setupControls();
+        
+        // Initialize ghost system
+        this.initializeGhostSystem();
         
         // Start the timer
         if (this.stopwatch) {
@@ -675,6 +698,9 @@ export default class JsonMapBase extends BaseLevelScene {
         // Camera controls
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         
+        // Ghost toggle
+        this.gKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
+        
         // Virtual controls (joystick + buttons)
         this.virtualControls = new VirtualControls(this);
         
@@ -704,6 +730,9 @@ export default class JsonMapBase extends BaseLevelScene {
         if (this.stopwatch.bestTimeText) {
             this.minimapIgnoreList.push(this.stopwatch.bestTimeText);
         }
+        
+        // Ghost indicator (will be shown when ghost is loaded)
+        this.ghostIndicator = null;
         
         // Controls - only show on desktop
         const isTouchDevice = ('ontouchstart' in window) || 
@@ -847,6 +876,16 @@ export default class JsonMapBase extends BaseLevelScene {
             this.stopwatch.update();
         }
         
+        // Record ghost frame
+        if (this.ghostRecorder && this.ghostRecorder.isRecording && this.worm && this.worm.segments) {
+            this.ghostRecorder.recordFrame(this.worm.segments, this.stopwatch.elapsedTime);
+        }
+        
+        // Update ghost playback
+        if (this.ghostPlayer && this.ghostPlayer.isPlaying && this.stopwatch) {
+            this.ghostPlayer.update(this.stopwatch.elapsedTime);
+        }
+        
         // Handle victory screen input
         if (this.victoryAchieved) {
             const pad = this.input.gamepad.getPad(0);
@@ -907,6 +946,11 @@ export default class JsonMapBase extends BaseLevelScene {
         // Check for M key to toggle mini-map
         if (Phaser.Input.Keyboard.JustDown(this.mKey)) {
             this.toggleMiniMap();
+        }
+        
+        // Check for G key to toggle ghost
+        if (Phaser.Input.Keyboard.JustDown(this.gKey)) {
+            this.toggleGhost();
         }
         
         // Check for gamepad button M to toggle mini-map
@@ -1193,6 +1237,9 @@ export default class JsonMapBase extends BaseLevelScene {
         if (this.stopwatch) {
             const completionTime = this.stopwatch.stop();
             this.saveBestTime(completionTime);
+            
+            // Save ghost if it's the best time
+            this.saveGhostIfBest(completionTime);
         }
         
         // Call parent victory logic
@@ -1206,6 +1253,17 @@ export default class JsonMapBase extends BaseLevelScene {
         if (this.stopwatch) {
             this.stopwatch.reset();
             this.stopwatch.start();
+        }
+        
+        // Reset ghost system
+        if (this.ghostRecorder) {
+            this.ghostRecorder.reset();
+            this.ghostRecorder.startRecording();
+        }
+        
+        if (this.ghostPlayer) {
+            this.ghostPlayer.reset();
+            this.ghostPlayer.start();
         }
     }
     
@@ -1223,5 +1281,114 @@ export default class JsonMapBase extends BaseLevelScene {
         const storageKey = `floppyworm_besttime_${this.mapKey}`;
         const stored = localStorage.getItem(storageKey);
         return stored ? parseInt(stored) : null;
+    }
+    
+    // Ghost system methods
+    async initializeGhostSystem() {
+        // Initialize recorder
+        this.ghostRecorder = new GhostRecorder(this, this.worm ? this.worm.segments.length : 12);
+        this.ghostRecorder.startRecording();
+        
+        // Try to load existing ghost
+        const ghostData = await this.ghostStorage.loadGhost(this.mapKey, this.mapData);
+        if (ghostData) {
+            this.ghostPlayer = new GhostPlayer(this, ghostData.segmentCount);
+            await this.ghostPlayer.loadGhostData(ghostData);
+            this.ghostPlayer.start();
+            
+            console.log(`Loaded ghost with time: ${this.formatTime(ghostData.completionTime)}`);
+            
+            // Create ghost indicator UI
+            this.createGhostIndicator(ghostData.completionTime);
+        }
+    }
+    
+    createGhostIndicator(ghostTime) {
+        // Ghost race indicator
+        this.ghostIndicator = this.add.text(20, 60, `Racing ghost! (${this.formatTime(ghostTime)})`, {
+            fontSize: '18px',
+            color: '#9b59b6',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: { x: 10, y: 5 }
+        }).setScrollFactor(0).setDepth(1000);
+        
+        // Add pulsing effect to indicator
+        this.tweens.add({
+            targets: this.ghostIndicator,
+            alpha: 0.7,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1
+        });
+        
+        if (this.minimap) {
+            this.minimap.ignore(this.ghostIndicator);
+        }
+    }
+    
+    async saveGhostIfBest(completionTime) {
+        if (!this.ghostRecorder || !this.ghostStorage) {
+            return;
+        }
+        
+        // Check if this is the best time
+        if (!this.ghostStorage.shouldSaveGhost(this.mapKey, completionTime)) {
+            console.log('Not the best time, ghost not saved');
+            return;
+        }
+        
+        // Stop recording and get data
+        this.ghostRecorder.stopRecording();
+        const recordingData = await this.ghostRecorder.getRecordingData();
+        
+        if (recordingData) {
+            const saved = await this.ghostStorage.saveGhost(
+                this.mapKey,
+                this.mapData,
+                recordingData,
+                completionTime
+            );
+            
+            if (saved) {
+                console.log(`New ghost saved with time: ${this.formatTime(completionTime)}`);
+            }
+        }
+    }
+    
+    toggleGhost() {
+        this.ghostVisible = !this.ghostVisible;
+        
+        if (this.ghostPlayer) {
+            this.ghostPlayer.setVisible(this.ghostVisible);
+        }
+        
+        // Show feedback
+        const text = this.add.text(this.scale.width / 2, 80, 
+            this.ghostVisible ? 'Ghost ON' : 'Ghost OFF', {
+            fontSize: '20px',
+            color: this.ghostVisible ? '#9b59b6' : '#e74c3c',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        if (this.minimap) {
+            this.minimap.ignore(text);
+        }
+        
+        this.tweens.add({
+            targets: text,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => text.destroy()
+        });
+    }
+    
+    formatTime(milliseconds) {
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const ms = Math.floor((milliseconds % 1000) / 10);
+        
+        return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
 }
