@@ -1000,13 +1000,6 @@ export default class JsonMapBase extends BaseLevelScene {
         }
     }
     
-    victory() {
-        // Call parent victory (handles worm cleanup and victory state)
-        super.victory();
-        
-        // Load map keys and set up victory UI asynchronously
-        this.setupVictoryUI();
-    }
     
     async setupVictoryUI() {
         // Determine if there's a next level
@@ -1244,6 +1237,9 @@ export default class JsonMapBase extends BaseLevelScene {
         
         // Call parent victory logic
         super.victory();
+        
+        // Set up victory UI
+        this.setupVictoryUI();
     }
     
     resetWorm() {
