@@ -3,6 +3,7 @@ import BaseLevelScene from './BaseLevelScene';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
+import Stopwatch from '../components/Stopwatch';
 import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
@@ -25,6 +26,7 @@ export default class JsonMapBase extends BaseLevelScene {
         // Scene configuration
         this.sceneTitle = config.title || this.mapData.metadata?.name || 'JSON Level';
         this.returnScene = config.returnScene || 'MapSelectScene';
+        this.mapKey = config.key || config.mapKey || 'unknown';
         
         // Victory state tracking
         this.victoryAchieved = false;
@@ -104,6 +106,18 @@ export default class JsonMapBase extends BaseLevelScene {
             this.matter.world.removeConstraint(this.mouseConstraint);
             this.mouseConstraint = null;
         }
+        
+        // Cleanup stopwatch
+        if (this.stopwatch) {
+            this.stopwatch.destroy();
+            this.stopwatch = null;
+        }
+        
+        // Cleanup controls display
+        if (this.controlsDisplay) {
+            this.controlsDisplay.destroy();
+            this.controlsDisplay = null;
+        }
     }
 
     create() {
@@ -141,6 +155,11 @@ export default class JsonMapBase extends BaseLevelScene {
         
         // Set up controls
         this.setupControls();
+        
+        // Start the timer
+        if (this.stopwatch) {
+            this.stopwatch.start();
+        }
     }
     
     loadMapFromJSON() {
@@ -674,14 +693,32 @@ export default class JsonMapBase extends BaseLevelScene {
         
         this.minimapIgnoreList.push(title);
         
+        // Create stopwatch in top center
+        this.stopwatch = new Stopwatch(this, this.scale.width / 2, 20);
+        // Load best time from local storage
+        const bestTime = this.getBestTime();
+        if (bestTime !== null) {
+            this.stopwatch.setBestTime(bestTime);
+        }
+        this.minimapIgnoreList.push(this.stopwatch.timerText);
+        if (this.stopwatch.bestTimeText) {
+            this.minimapIgnoreList.push(this.stopwatch.bestTimeText);
+        }
+        
         // Controls - only show on desktop
         const isTouchDevice = ('ontouchstart' in window) || 
                             (navigator.maxTouchPoints > 0) || 
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            this.controlsDisplay = new ControlsDisplay(this, 20, 60);
-            this.minimapIgnoreList.push(this.controlsDisplay.elements);
+            // Position controls as a sign in the world near the start
+            const startX = this.mapData.entities.wormStart.x;
+            const startY = this.mapData.entities.wormStart.y;
+            this.controlsDisplay = new ControlsDisplay(this, startX - 200, startY - 50, {
+                worldSpace: true,
+                signStyle: true
+            });
+            // Don't add to minimap ignore list since it's now in world space
         }
     }
     
@@ -805,6 +842,11 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     update(time, delta) {
+        // Update stopwatch
+        if (this.stopwatch && !this.victoryAchieved) {
+            this.stopwatch.update();
+        }
+        
         // Handle victory screen input
         if (this.victoryAchieved) {
             const pad = this.input.gamepad.getPad(0);
@@ -1144,5 +1186,42 @@ export default class JsonMapBase extends BaseLevelScene {
                 onComplete: () => text.destroy()
             });
         }
+    }
+    
+    victory() {
+        // Stop the timer and save best time
+        if (this.stopwatch) {
+            const completionTime = this.stopwatch.stop();
+            this.saveBestTime(completionTime);
+        }
+        
+        // Call parent victory logic
+        super.victory();
+    }
+    
+    resetWorm() {
+        super.resetWorm();
+        
+        // Reset and start the timer
+        if (this.stopwatch) {
+            this.stopwatch.reset();
+            this.stopwatch.start();
+        }
+    }
+    
+    saveBestTime(time) {
+        const storageKey = `floppyworm_besttime_${this.mapKey}`;
+        const currentBest = this.getBestTime();
+        
+        if (currentBest === null || time < currentBest) {
+            localStorage.setItem(storageKey, time.toString());
+            this.stopwatch.setBestTime(time);
+        }
+    }
+    
+    getBestTime() {
+        const storageKey = `floppyworm_besttime_${this.mapKey}`;
+        const stored = localStorage.getItem(storageKey);
+        return stored ? parseInt(stored) : null;
     }
 }

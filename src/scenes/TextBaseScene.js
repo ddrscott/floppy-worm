@@ -378,8 +378,14 @@ export default class TextBaseScene extends BaseLevelScene {
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            this.controlsDisplay = new ControlsDisplay(this, 20, 60);
-            this.minimapIgnoreList.push(this.controlsDisplay.elements);
+            // Position controls as a sign in the world near the start
+            const startX = this.wormStartPosition.x;
+            const startY = this.wormStartPosition.y;
+            this.controlsDisplay = new ControlsDisplay(this, startX - 200, startY - 50, {
+                worldSpace: true,
+                signStyle: true
+            });
+            // Don't add to minimap ignore list since it's now in world space
         }
     }
     

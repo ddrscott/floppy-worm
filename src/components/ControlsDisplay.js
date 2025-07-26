@@ -8,11 +8,18 @@ export default class ControlsDisplay {
         this.options = {
             showRecommendation: true,
             showZoom: false,
-            fontSize: '14px',
-            titleFontSize: '16px',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            padding: { x: 10, y: 8 },
-            lineSpacing: 4,
+            worldSpace: true,
+            textOptions: {
+                fontSize: '14px',
+                color: '#888888',
+                backgroundColor: '#232333',
+                borderColor: '#888888',
+                padding: { x: 10, y: 5 },
+                stroke: '#888888',
+                strokeThickness: 0.5,
+                lineSpacing: 6,
+                fontFamily: 'Comic Sans'
+            },
             ...options
         };
         
@@ -24,12 +31,11 @@ export default class ControlsDisplay {
         
         // Controller recommendation
         if (this.options.showRecommendation) {
-            const recommendation = this.scene.add.text(this.x, this.y, '🎮 Best played with a controller!', {
-                fontSize: this.options.titleFontSize,
-                color: '#ffd700',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                padding: { x: 10, y: 5 }
-            }).setScrollFactor(0);
+            const recommendation = this.scene.add.text(this.x, this.y, '🎮 Best played with a controller!', 
+                this.options.textOptions
+            );
+            if (!this.options.worldSpace) recommendation.setScrollFactor(0);
+            recommendation.setDepth(-50); // Place above grid (-100) but behind game objects
             elements.push(recommendation);
         }
         
@@ -52,13 +58,11 @@ export default class ControlsDisplay {
         const controlsText = controlLines.join('\n');
         
         const yOffset = this.options.showRecommendation ? 40 : 0;
-        const controls = this.scene.add.text(this.x, this.y + yOffset, controlsText, {
-            fontSize: this.options.fontSize,
-            color: '#ffffff',
-            backgroundColor: this.options.backgroundColor,
-            padding: this.options.padding,
-            lineSpacing: this.options.lineSpacing
-        }).setScrollFactor(0);
+        const controls = this.scene.add.text(this.x, this.y + yOffset, controlsText, 
+            this.options.textOptions
+        );
+        if (!this.options.worldSpace) controls.setScrollFactor(0);
+        controls.setDepth(-50); // Place above grid (-100) but behind game objects
         
         elements.push(controls);
         

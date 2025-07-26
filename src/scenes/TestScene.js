@@ -99,8 +99,12 @@ export default class TestScene extends Phaser.Scene {
                             (navigator.msMaxTouchPoints > 0);
         
         if (!isTouchDevice) {
-            // Use the reusable ControlsDisplay component with zoom option
-            this.controlsDisplay = new ControlsDisplay(this, 10, 10, { showZoom: true });
+            // Position controls as a sign in the world near the worm start
+            this.controlsDisplay = new ControlsDisplay(this, 460, -30, { 
+                showZoom: true,
+                worldSpace: true,
+                signStyle: true
+            });
         }
         
         
