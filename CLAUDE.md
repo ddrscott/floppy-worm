@@ -86,3 +86,6 @@ When making changes:
 1. **Prefer Remix structure** (`/app`) for new features
 2. **Legacy structure** (`/src`) contains core game logic and should be maintained
 3. **Map data** lives in `/src/scenes/maps/data/` regardless of build system
+
+## Physics Memories
+- stiffness 0 and 1 mean 100% stiff, stiffness should be 0.000001 to be negligible.
