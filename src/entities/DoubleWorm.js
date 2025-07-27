@@ -35,7 +35,7 @@ export default class DoubleWorm extends WormBase {
             velocityDamping: 0.5,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.002,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.00125,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.06,          // Minimum stick input to register movement (0-0.2 typical)
@@ -1753,11 +1753,6 @@ export default class DoubleWorm extends WormBase {
     }
     
     processCrankingInput(stick, delta) {
-        // Calculate delta multiplier for frame-rate independence
-        // On fast machines (small delta), we apply less force per frame
-        // On slow machines (large delta), we apply more force per frame
-        const deltaMultiplier = delta / this.targetFrameTime;
-        
         // Only process if stick is outside deadzone
         if (Math.abs(stick.x) <= this.config.stickDeadzone && Math.abs(stick.y) <= this.config.stickDeadzone) {
             // Reset tracking when stick returns to center
@@ -1779,9 +1774,11 @@ export default class DoubleWorm extends WormBase {
             if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
             
             // Only count as rotation if the change is significant but not a jump
-            if (Math.abs(angleDiff) < Math.PI / 2 && Math.abs(angleDiff) > 0.05) {
-                // Scale by stick magnitude - fuller circles = more force
-                const rotationForce = angleDiff * stickMagnitude * this.config.roll.torqueMultiplier;
+            if (Math.abs(angleDiff) < Math.PI / 2 && Math.abs(angleDiff) > 0.01) {
+                // Accumulate rotation scaled by delta time
+                // This ensures consistent rotation speed regardless of frame rate
+                const rotationRate = angleDiff * (1000 / delta); // radians per second
+                const scaledRotation = rotationRate * (delta / 1000) * stickMagnitude * this.config.roll.torqueMultiplier;
                 
                 // Apply pure torque to the wheel
                 this.segments.forEach(seg => {
@@ -1791,8 +1788,8 @@ export default class DoubleWorm extends WormBase {
                     
                     if (dist > 0.1) {
                         // Tangential force for rotation
-                        const fx = -dy / dist * rotationForce;
-                        const fy = dx / dist * rotationForce;
+                        const fx = -dy / dist * scaledRotation;
+                        const fy = dx / dist * scaledRotation;
                         
                         this.matter.body.applyForce(seg, seg.position, { x: fx, y: fy });
                     }
