@@ -601,11 +601,11 @@ export default class DoubleWorm extends WormBase {
             const sectionForces = this.updateSectionAnchors([
                 { section: this.sections.head, stick: headStick },
                 { section: this.sections.tail, stick: tailStick }
-            ]);
+            ], delta);
             
             // Apply grounding force to middle segments to prevent flying
             // Pass in the forces being applied to head and tail
-            this.applyGroundingForce(sectionForces.head, sectionForces.tail);
+            this.applyGroundingForce(sectionForces.head, sectionForces.tail, delta);
         }
         
         // Handle triggers to attach/detach and stiffen springs
@@ -662,7 +662,10 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
-    applyGroundingForce(headForces, tailForces) {
+    applyGroundingForce(headForces, tailForces, delta) {
+        // Calculate delta multiplier for frame-rate independence
+        const deltaMultiplier = delta / this.targetFrameTime;
+        
         // Calculate total upward force being applied
         const totalUpwardForce = Math.abs(Math.min(0, (headForces?.y || 0) + (tailForces?.y || 0)));
         if (totalUpwardForce <= 0.01) {
@@ -711,20 +714,23 @@ export default class DoubleWorm extends WormBase {
         });
     }
     
-    updateSectionAnchors(sectionStickPairs) {
+    updateSectionAnchors(sectionStickPairs, delta) {
         const forces = {};
         
         // Process each section systematically
         sectionStickPairs.forEach(({ section }) => {
-            forces[section.name] = this.updateAnchorPositionSection(section);
+            forces[section.name] = this.updateAnchorPositionSection(section, delta);
         });
         
         return forces;
     }
     
-    updateAnchorPositionSection(section) {
+    updateAnchorPositionSection(section, delta) {
         const anchorData = section.anchor;
         if (!anchorData.body) return { x: 0, y: 0 };
+        
+        // Calculate delta multiplier for frame-rate independence
+        const deltaMultiplier = delta / this.targetFrameTime;
         
         // Track total forces applied
         let totalForce = { x: 0, y: 0 };
@@ -1736,13 +1742,10 @@ export default class DoubleWorm extends WormBase {
                 this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;
                 
                 // Apply opposing forces to slow down rotation naturally
-                const deltaSeconds = delta / 1000;
-                const deltaMultiplier = deltaSeconds * this.config.targetFrameRate;
-                
                 this.segments.forEach(segment => {
-                    const force = 1 * deltaMultiplier;
-                    const fx = segment.velocity.x * force;
-                    const fy = segment.velocity.y * force;
+                    const dampingFactor = 0.98;
+                    const fx = -segment.velocity.x * (1 - dampingFactor);
+                    const fy = -segment.velocity.y * (1 - dampingFactor);
                     this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
                 });
             }
@@ -1750,9 +1753,10 @@ export default class DoubleWorm extends WormBase {
     }
     
     processCrankingInput(stick, delta) {
-        // Calculate delta time in seconds for frame-rate independence
-        const deltaSeconds = delta / 1000;
-        const deltaMultiplier = deltaSeconds * this.config.targetFrameRate;
+        // Calculate delta multiplier for frame-rate independence
+        // On fast machines (small delta), we apply less force per frame
+        // On slow machines (large delta), we apply more force per frame
+        const deltaMultiplier = delta / this.targetFrameTime;
         
         // Only process if stick is outside deadzone
         if (Math.abs(stick.x) <= this.config.stickDeadzone && Math.abs(stick.y) <= this.config.stickDeadzone) {
@@ -1776,8 +1780,8 @@ export default class DoubleWorm extends WormBase {
             
             // Only count as rotation if the change is significant but not a jump
             if (Math.abs(angleDiff) < Math.PI / 2 && Math.abs(angleDiff) > 0.05) {
-                // Scale by stick magnitude and delta time - fuller circles = more force
-                const rotationForce = angleDiff * stickMagnitude * this.config.roll.torqueMultiplier * deltaMultiplier;
+                // Scale by stick magnitude - fuller circles = more force
+                const rotationForce = angleDiff * stickMagnitude * this.config.roll.torqueMultiplier;
                 
                 // Apply pure torque to the wheel
                 this.segments.forEach(seg => {
@@ -1850,7 +1854,6 @@ export default class DoubleWorm extends WormBase {
                         x: attachSegment.position.x,
                         y: attachSegment.position.y
                     });
-                    this.Matter.Body.setVelocity(anchorData.body, { x: 0, y: 0 });
                     
                     // Reset rest position
                     anchorData.restPos.x = attachSegment.position.x;
