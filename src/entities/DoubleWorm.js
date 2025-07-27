@@ -663,9 +663,6 @@ export default class DoubleWorm extends WormBase {
     }
     
     applyGroundingForce(headForces, tailForces, delta) {
-        // Calculate delta multiplier for frame-rate independence
-        const deltaMultiplier = delta / this.targetFrameTime;
-        
         // Calculate total upward force being applied
         const totalUpwardForce = Math.abs(Math.min(0, (headForces?.y || 0) + (tailForces?.y || 0)));
         if (totalUpwardForce <= 0.01) {
@@ -728,9 +725,6 @@ export default class DoubleWorm extends WormBase {
     updateAnchorPositionSection(section, delta) {
         const anchorData = section.anchor;
         if (!anchorData.body) return { x: 0, y: 0 };
-        
-        // Calculate delta multiplier for frame-rate independence
-        const deltaMultiplier = delta / this.targetFrameTime;
         
         // Track total forces applied
         let totalForce = { x: 0, y: 0 };
