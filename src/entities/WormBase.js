@@ -223,10 +223,15 @@ export default class WormBase {
         
         // Apply velocity threshold and curve mapping
         const thresholdVel = Math.max(0, maxEndVelocity - this.audioState.volumeThreshold);
-        const normalizedVel = thresholdVel / (this.audioState.maxVelocity - this.audioState.volumeThreshold);
+        const velocityRange = this.audioState.maxVelocity - this.audioState.volumeThreshold;
+        
+        // Prevent division by zero and ensure valid normalized value
+        const normalizedVel = velocityRange > 0 ? thresholdVel / velocityRange : 0;
 
         // Smooth velocity curve (exponential for more dramatic effect)
-        const velocityCurve = Math.pow(Math.min(1, normalizedVel), 1.8);
+        // Ensure the result is finite
+        const velocityCurve = Number.isFinite(normalizedVel) ? 
+            Math.pow(Math.min(1, normalizedVel), 1.8) : 0;
         
         // Calculate airborne ratio for gating (still useful to avoid ground scraping sounds)
         const airborneCount = this.segments.filter((_, i) => 
@@ -244,6 +249,14 @@ export default class WormBase {
         const smoothing = this.audioState.smoothingFactor;
         this.audioState.currentVolume += (this.audioState.targetVolume - this.audioState.currentVolume) * smoothing;
         this.audioState.currentFrequency += (this.audioState.targetFrequency - this.audioState.currentFrequency) * smoothing;
+        
+        // Ensure values are finite before passing to synthesizer
+        if (!Number.isFinite(this.audioState.currentVolume)) {
+            this.audioState.currentVolume = 0;
+        }
+        if (!Number.isFinite(this.audioState.currentFrequency)) {
+            this.audioState.currentFrequency = 0;
+        }
         
         // Apply fade-out threshold to prevent tiny volume levels
         const finalVolume = this.audioState.currentVolume < 0.02 ? 0 : this.audioState.currentVolume;

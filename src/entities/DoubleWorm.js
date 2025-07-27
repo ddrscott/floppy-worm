@@ -53,18 +53,24 @@ export default class DoubleWorm extends WormBase {
             
             // Ground Physics - Prevents unrealistic floating/flying behavior
             ground: {
-                force: 0.02,                    // Base downward force applied to middle segments
+                force: 0.03,                    // Base downward force applied to middle segments
                                                // Higher = heavier feel, less airborne time
                                                // Lower = more floaty, easier to get airborne
-                segments: 0.2,                 // Fraction of segments receiving grounding (0-1)
+                segments: 0.4,                 // Fraction of segments receiving grounding (0-1)
                                                // Higher = more segments grounded, stiffer feel
                                                // Lower = fewer grounded segments, more flexible
                 reactiveMultiplier: 0.8,       // Extra grounding when upward forces detected
                                                // Higher = stronger counter to upward movement
                                                // Lower = allows more vertical movement
-                centerWeight: 0.5              // Extra grounding bias toward center segments
+                centerWeight: 0.5,             // Extra grounding bias toward center segments
                                                // Higher = center stays down more, ends can lift
                                                // Lower = more uniform grounding distribution
+                centerOffset: 0.8              // Shifts counter-force weight distribution inward from head/tail (0-1)
+                                               // 0 = Normal bell curve across selected segments
+                                               // 0.3 = Shifts peak 30% closer to worm's true center (default)
+                                               // 1.0 = Concentrates all force at the very center segments
+                                               // This prevents unnatural sliding when pushing both sticks diagonally
+                                               // by ensuring counter-forces are applied away from the ends
             },
             
             // Visual parameters
@@ -603,9 +609,9 @@ export default class DoubleWorm extends WormBase {
                 { section: this.sections.tail, stick: tailStick }
             ], delta);
             
-            // Apply grounding force to middle segments to prevent flying
+            // Apply counter-forces to middle segments to prevent unnatural movement
             // Pass in the forces being applied to head and tail
-            this.applyGroundingForce(sectionForces.head, sectionForces.tail, delta);
+            this.applyBodyStabilizationForces(sectionForces.head, sectionForces.tail, delta);
         }
         
         // Handle triggers to attach/detach and stiffen springs
@@ -662,41 +668,119 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
-    applyGroundingForce(headForces, tailForces, delta) {
-        // Calculate total upward force being applied
-        const totalUpwardForce = Math.abs(Math.min(0, (headForces?.y || 0) + (tailForces?.y || 0)));
-        if (totalUpwardForce <= 0.01) {
-            // No upward forces detected, no grounding needed
-            return;
+    applyBodyStabilizationForces(headForces, tailForces, delta) {
+        // Ensure input forces are valid
+        if (!headForces || !tailForces || 
+            !Number.isFinite(headForces.x) || !Number.isFinite(headForces.y) ||
+            !Number.isFinite(tailForces.x) || !Number.isFinite(tailForces.y)) {
+            return; // Invalid forces, skip
         }
         
-        // If no upward forces, apply minimal grounding
-        const baseGrounding = this.groundingForce;
-        const reactiveGrounding = totalUpwardForce * this.config.ground.reactiveMultiplier;
+        // Plot the input forces for monitoring
+        Tick.push('head force X', headForces.x * 1000, 0xff6b6b); // Red for head X
+        Tick.push('head force Y', headForces.y * 1000, 0xff6b6b); // Red for head Y
+        Tick.push('tail force X', tailForces.x * 1000, 0x74b9ff); // Blue for tail X
+        Tick.push('tail force Y', tailForces.y * 1000, 0x74b9ff); // Blue for tail Y
         
-        // Calculate which segments are in the middle
+        // Calculate total forces being applied
+        const totalForce = {
+            x: headForces.x + tailForces.x,
+            y: headForces.y + tailForces.y
+        };
+        
+        // Plot total forces
+        Tick.push('total force X', totalForce.x * 1000, 0x2ecc71); // Green for total X
+        Tick.push('total force Y', totalForce.y * 1000, 0x2ecc71); // Green for total Y
+        
+        // Calculate the magnitude of forces at each end
+        const headMag = Math.sqrt(headForces.x ** 2 + headForces.y ** 2);
+        const tailMag = Math.sqrt(tailForces.x ** 2 + tailForces.y ** 2);
+        
+        // Only apply stabilization if there are significant forces
+        const minForceMagnitude = 0.00001;
+        if (headMag < minForceMagnitude && tailMag < minForceMagnitude) {
+            return; // No significant forces to counter
+        }
+        
+        // Check if forces are opposing (dot product negative = opposing directions)
+        const dotProduct = (headForces.x * tailForces.x + headForces.y * tailForces.y);
+        const areOpposing = dotProduct < 0;
+        
+        // Calculate middle segments
         const totalSegments = this.segments.length;
         const middleCount = Math.floor(totalSegments * this.groundingSegments);
         const startIndex = Math.floor((totalSegments - middleCount) / 2);
         const endIndex = startIndex + middleCount;
+        const actualMiddleCount = endIndex - startIndex;
         
-        // Apply downward force to middle segments
+        // Offset the center weight distribution (0.0 = normal center, higher = shifted toward actual center)
+        const centerOffset = this.config.ground.centerOffset;
+        
+        if (actualMiddleCount <= 0) return; // No middle segments to apply forces to
+        
+        // Calculate total weight for normalization
+        let totalWeight = 0;
+        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
+            const positionInMiddle = (i - startIndex) / Math.max(1, actualMiddleCount - 1);
+            
+            // Shift the center position based on which side we're on
+            let adjustedPosition = positionInMiddle;
+            if (positionInMiddle < 0.5) {
+                // Left side - shift toward center
+                adjustedPosition = positionInMiddle + (centerOffset * (0.5 - positionInMiddle));
+            } else {
+                // Right side - shift toward center
+                adjustedPosition = positionInMiddle - (centerOffset * (positionInMiddle - 0.5));
+            }
+            
+            // Center segments get more weight (1.0 at center, approaching 0 at edges)
+            const centerWeight = 1 - Math.abs(adjustedPosition - 0.5) * 2;
+            totalWeight += centerWeight;
+        }
+        
+        if (totalWeight <= 0) return; // Safety check
+        
+        // Distribute counter-force across body segments with center weighting
+        let totalAppliedX = 0;
+        let totalAppliedY = 0;
+        
         for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
             const segment = this.segments[i];
             
-            // Apply stronger force to the very center segments
-            const distFromCenter = Math.abs(i - totalSegments / 2);
-            const centerWeight = 1 - (distFromCenter / (middleCount / 2));
+            // Calculate position in middle section (0 = start, 1 = end)
+            const positionInMiddle = (i - startIndex) / Math.max(1, actualMiddleCount - 1);
             
-            // Combine base grounding with reactive grounding
-            const totalGrounding = baseGrounding + reactiveGrounding;
-            const force = { 
-                x: 0, 
-                y: totalGrounding * (this.config.ground.centerWeight + centerWeight * this.config.ground.centerWeight)
+            // Shift the center position based on which side we're on
+            let adjustedPosition = positionInMiddle;
+            if (positionInMiddle < 0.5) {
+                // Left side - shift toward center
+                adjustedPosition = positionInMiddle + (centerOffset * (0.5 - positionInMiddle));
+            } else {
+                // Right side - shift toward center
+                adjustedPosition = positionInMiddle - (centerOffset * (positionInMiddle - 0.5));
+            }
+            
+            // Center segments get more weight (1.0 at center, approaching 0 at edges)
+            const centerWeight = 1 - Math.abs(adjustedPosition - 0.5) * 2;
+            const normalizedWeight = centerWeight / totalWeight;
+            
+            // Each segment gets its weighted share of the counter-force
+            const segmentCounterForce = {
+                x: -totalForce.x * normalizedWeight,
+                y: -totalForce.y * normalizedWeight
             };
             
-            this.matter.body.applyForce(segment, segment.position, force);
+            // Apply the force to this segment
+            this.matter.body.applyForce(segment, segment.position, segmentCounterForce);
+            
+            // Track total applied forces for plotting
+            totalAppliedX += segmentCounterForce.x;
+            totalAppliedY += segmentCounterForce.y;
         }
+        
+        // Plot the total counter forces we applied
+        Tick.push('counter force X', totalAppliedX * 1000, 0xe74c3c); // Dark red
+        Tick.push('counter force Y', totalAppliedY * 1000, 0xe74c3c); // Dark red
     }
     updateStickDisplay() {
         Object.values(this.anchors).forEach(anchorData => {
