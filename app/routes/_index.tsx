@@ -16,22 +16,21 @@ export default function Index() {
     const [showGame, setShowGame] = useState(false);
     
     useEffect(() => {
-        setShowGame(true);
-        // // Check if API is available (server mode)
-        // fetch('/api/maps', { method: 'HEAD' })
-        //     .then(res => {
-        //         if (res.ok || res.status === 405) {
-        //             // Server mode - redirect to maps view
-        //             navigate('/maps');
-        //         } else {
-        //             // Static mode - show game
-        //             setShowGame(true);
-        //         }
-        //     })
-        //     .catch(() => {
-        //         // No API - static mode, show game
-        //         setShowGame(true);
-        //     });
+        // Check if API is available (server mode)
+        fetch('/api/maps', { method: 'HEAD' })
+            .then(res => {
+                if (res.ok || res.status === 405) {
+                    // Server mode - redirect to maps view
+                    navigate('/maps');
+                } else {
+                    // Static mode - show game
+                    setShowGame(true);
+                }
+            })
+            .catch(() => {
+                // No API - static mode, show game
+                setShowGame(true);
+            });
     }, [navigate]);
     
     if (!showGame) {
