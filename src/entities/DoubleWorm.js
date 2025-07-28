@@ -17,10 +17,10 @@ export default class DoubleWorm extends WormBase {
             dotColor: 0x2c3e50,
             
             // Anchor Physics - Controls how stick input translates to worm movement
-            anchorRadius: 50,              // Max distance stick can pull anchor from segment (pixels)
+            anchorRadius: 60,              // Max distance stick can pull anchor from segment (pixels)
                                           // Higher = wider movement range, more dramatic swings
                                           // Lower = tighter control, smaller movements
-            anchorStiffness: 0.5,        // How strongly anchor pulls back to attached segment (0-1)
+            anchorStiffness: 0.75,        // How strongly anchor pulls back to attached segment (0-1)
                                           // Higher = snappier response, less lag, can cause jitter
                                           // Lower = smoother but slower response, more fluid movement
             anchorDamping: 0.05,          // How quickly anchor oscillations fade out (0-1)
@@ -32,10 +32,10 @@ export default class DoubleWorm extends WormBase {
                                           // Lower = lighter anchors, more responsive
             
             // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 0.5,          // How quickly stick velocity decays over time (0-1)
+            velocityDamping: 0.25,          // How quickly stick velocity decays over time (0-1)
                                           // Higher = velocity fades faster, less momentum carryover
                                           // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.00125,    // Strength multiplier for velocity-based forces (0-0.01 typical)
+            impulseMultiplier: 0.001,    // Strength multiplier for velocity-based forces (0-0.01 typical)
                                           // Higher = faster stick movements create stronger forces
                                           // Lower = less responsive to quick stick flicks
             stickDeadzone: 0.06,          // Minimum stick input to register movement (0-0.2 typical)
@@ -53,25 +53,28 @@ export default class DoubleWorm extends WormBase {
             
             // Ground Physics - Prevents unrealistic floating/flying behavior
             ground: {
-                force: 0.03,                    // Base downward force applied to middle segments
-                                               // Higher = heavier feel, less airborne time
-                                               // Lower = more floaty, easier to get airborne
                 segments: 0.4,                 // Fraction of segments receiving grounding (0-1)
                                                // Higher = more segments grounded, stiffer feel
                                                // Lower = fewer grounded segments, more flexible
-                reactiveMultiplier: 0.8,       // Extra grounding when upward forces detected
-                                               // Higher = stronger counter to upward movement
-                                               // Lower = allows more vertical movement
                 centerWeight: 0.5,             // Extra grounding bias toward center segments
                                                // Higher = center stays down more, ends can lift
                                                // Lower = more uniform grounding distribution
-                centerOffset: 0.8              // Shifts counter-force weight distribution inward from head/tail (0-1)
+                centerOffset: 0.8,              // Shifts counter-force weight distribution inward from head/tail (0-1)
                                                // 0 = Normal bell curve across selected segments
                                                // 0.3 = Shifts peak 30% closer to worm's true center (default)
                                                // 1.0 = Concentrates all force at the very center segments
                                                // This prevents unnatural sliding when pushing both sticks diagonally
                                                // by ensuring counter-forces are applied away from the ends
+                percentageForce: 0.5,          // Percentage of segment force applied to counteract gravity
             },
+            
+            // Air resistance - Uses Matter.js native air friction
+            airFriction: 0.01,                 // Air friction/drag coefficient (0-1)
+                                               // 0 = no air resistance (default Matter.js value)
+                                               // 0.01 = subtle air resistance
+                                               // 0.05 = noticeable drag
+                                               // 0.1 = heavy air resistance
+                                               // 0.5 = like moving through thick fluid
             
             // Visual parameters
             stickIndicatorRadius: 8,
@@ -153,7 +156,7 @@ export default class DoubleWorm extends WormBase {
                 // Control parameters
                 torqueMultiplier: 0.125,         // Stick input to torque conversion
                 maxAngularVelocity: 2,           // Maximum wheel spin speed (radians/sec)
-                exitVelocityBoost: 1.2,          // Multiplier for velocity on jump exit
+                exitVelocityBoost: 1.0,          // Multiplier for velocity on jump exit
             },
             
             // Frame-rate Independence - Ensures consistent physics across different refresh rates
@@ -181,7 +184,6 @@ export default class DoubleWorm extends WormBase {
         this.anchorDamping = swingConfig.anchorDamping;
         this.velocityDamping = swingConfig.velocityDamping;
         this.impulseMultiplier = swingConfig.impulseMultiplier;
-        this.groundingForce = swingConfig.ground.force;
         this.groundingSegments = swingConfig.ground.segments;
         
         // Frame-rate independence constants
@@ -684,8 +686,8 @@ export default class DoubleWorm extends WormBase {
         
         // Calculate total forces being applied
         const totalForce = {
-            x: headForces.x + tailForces.x,
-            y: headForces.y + tailForces.y
+            x: (headForces.x + tailForces.x) * this.config.ground.percentageForce,
+            y: (headForces.y + tailForces.y) * this.config.ground.percentageForce,
         };
         
         // Plot total forces
@@ -701,10 +703,6 @@ export default class DoubleWorm extends WormBase {
         if (headMag < minForceMagnitude && tailMag < minForceMagnitude) {
             return; // No significant forces to counter
         }
-        
-        // Check if forces are opposing (dot product negative = opposing directions)
-        const dotProduct = (headForces.x * tailForces.x + headForces.y * tailForces.y);
-        const areOpposing = dotProduct < 0;
         
         // Calculate middle segments
         const totalSegments = this.segments.length;

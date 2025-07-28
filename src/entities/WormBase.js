@@ -56,6 +56,7 @@ export default class WormBase {
             const segment = this.matter.add.circle(x, currentY, radius, {
                 friction: this.config.segmentFriction,
                 frictionStatic: this.config.segmentFrictionStatic,
+                frictionAir: this.config.airFriction || 0,
                 density: this.config.segmentDensity,
                 restitution: this.config.segmentRestitution,
                 slop: 0.01,
