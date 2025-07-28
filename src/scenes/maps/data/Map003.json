@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "name": "Hurdle",
+    "difficulty": 1,
+    "description": "Get over the first hurdle",
+    "modified": "2025-07-28T16:03:14.894Z"
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 1024
+  },
+  "entities": {
+    "wormStart": {
+      "x": 228,
+      "y": 720
+    },
+    "goal": {
+      "x": 840,
+      "y": 936
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1753718263374",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 540,
+      "y": 852,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 120,
+      "height": 348
+    }
+  ],
+  "stickers": []
+}

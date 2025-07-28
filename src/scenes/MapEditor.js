@@ -2051,7 +2051,7 @@ export default class MapEditor extends Phaser.Scene {
         this.testWorm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: BASE_RADIUS,
             segmentSizes: SEGMENT_SIZES,
-            showDebug: false
+            showDebug: true
         });
     }
     

@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "name": "A little higher",
+    "difficulty": 1,
+    "description": "Thought that was hard?",
+    "modified": "2025-07-28T16:37:36.167Z"
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 1024
+  },
+  "entities": {
+    "wormStart": {
+      "x": 168,
+      "y": 396
+    },
+    "goal": {
+      "x": 912,
+      "y": 696
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_17537",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 708,
+      "y": 792,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 120,
+      "height": 492
+    }
+  ],
+  "stickers": []
+}
