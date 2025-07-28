@@ -1664,6 +1664,19 @@ export default class MapEditor extends Phaser.Scene {
             // Update the platform type (affects color and physics, not shape)
             platform.data.platformType = value;
             
+            // Update color in data to match the platform type
+            if (value !== 'standard') {
+                const specialColors = {
+                    ice: '#b3e5fc',
+                    bouncy: '#ff69b4',
+                    electric: '#ffff00',
+                    fire: '#f44336'
+                };
+                if (specialColors[value]) {
+                    platform.data.color = specialColors[value];
+                }
+            }
+            
             console.log('Platform data after platformType change:', JSON.stringify(platform.data, null, 2));
             
             // Recreate visual to update color

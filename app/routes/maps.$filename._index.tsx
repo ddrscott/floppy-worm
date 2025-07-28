@@ -16,12 +16,18 @@ export default function MapView() {
       }
 
       try {
-        // Try localStorage first
-        const savedData = localStorage.getItem(`map_${filename}`);
-        if (savedData) {
-          setMapData(JSON.parse(savedData));
-          setLoading(false);
-          return;
+        // Check if we should skip localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const shouldLoadFresh = urlParams.get('fresh') === 'true';
+        
+        // Try localStorage first unless fresh=true
+        if (!shouldLoadFresh) {
+          const savedData = localStorage.getItem(`map_${filename}`);
+          if (savedData) {
+            setMapData(JSON.parse(savedData));
+            setLoading(false);
+            return;
+          }
         }
 
         // Load from the server API

@@ -298,8 +298,8 @@ export default class JsonMapBase extends BaseLevelScene {
         const centerY = y;
         
         // Apply physics from JSON with proper defaults
+        // Don't pass color for special platform types as they have their own colors
         const config = {
-            color: parseInt((color || '#ff6b6b').replace('#', '0x')),
             shape: type, // Pass the shape type (rectangle, circle, etc.)
             ...physics,
         };

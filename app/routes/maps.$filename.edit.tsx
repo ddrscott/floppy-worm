@@ -169,6 +169,9 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
               if (result.success) {
                 setSaveStatus({ state: 'success', message: result.message });
                 setTimeout(() => setSaveStatus({ state: 'idle' }), 3000);
+                
+                // Clear localStorage cache for this map to ensure fresh data on next load
+                localStorage.removeItem(`map_${filename}`);
               } else {
                 setSaveStatus({ state: 'error', error: result.error });
                 setTimeout(() => setSaveStatus({ state: 'idle' }), 5000);
@@ -397,12 +400,19 @@ export default function MapEdit() {
       }
 
       try {
-        // Try to load from localStorage first (for edited maps)
-        const savedData = localStorage.getItem(`map_${filename}`);
-        if (savedData) {
-          setMapData(JSON.parse(savedData));
-          setLoading(false);
-          return;
+        // Check if we should skip localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const shouldLoadFresh = urlParams.get('fresh') === 'true';
+        
+        // Try to load from localStorage first (for edited maps) unless fresh=true
+        if (!shouldLoadFresh) {
+          const savedData = localStorage.getItem(`map_${filename}`);
+          if (savedData) {
+            console.warn(`Loading map from localStorage cache. Add ?fresh=true to URL to load from server.`);
+            setMapData(JSON.parse(savedData));
+            setLoading(false);
+            return;
+          }
         }
 
         // Load from the server API
