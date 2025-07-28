@@ -32,10 +32,12 @@ export function TestGame({ filename, mapData }: TestGameProps) {
         // Load Phaser and dat.gui
         const [
           { default: Phaser },
-          datGuiModule
+          datGuiModule,
+          { BaseGameConfig }
         ] = await Promise.all([
           import('phaser'),
-          import('dat.gui')
+          import('dat.gui'),
+          import('/src/config/phaser')
         ]);
 
         // Set dat.gui globally
@@ -51,34 +53,8 @@ export function TestGame({ filename, mapData }: TestGameProps) {
 
         // Create and start the game with just the test scene
         game = new Phaser.Game({
-          type: Phaser.AUTO,
+          ...BaseGameConfig,
           parent: 'test-game-container',
-          backgroundColor: '#232333',
-          scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: '100%',
-            height: '100%',
-          },
-          physics: {
-            default: 'matter',
-            matter: {
-              gravity: { x: 0, y: 1 },
-              debug: {
-                showBody: true,
-                showStaticBody: true,
-                showVelocity: false,
-                // bodyColor: 0xff0000
-              },
-              positionIterations: 20,
-              velocityIterations: 20,
-              constraintIterations: 2,
-              enableSleeping: true
-            }
-          },
-          input: {
-            gamepad: true
-          },
           scene: [TestScene]
         });
 

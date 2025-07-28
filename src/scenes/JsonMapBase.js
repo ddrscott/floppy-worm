@@ -144,7 +144,8 @@ export default class JsonMapBase extends BaseLevelScene {
         // Call parent create (handles cleanup and shutdown event)
         super.create();
         
-        // Turn off debug rendering for cleaner visuals
+        // Enable debug rendering based on config
+        // Default to false, but can be overridden by worm config
         this.matter.world.drawDebug = false;
         
         // Use pixel dimensions directly from JSON data
@@ -535,8 +536,11 @@ export default class JsonMapBase extends BaseLevelScene {
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            showDebug: false
+            showDebug: true
         });
+
+        // Set Matter.js debug rendering based on worm's showDebug config
+        this.matter.world.drawDebug = this.worm.config.showDebug;
 
         // Initial impulse is now handled automatically in WormBase
         
