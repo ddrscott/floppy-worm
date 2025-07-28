@@ -89,7 +89,13 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
         // No dat.gui cleanup needed anymore
         
         // Use dynamic imports to avoid SSR issues and load dependencies in order
-        const { default: Phaser } = await import('phaser');
+        const [
+          { default: Phaser },
+          { BaseGameConfig }
+        ] = await Promise.all([
+          import('phaser'),
+          import('/src/config/phaser')
+        ]);
         
         // Initial setup of communication between React and Phaser
         (window as any).editorCallbacks = {
@@ -118,34 +124,8 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
 
         // Create game configuration for MapEditor
         const config = {
-          type: Phaser.AUTO,
+          ...BaseGameConfig,
           parent: 'map-editor-container',
-          backgroundColor: '#232333',
-          scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: '100%',
-            height: '100%',
-          },
-          physics: {
-            default: 'matter',
-            matter: {
-              gravity: { y: 1 },
-              debug: {
-                showBody: true,
-                showStaticBody: true,
-                showVelocity: false,
-                bodyColor: 0xff0000
-              },
-              positionIterations: 20,
-              velocityIterations: 20,
-              constraintIterations: 2,
-              enableSleeping: true
-            }
-          },
-          input: {
-            gamepad: true
-          },
           scene: [MapEditor]
         };
 

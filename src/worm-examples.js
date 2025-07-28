@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import Worm from './entities/Worm';
+import { BaseGameConfig } from './config/phaser';
 
 // Example 1: Basic Worm Usage
 class BasicWormScene extends Phaser.Scene {
@@ -238,17 +239,7 @@ export {
 
 // Example game configuration
 export const exampleGameConfig = {
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    backgroundColor: '#1a1a2e',
-    physics: {
-        default: 'matter',
-        matter: {
-            gravity: { y: 1 },
-            debug: false
-        }
-    },
+    ...BaseGameConfig,
     scene: [BasicWormScene, MultiWormScene, CustomControlWormScene, AIWormScene, WormPlaygroundScene]
 };
 
