@@ -45,7 +45,7 @@ export default class VictoryDialog extends Phaser.Scene {
         
         // Dialog background
         const dialogWidth = 600;
-        const dialogHeight = this.buildMode === 'static' ? 350 : 350;
+        const dialogHeight = 320;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -117,38 +117,34 @@ export default class VictoryDialog extends Phaser.Scene {
         const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
         const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
         
-        // Calculate button positions (3 buttons)
-        const leftX = this.scale.width / 2 - buttonWidth - spacing;
-        const centerX = this.scale.width / 2;
-        const rightX = this.scale.width / 2 + buttonWidth + spacing;
+        // Calculate button positions (2 or 3 buttons)
+        const numButtons = hasNext ? 3 : 2;
+        const totalWidth = numButtons * buttonWidth + (numButtons - 1) * spacing;
+        const startX = this.scale.width / 2 - totalWidth / 2 + buttonWidth / 2;
         
-        // Replay button (left)
-        this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+        let buttonX = startX;
+        
+        // Replay button
+        this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
             this.close();
             // Restart the scene completely for a clean replay
             this.gameScene.scene.restart();
         });
         
-        // Next Level button (center) - only if there's a next level
+        buttonX += buttonWidth + spacing;
+        
+        // Next Level button - only if there's a next level
         if (hasNext) {
-            this.createButton(centerX, centerY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, () => {
+            this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, () => {
                 this.close();
                 this.gameScene.scene.stop();
                 this.gameScene.scene.start(nextMapKey);
             });
-        } else {
-            // Disabled next button (not selectable)
-            const btn = this.add.rectangle(centerX, centerY, buttonWidth, buttonHeight, 0x7f8c8d, 0.5);
-            btn.setDepth(102);
-            btn.setStrokeStyle(2, 0x95a5a6, 0.5);
-            this.add.text(centerX, centerY, 'No More Levels', {
-                fontSize: '16px',
-                color: '#95a5a6'
-            }).setOrigin(0.5).setDepth(103);
+            buttonX += buttonWidth + spacing;
         }
         
-        // Main Menu button (right)
-        this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Main Menu', 0xe74c3c, () => {
+        // Main Menu button
+        this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Main Menu', 0xe74c3c, () => {
             this.close();
             this.gameScene.scene.stop();
             this.gameScene.scene.start('MapSelectScene');
