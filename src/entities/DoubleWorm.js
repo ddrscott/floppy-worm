@@ -1,5 +1,5 @@
 import WormBase from './WormBase';
-import Tick from '../utils/Tick.js';
+import Tick from 'src/utils/Tick.js';
 
 export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
@@ -20,7 +20,7 @@ export default class DoubleWorm extends WormBase {
             anchorRadius: 60,              // Max distance stick can pull anchor from segment (pixels)
                                           // Higher = wider movement range, more dramatic swings
                                           // Lower = tighter control, smaller movements
-            anchorStiffness: 0.75,        // How strongly anchor pulls back to attached segment (0-1)
+            anchorStiffness: 0.5,        // How strongly anchor pulls back to attached segment (0-1)
                                           // Higher = snappier response, less lag, can cause jitter
                                           // Lower = smoother but slower response, more fluid movement
             anchorDamping: 0.05,          // How quickly anchor oscillations fade out (0-1)
@@ -31,13 +31,29 @@ export default class DoubleWorm extends WormBase {
                                           // Higher = heavier anchors, different momentum behavior
                                           // Lower = lighter anchors, more responsive
             
+            
+            // Air resistance - Uses Matter.js native air friction
+            airFriction: 0.018,                 // Air friction/drag coefficient (0-1)
+                                               // 0 = no air resistance (default Matter.js value)
+                                               // 0.01 = subtle air resistance
+                                               // 0.05 = noticeable drag
+                                               // 0.1 = heavy air resistance
+                                               // 0.5 = like moving through thick fluid
+            
             // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 0.25,          // How quickly stick velocity decays over time (0-1)
-                                          // Higher = velocity fades faster, less momentum carryover
-                                          // Lower = longer momentum, more "slippery" feel
-            impulseMultiplier: 0.001,    // Strength multiplier for velocity-based forces (0-0.01 typical)
-                                          // Higher = faster stick movements create stronger forces
-                                          // Lower = less responsive to quick stick flicks
+            velocityDamping: 1,         // How much momentum is retained after stick release (0-1)
+                                           // Higher = more carried momentum, smoother movement
+                                           // Lower = less momentum, more abrupt stops
+            maxImpulseForce: 0.6,          // Maximum impulse force magnitude that can be applied
+                                           // Caps the actual physics force to prevent oversensitivity
+                                           // Lower = more controlled, less "flicky" behavior
+                                           // Higher = allows stronger impulses from quick movements
+            headImpulseMultiplier: 0.002,  // Strength multiplier for head velocity-based forces (0-0.01 typical)
+                                           // Higher = faster stick movements create stronger forces
+                                           // Lower = less responsive to quick stick flicks
+            tailImpulseMultiplier: 0.0025, // Strength multiplier for tail velocity-based forces (0-0.01 typical)
+                                           // Higher value compensates for smaller tail segment mass
+                                           // Tune this to balance head/tail force output
             stickDeadzone: 0.06,          // Minimum stick input to register movement (0-0.2 typical)
                                           // Higher = larger dead zone, less sensitive to small inputs
                                           // Lower = more sensitive, may cause drift or jitter
@@ -53,29 +69,21 @@ export default class DoubleWorm extends WormBase {
             
             // Ground Physics - Prevents unrealistic floating/flying behavior
             ground: {
-                segments: 0.4,                 // Fraction of segments receiving grounding (0-1)
+                segments: 0.3,                 // Fraction of segments receiving grounding (0-1)
                                                // Higher = more segments grounded, stiffer feel
                                                // Lower = fewer grounded segments, more flexible
                 centerWeight: 0.5,             // Extra grounding bias toward center segments
                                                // Higher = center stays down more, ends can lift
                                                // Lower = more uniform grounding distribution
-                centerOffset: 0.8,              // Shifts counter-force weight distribution inward from head/tail (0-1)
+                centerOffset: 0.7,              // Shifts counter-force weight distribution inward from head/tail (0-1)
                                                // 0 = Normal bell curve across selected segments
                                                // 0.3 = Shifts peak 30% closer to worm's true center (default)
                                                // 1.0 = Concentrates all force at the very center segments
                                                // This prevents unnatural sliding when pushing both sticks diagonally
                                                // by ensuring counter-forces are applied away from the ends
-                percentageForce: 0.5,          // Percentage of segment force applied to counteract gravity
+                percentageForce: 0.9,          // Percentage of segment force applied to counteract gravity
             },
-            
-            // Air resistance - Uses Matter.js native air friction
-            airFriction: 0.01,                 // Air friction/drag coefficient (0-1)
-                                               // 0 = no air resistance (default Matter.js value)
-                                               // 0.01 = subtle air resistance
-                                               // 0.05 = noticeable drag
-                                               // 0.1 = heavy air resistance
-                                               // 0.5 = like moving through thick fluid
-            
+
             // Visual parameters
             stickIndicatorRadius: 8,
             rangeIndicatorAlpha: 0.4,
@@ -84,7 +92,7 @@ export default class DoubleWorm extends WormBase {
             // Jump Physics - Controls trigger-activated compression springs and body tension
             jump: {
                 // Spring Physics
-                springLengthMultiplier: 1.2,       // How much longer jump springs are vs natural distance
+                springLengthMultiplier: 1.3,       // How much longer jump springs are vs natural distance
                                                  // Higher = more compression potential, stronger jumps
                                                  // Lower = less compression, gentler spring effect
                 triggerThreshold: 0.01,          // Minimum trigger value to activate jump springs (0-1)
@@ -154,8 +162,8 @@ export default class DoubleWorm extends WormBase {
                 stiffnessEaseType: 'Cubic.easeInOut', // Easing for constraint stiffening
                 
                 // Control parameters
-                torqueMultiplier: 0.125,         // Stick input to torque conversion
-                maxAngularVelocity: 2,           // Maximum wheel spin speed (radians/sec)
+                torqueMultiplier: 0.225,         // Stick input to torque conversion
+                maxAngularVelocity: 20,           // Maximum wheel spin speed (radians/sec)
                 exitVelocityBoost: 1.0,          // Multiplier for velocity on jump exit
             },
             
@@ -183,7 +191,8 @@ export default class DoubleWorm extends WormBase {
         this.anchorStiffness = swingConfig.anchorStiffness;
         this.anchorDamping = swingConfig.anchorDamping;
         this.velocityDamping = swingConfig.velocityDamping;
-        this.impulseMultiplier = swingConfig.impulseMultiplier;
+        this.headImpulseMultiplier = swingConfig.headImpulseMultiplier;
+        this.tailImpulseMultiplier = swingConfig.tailImpulseMultiplier;
         this.groundingSegments = swingConfig.ground.segments;
         
         // Frame-rate independence constants
@@ -678,21 +687,11 @@ export default class DoubleWorm extends WormBase {
             return; // Invalid forces, skip
         }
         
-        // Plot the input forces for monitoring
-        Tick.push('head force X', headForces.x * 1000, 0xff6b6b); // Red for head X
-        Tick.push('head force Y', headForces.y * 1000, 0xff6b6b); // Red for head Y
-        Tick.push('tail force X', tailForces.x * 1000, 0x74b9ff); // Blue for tail X
-        Tick.push('tail force Y', tailForces.y * 1000, 0x74b9ff); // Blue for tail Y
-        
         // Calculate total forces being applied
         const totalForce = {
             x: (headForces.x + tailForces.x) * this.config.ground.percentageForce,
             y: (headForces.y + tailForces.y) * this.config.ground.percentageForce,
         };
-        
-        // Plot total forces
-        Tick.push('total force X', totalForce.x * 1000, 0x2ecc71); // Green for total X
-        Tick.push('total force Y', totalForce.y * 1000, 0x2ecc71); // Green for total Y
         
         // Calculate the magnitude of forces at each end
         const headMag = Math.sqrt(headForces.x ** 2 + headForces.y ** 2);
@@ -775,11 +774,8 @@ export default class DoubleWorm extends WormBase {
             totalAppliedX += segmentCounterForce.x;
             totalAppliedY += segmentCounterForce.y;
         }
-        
-        // Plot the total counter forces we applied
-        Tick.push('counter force X', totalAppliedX * 1000, 0xe74c3c); // Dark red
-        Tick.push('counter force Y', totalAppliedY * 1000, 0xe74c3c); // Dark red
     }
+
     updateStickDisplay() {
         Object.values(this.anchors).forEach(anchorData => {
             // Update range graphics
@@ -895,8 +891,21 @@ export default class DoubleWorm extends WormBase {
         if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && 
             !stickState.released && !stickState.returningToCenter) {
             const mass = segment.mass;
-            const impulseX = stickState.velocity.x * this.impulseMultiplier * mass;
-            const impulseY = stickState.velocity.y * this.impulseMultiplier * mass;
+            // Use appropriate impulse multiplier based on section
+            const impulseMultiplier = section.name === 'head' ? this.headImpulseMultiplier : this.tailImpulseMultiplier;
+            let impulseX = stickState.velocity.x * impulseMultiplier * mass;
+            let impulseY = stickState.velocity.y * impulseMultiplier * mass;
+            
+            // Cap the impulse force magnitude to prevent oversensitivity
+            const impulseMagnitude = Math.sqrt(impulseX * impulseX + impulseY * impulseY);
+            Tick.push(`${section.name} impulse`, impulseMagnitude, section.color);
+
+            if (impulseMagnitude > this.config.maxImpulseForce) {
+                const scale = this.config.maxImpulseForce / impulseMagnitude;
+                impulseX *= scale;
+                impulseY *= scale;
+                Tick.push(`${section.name} scale`, scale, section.color);
+            }
             
             if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
                 this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
@@ -1812,7 +1821,7 @@ export default class DoubleWorm extends WormBase {
         if (totalInertia > 0) {
             this.rollMode.angularVelocity = totalAngularMomentum / totalInertia;
             // Limit angular velocity using forces instead of setVelocity
-            // Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
+            Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
             
             if (Math.abs(this.rollMode.angularVelocity) > this.config.roll.maxAngularVelocity) {
                 this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;

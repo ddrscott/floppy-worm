@@ -89,3 +89,12 @@ When making changes:
 
 ## Physics Memories
 - stiffness 0 and 1 mean 100% stiff, stiffness should be 0.000001 to be negligible.
+
+
+## Tick Line Charts
+Tick is a utility for logging and visualizing game state changes over time. It can be used to track performance metrics,
+physics parameters, or any other dynamic values during gameplay.
+```js
+import Tick from 'src/utils/Tick.js';
+Tick.push('label', current_value, 0x33ffff);
+```
