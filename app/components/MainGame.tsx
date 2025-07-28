@@ -3,6 +3,14 @@ import { useRef, useEffect, useState } from 'react';
 export function MainGame() {
   const [gameLoaded, setGameLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAPI, setHasAPI] = useState(false);
+
+  useEffect(() => {
+    // Check for API support
+    fetch('/api/maps', { method: 'HEAD' })
+      .then(res => setHasAPI(res.ok || res.status === 405))
+      .catch(() => setHasAPI(false));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -95,13 +103,13 @@ export function MainGame() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* Map Editor Link - only show in development */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* Server Mode Link - only show when API is available */}
+      {gameLoaded && hasAPI && (
         <div 
           style={{
             position: 'absolute',
             top: '10px',
-            right: '10px',
+            left: '10px',
             zIndex: 1000
           }}
         >
@@ -116,7 +124,7 @@ export function MainGame() {
               fontSize: '14px'
             }}
           >
-            Map Editor
+            ← Map Editor
           </a>
         </div>
       )}

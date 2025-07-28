@@ -298,28 +298,12 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     getSavedMaps() {
-        try {
-            const saved = localStorage.getItem('floppy-worm-editor-maps');
-            return saved ? JSON.parse(saved) : {};
-        } catch (e) {
-            console.warn('Failed to load saved maps:', e);
-            return {};
-        }
+        // Maps are now stored on the server via API
+        return {};
     }
     
     restoreEditingSession() {
-        try {
-            const session = localStorage.getItem('floppy-worm-editor-session');
-            if (session) {
-                const sessionData = JSON.parse(session);
-                this.mapData = sessionData.mapData;
-                this.entities = sessionData.entities;
-                this.platforms = []; // Will be rebuilt from mapData.platforms
-                console.log('Restored editing session');
-            }
-        } catch (e) {
-            console.warn('Failed to restore editing session:', e);
-        }
+        // Session restoration removed - always start fresh from server data
     }
     
     initializeWithServerData() {
@@ -382,33 +366,12 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     saveEditingSession() {
-        try {
-            // Update map data with current state
-            this.mapData.entities = this.entities;
-            this.mapData.platforms = this.platforms.map(p => p.data);
-            this.mapData.stickers = this.stickers.map(s => s.toJSON());
-            this.mapData.metadata.modified = new Date().toISOString();
-            
-            // Save to localStorage
-            const sessionData = {
-                mapData: this.mapData,
-                entities: this.entities,
-                lastSaved: new Date().toISOString()
-            };
-            
-            localStorage.setItem('floppy-worm-editor-session', JSON.stringify(sessionData));
-            console.log('Auto-saved editing session');
-        } catch (e) {
-            console.error('Failed to auto-save editing session:', e);
-        }
+        // Auto-save removed - use explicit save to API instead
+        // Map data is saved via the Save button which calls the API
     }
     
     saveMapsToStorage() {
-        try {
-            localStorage.setItem('floppy-worm-editor-maps', JSON.stringify(this.savedMaps));
-        } catch (e) {
-            console.error('Failed to save maps to localStorage:', e);
-        }
+        // Maps are now saved to server via API
     }
     
     createGrid(width, height) {
@@ -1113,9 +1076,29 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-P', () => this.selectedTool = 'polygon');
         this.input.keyboard.on('keydown-T', () => this.selectedTool = 'trapezoid');
         this.input.keyboard.on('keydown-V', () => this.selectedTool = 'custom');
-        this.input.keyboard.on('keydown-TAB', () => this.toggleTestMode());
+        this.input.keyboard.on('keydown-TAB', async () => {
+            // In server mode, TAB switches to play mode
+            const { getCachedBuildMode } = await import('../utils/buildMode');
+            const buildMode = await getCachedBuildMode();
+            
+            if (buildMode === 'server') {
+                // Save current state and switch to play mode
+                this.switchToPlayMode();
+            } else {
+                // In other modes, toggle test mode
+                this.toggleTestMode();
+            }
+        });
         this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
         this.input.keyboard.on('keydown-BACKSPACE', () => this.deleteSelectedPlatform());
+        
+        // ESC key handling
+        this.input.keyboard.on('keydown-ESC', () => {
+            // In editor mode, ESC should undo last action if available
+            // For now, just deselect
+            this.selectPlatform(null);
+            this.selectSticker(null);
+        });
         
         // Copy/paste support
         this.input.keyboard.on('keydown', (event) => {
@@ -2026,6 +2009,32 @@ export default class MapEditor extends Phaser.Scene {
         // if (this.gui && this.testModeController) {
         //     this.testModeController.updateDisplay();
         // }
+    }
+    
+    async switchToPlayMode() {
+        // Update map data with current state
+        this.mapData.entities = this.entities;
+        this.mapData.platforms = this.platforms.map(p => p.data);
+        this.mapData.stickers = this.stickers.map(s => s.toJSON());
+        this.mapData.metadata.modified = new Date().toISOString();
+        
+        // Use MapLoader to start the game with current map data
+        const { default: MapLoader } = await import('../services/MapLoader');
+        
+        // Create a temporary scene key for this play session
+        const playKey = `play-${this.mapData.metadata?.name || 'test'}`;
+        
+        // Stop editor and start play mode
+        this.scene.stop();
+        
+        // Create and start the play scene
+        const SceneClass = MapLoader.createMapScene(playKey, this.mapData, {
+            returnScene: 'MapEditor',
+            editorMode: false // Regular play mode
+        });
+        
+        // Add and start the scene
+        this.scene.manager.add(playKey, SceneClass, true);
     }
     
     enterTestMode() {

@@ -1,8 +1,6 @@
 // Central registry for all map data
 // Uses dynamic loading in development, static imports in production
 
-import JsonMapScene from '../JsonMapScene';
-
 // Static imports for production builds
 import Map001Data from './data/Map001.json';
 import Map002Data from './data/Map002.json';
@@ -28,14 +26,12 @@ const STATIC_MAP_REGISTRY = {
     'Morgan': Morgan
 };
 
-// Dynamic map discovery - no need for hardcoded lists in development
+import { hasAPISupport } from '../../utils/buildMode';
+
+// Dynamic map discovery - no need for hardcoded lists when API is available
 
 // Cache for loaded map data
 let mapDataCache = null;
-
-// Detect if we're in development mode
-const isDevelopment = typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 // Helper function to load all map data (hybrid approach)
 async function loadAllMapData() {
@@ -45,8 +41,11 @@ async function loadAllMapData() {
     
     let mapData = {};
     
-    if (isDevelopment) {
-        // Development: Load dynamically via API for live editing
+    // Check if API is available
+    const apiAvailable = await hasAPISupport();
+    
+    if (apiAvailable) {
+        // Load dynamically via API when available
         try {
             // First, get the list of all maps
             const listResponse = await fetch('/api/maps');
@@ -78,11 +77,12 @@ async function loadAllMapData() {
                 mapData = STATIC_MAP_REGISTRY;
             }
         } catch (error) {
-            console.warn('Failed to load maps dynamically, falling back to static registry:', error);
+            console.warn('Failed to load maps from API, falling back to static registry:', error);
             mapData = STATIC_MAP_REGISTRY;
         }
     } else {
-        // Production: Use static imports (bundled at build time)
+        // No API available: Use static imports (bundled at build time)
+        console.log('Using static map registry (no API available)');
         mapData = STATIC_MAP_REGISTRY;
     }
     
@@ -145,15 +145,30 @@ export async function createMapScene(key) {
         return null;
     }
     
-    return JsonMapScene.create(key, mapData);
+    // Use MapLoader to create the scene
+    const { default: MapLoader } = await import('../../services/MapLoader');
+    return MapLoader.createMapScene(key, mapData);
+}
+
+// Helper function to load map data
+export async function loadMapData(mapKey) {
+    // Clean up the map key - remove .json extension if present
+    const cleanMapKey = mapKey.replace(/\.json$/i, '');
+    
+    const mapDataRegistry = await loadAllMapData();
+    const mapData = mapDataRegistry[cleanMapKey];
+    
+    if (!mapData) {
+        console.error(`No map data found for key: ${cleanMapKey}`);
+        return null;
+    }
+    
+    return mapData;
 }
 
 // Helper function to clear the cache (useful when maps are updated in development)
 export function clearMapCache() {
-    if (isDevelopment) {
-        mapDataCache = null;
-        console.log('Map cache cleared - next load will fetch fresh data from disk');
-    } else {
-        console.log('Map cache clearing disabled in production (uses static imports)');
-    }
+    // For now, always allow cache clearing since we don't have a reliable isDevelopment check
+    mapDataCache = null;
+    console.log('Map cache cleared - next load will fetch fresh data');
 }

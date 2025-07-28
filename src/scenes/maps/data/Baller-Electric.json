@@ -3,7 +3,7 @@
     "name": "Baller - Electric",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-28T17:10:00.617Z"
+    "modified": "2025-07-28T21:51:18.646Z"
   },
   "dimensions": {
     "width": 10000,
@@ -11,8 +11,8 @@
   },
   "entities": {
     "wormStart": {
-      "x": 156,
-      "y": 324
+      "x": 84,
+      "y": 204
     },
     "goal": {
       "x": 936,
@@ -24,7 +24,7 @@
       "id": 1753711082466,
       "type": "rectangle",
       "platformType": "electric",
-      "x": 288,
+      "x": 240,
       "y": 1068,
       "angle": 0,
       "color": "#ffff00",
@@ -34,7 +34,7 @@
         "restitution": 0.3
       },
       "shape": "rectangle",
-      "width": 600,
+      "width": 492,
       "height": 456
     },
     {
@@ -233,7 +233,7 @@
       "id": 1753721263999,
       "type": "rectangle",
       "platformType": "standard",
-      "x": 156,
+      "x": 84,
       "y": 696,
       "angle": 0,
       "color": "#ff6b6b",
@@ -249,7 +249,7 @@
       "id": 1753722575872,
       "type": "rectangle",
       "platformType": "standard",
-      "x": 504,
+      "x": 396,
       "y": 696,
       "angle": 0,
       "color": "#ff6b6b",

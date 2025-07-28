@@ -3,20 +3,20 @@
     "name": "Right",
     "difficulty": 1,
     "description": "To the Right",
-    "modified": "2025-07-25T22:50:05.160Z"
+    "modified": "2025-07-28T22:00:29.151Z"
   },
   "dimensions": {
     "width": 1024,
-    "height": 400
+    "height": 800
   },
   "entities": {
     "wormStart": {
-      "x": 228,
-      "y": 84
+      "x": 240,
+      "y": 432
     },
     "goal": {
-      "x": 800,
-      "y": 350
+      "x": 816,
+      "y": 612
     }
   },
   "platforms": [],
