@@ -79,9 +79,9 @@ export const BaseGameConfig = {
                 showConvexHulls: true,
                 hullColor: 0xd703d0
             },
-            positionIterations: 10,
-            velocityIterations: 10,
-            constraintIterations: 2,
+            positionIterations: 20,
+            velocityIterations: 20,
+            constraintIterations: 4,
             enableSleeping: true
         }
     },
