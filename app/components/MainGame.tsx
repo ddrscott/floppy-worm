@@ -103,32 +103,6 @@ export function MainGame() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      {/* Server Mode Link - only show when API is available */}
-      {gameLoaded && hasAPI && (
-        <div 
-          style={{
-            position: 'absolute',
-            top: '10px',
-            left: '10px',
-            zIndex: 1000
-          }}
-        >
-          <a 
-            href="/maps" 
-            style={{
-              background: 'rgba(0, 0, 0, 0.7)',
-              color: 'white',
-              padding: '8px 16px',
-              textDecoration: 'none',
-              borderRadius: '4px',
-              fontSize: '14px'
-            }}
-          >
-            ← Map Editor
-          </a>
-        </div>
-      )}
-      
       <div id="game-container" style={{ width: '100%', height: '100%' }}>
         {!gameLoaded && (
           <div style={{
