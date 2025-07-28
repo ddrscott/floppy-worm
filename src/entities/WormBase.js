@@ -20,7 +20,7 @@ export default class WormBase {
             constraintStiffness: 0.8,
             constraintDamping: 0.2,
             constraintLength: 1,
-            showDebug: true,
+            showDebug: false,
             ...config
         };
         

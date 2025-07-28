@@ -536,7 +536,7 @@ export default class JsonMapBase extends BaseLevelScene {
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            showDebug: true
+            showDebug: false
         });
 
         // Set Matter.js debug rendering based on worm's showDebug config

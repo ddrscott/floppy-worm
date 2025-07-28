@@ -1,0 +1,249 @@
+{
+  "metadata": {
+    "name": "Baller - How roll can you go",
+    "difficulty": 1,
+    "description": "",
+    "modified": "2025-07-28T16:46:03.997Z"
+  },
+  "dimensions": {
+    "width": 10000,
+    "height": 2400
+  },
+  "entities": {
+    "wormStart": {
+      "x": 156,
+      "y": 324
+    },
+    "goal": {
+      "x": 9800,
+      "y": 200
+    }
+  },
+  "platforms": [
+    {
+      "id": 1753711082466,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 228,
+      "y": 984,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 504,
+      "height": 612
+    },
+    {
+      "id": 1753711099553,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 456,
+      "y": 1272,
+      "angle": -0.08726646259971647,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711108219,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 492,
+      "y": 1440,
+      "angle": -0.17453292519943295,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711134023,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 540,
+      "y": 1572,
+      "angle": -0.2617993877991494,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711143540,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 636,
+      "y": 1740,
+      "angle": -0.4363323129985824,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711161412,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 744,
+      "y": 1860,
+      "angle": -0.6108652381980153,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711172524,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 900,
+      "y": 2004,
+      "angle": -0.7853981633974483,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711182652,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1068,
+      "y": 2076,
+      "angle": -1.0471975511965976,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711189043,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1392,
+      "y": 2184,
+      "angle": -1.3089969389957472,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 576
+    },
+    {
+      "id": 1753711200336,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1500,
+      "y": 2160,
+      "angle": -1.5707963267948966,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 400
+    },
+    {
+      "id": 1753711266251,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1536,
+      "y": 2148,
+      "angle": 1.3089969389957472,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 400
+    },
+    {
+      "id": 1753711281590,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1692,
+      "y": 2100,
+      "angle": 0.9599310885968813,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 400
+    },
+    {
+      "id": 1753711290165,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1776,
+      "y": 2052,
+      "angle": 0.6108652381980153,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 400
+    },
+    {
+      "id": "platform_1753713932229",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 456,
+      "y": 276,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 96,
+      "height": 48
+    }
+  ],
+  "stickers": []
+}
