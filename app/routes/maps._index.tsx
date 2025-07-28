@@ -32,7 +32,14 @@ export default function MapsIndex() {
         if (response.ok) {
           const result = await response.json();
           if (result.maps) {
-            setMaps(result.maps);
+            // Sort maps using the same logic as MapDataRegistry
+            const sortedMaps = result.maps.sort((a: MapData, b: MapData) => {
+              // Extract numeric part for proper sorting (Map001, Map002, etc.)
+              const numA = parseInt(a.filename.replace(/\D/g, '')) || 999;
+              const numB = parseInt(b.filename.replace(/\D/g, '')) || 999;
+              return numA - numB;
+            });
+            setMaps(sortedMaps);
           } else if (result.error) {
             setError(result.error);
           }
@@ -77,7 +84,10 @@ export default function MapsIndex() {
     <div className="min-h-screen bg-gray-100">
       <div className="p-8 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Map Editor</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Floppy Worm - Server Mode</h1>
+          <p className="text-gray-600 mt-1">Map Management & Editor</p>
+        </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowNewMapModal(true)}
@@ -85,12 +95,12 @@ export default function MapsIndex() {
           >
             New Map
           </button>
-          <Link
-            to="/"
+          <a
+            href="/game"
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
-            Back to Game
-          </Link>
+            Play Game
+          </a>
         </div>
       </div>
       

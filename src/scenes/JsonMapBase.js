@@ -13,6 +13,8 @@ import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
 import GhostPlayer from '../components/ghost/GhostPlayer';
 import GhostStorage from '../components/ghost/GhostStorage';
+import VictoryDialog from './VictoryDialog';
+import { getCachedBuildMode } from '../utils/buildMode';
 
 export default class JsonMapBase extends BaseLevelScene {
     constructor(config = {}) {
@@ -140,9 +142,12 @@ export default class JsonMapBase extends BaseLevelScene {
         }
     }
 
-    create() {
+    async create() {
         // Call parent create (handles cleanup and shutdown event)
         super.create();
+        
+        // Get build mode
+        this.buildMode = await getCachedBuildMode();
         
         // Enable debug rendering based on config
         // Default to false, but can be overridden by worm config
@@ -698,6 +703,8 @@ export default class JsonMapBase extends BaseLevelScene {
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         this.mKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
         this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+        this.tabKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TAB);
+        this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         
         // Camera controls
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
@@ -875,6 +882,14 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     update(time, delta) {
+        // Guard against update being called before create() finishes
+        if (!this.escKey || !this.tabKey || !this.rKey) {
+            return;
+        }
+        
+        // Call parent update (handles worm update and victory check)
+        super.update(time, delta);
+        
         // Update stopwatch
         if (this.stopwatch && !this.victoryAchieved) {
             this.stopwatch.update();
@@ -892,53 +907,44 @@ export default class JsonMapBase extends BaseLevelScene {
         
         // Handle victory screen input
         if (this.victoryAchieved) {
-            const pad = this.input.gamepad.getPad(0);
-            
-            // SPACE key to go to next level (if available)
-            if (this.hasNextLevel && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-                this.scene.start(this.nextMapKey);
-                return;
-            }
-            
-            // ESC key to return to map select
-            if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-                this.scene.stop();
-                this.scene.start('MapSelectScene');
-                return;
-            }
-            
-            // Gamepad button A (0) for next level, B (1) for map select
-            if (pad && pad.buttons[0] && pad.buttons[0].pressed && !this.button0WasPressed) {
-                if (this.hasNextLevel) {
-                    this.scene.start(this.nextMapKey);
-                } else {
-                    this.scene.stop();
-                    this.scene.start('MapSelectScene');
-                }
-                return;
-            }
-            
-            // Gamepad button B (1) for map select
-            if (pad && pad.buttons[1] && pad.buttons[1].pressed && !this.button1WasPressed) {
-                this.scene.stop();
-                this.scene.start('MapSelectScene');
-                return;
-            }
-            
-            this.button0WasPressed = pad && pad.buttons[0] && pad.buttons[0].pressed;
-            this.button1WasPressed = pad && pad.buttons[1] && pad.buttons[1].pressed;
-            
+            // Victory dialog handles all interactions
             // Don't process normal game logic during victory
             return;
         }
         
-        // Normal ESC handling (only if not in victory state)
-        if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-            this.scene.start(this.returnScene);
-            return;
+        // Server mode keyboard shortcuts
+        if (this.buildMode === 'server') {
+            // TAB key to toggle between play and edit modes
+            if (Phaser.Input.Keyboard.JustDown(this.tabKey)) {
+                // If we have a returnScene of MapEditor, go back to it
+                if (this.returnScene === 'MapEditor' && this.scene.manager.getScene('MapEditor')) {
+                    this.scene.stop();
+                    this.scene.start('MapEditor');
+                } else {
+                    console.warn('Map editor not available or not set as return scene');
+                }
+                return;
+            }
+            
+            // R key to reset level (only in play mode)
+            if (Phaser.Input.Keyboard.JustDown(this.rKey)) {
+                this.scene.restart();
+                return;
+            }
         }
         
-        this.worm.update(delta);
+        // Normal ESC handling (only if not in victory state)
+        if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
+            // For test/editor modes without returnScene, go back to home
+            if (!this.returnScene) {
+                if (typeof window !== 'undefined') {
+                    window.location.href = '/';
+                }
+            } else {
+                this.scene.start(this.returnScene);
+            }
+            return;
+        }
         
         // Update special platforms
         this.platforms.forEach(platform => {
@@ -1006,191 +1012,20 @@ export default class JsonMapBase extends BaseLevelScene {
     
     
     async setupVictoryUI() {
-        // Determine if there's a next level
-        let mapKeys = [];
-        let currentIndex = -1;
-        let hasNext = false;
-        let nextMapKey = null;
-        
-        try {
-            mapKeys = await getMapKeys();
-            currentIndex = mapKeys.indexOf(this.scene.key);
-            hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
-            nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
-        } catch (error) {
-            console.warn('Failed to load map keys for victory screen:', error);
+        // Add VictoryDialog scene if not already added
+        if (!this.scene.manager.getScene('VictoryDialog')) {
+            this.scene.manager.add('VictoryDialog', VictoryDialog, false);
         }
         
-        // Store for use in update method
-        this.hasNextLevel = hasNext;
-        this.nextMapKey = nextMapKey;
-        
-        // Create dark overlay
-        const overlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.8);
-        overlay.setScrollFactor(0);
-        overlay.setDepth(1000);
-        
-        // Victory dialog background
-        const dialogBg = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, 500, 350, 0x2c3e50, 0.95);
-        dialogBg.setScrollFactor(0);
-        dialogBg.setDepth(1001);
-        dialogBg.setStrokeStyle(4, 0x4ecdc4, 1);
-        
-        const victoryText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 120, 'LEVEL COMPLETE!', {
-            fontSize: '48px',
-            color: '#ffd700',
-            stroke: '#000000',
-            strokeThickness: 6
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
-        
-        const completionText = this.add.text(this.scale.width / 2, this.scale.height / 2 - 60, `Well done!`, {
-            fontSize: '24px',
-            color: '#ffffff'
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1002);
-        
-        // Button positioning
-        const buttonY = this.scale.height / 2 + 20;
-        const buttonWidth = 160;
-        const buttonHeight = 50;
-        const buttonSpacing = 40;
-        
-        if (hasNext) {
-            // Two buttons: Return to Menu (left) and Next (right)
-            const menuButtonX = this.scale.width / 2 - buttonWidth / 2 - buttonSpacing / 2;
-            const nextButtonX = this.scale.width / 2 + buttonWidth / 2 + buttonSpacing / 2;
-            
-            // Menu button (left)
-            const menuButton = this.add.rectangle(menuButtonX, buttonY, buttonWidth, buttonHeight, 0x3498db);
-            menuButton.setScrollFactor(0).setDepth(1002);
-            menuButton.setStrokeStyle(2, 0x4ecdc4, 1);
-            menuButton.setInteractive();
-            
-            const menuText = this.add.text(menuButtonX, buttonY, 'Return to Menu', {
-                fontSize: '18px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
-            
-            // Next button (right) - default focus
-            const nextButton = this.add.rectangle(nextButtonX, buttonY, buttonWidth, buttonHeight, 0x27ae60);
-            nextButton.setScrollFactor(0).setDepth(1002);
-            nextButton.setStrokeStyle(4, 0x2ecc71, 1); // Thicker stroke to show it's default
-            nextButton.setInteractive();
-            
-            const nextText = this.add.text(nextButtonX, buttonY, 'Next', {
-                fontSize: '20px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
-            
-            // Button interactions
-            menuButton.on('pointerdown', () => {
-                this.scene.stop();
-                this.scene.start('MapSelectScene');
-            });
-            
-            menuButton.on('pointerover', () => {
-                menuButton.setFillStyle(0x4ecdc4);
-            });
-            
-            menuButton.on('pointerout', () => {
-                menuButton.setFillStyle(0x3498db);
-            });
-            
-            nextButton.on('pointerdown', () => {
-                this.scene.stop();
-                this.scene.start(nextMapKey);
-            });
-            
-            nextButton.on('pointerover', () => {
-                nextButton.setFillStyle(0x2ecc71);
-            });
-            
-            nextButton.on('pointerout', () => {
-                nextButton.setFillStyle(0x27ae60);
-            });
-            
-            // Gamepad support - A button goes to next, B button goes to menu
-            this.input.gamepad.on('down', (pad, button) => {
-                if (button.index === 0) { // A button - Next
-                    this.scene.stop();
-                    this.scene.start(nextMapKey);
-                } else if (button.index === 1) { // B button - Menu
-                    this.scene.stop();
-                    this.scene.start('MapSelectScene');
-                }
-            });
-            
-        } else {
-            // Single button: Return to Menu (centered)
-            const menuButton = this.add.rectangle(this.scale.width / 2, buttonY, buttonWidth, buttonHeight, 0x27ae60);
-            menuButton.setScrollFactor(0).setDepth(1002);
-            menuButton.setStrokeStyle(4, 0x2ecc71, 1); // Thicker stroke to show it's default
-            menuButton.setInteractive();
-            
-            const menuText = this.add.text(this.scale.width / 2, buttonY, 'Return to Menu', {
-                fontSize: '20px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(1003);
-            
-            menuButton.on('pointerdown', () => {
-                this.scene.stop();
-                this.scene.start('MapSelectScene');
-            });
-            
-            menuButton.on('pointerover', () => {
-                menuButton.setFillStyle(0x2ecc71);
-            });
-            
-            menuButton.on('pointerout', () => {
-                menuButton.setFillStyle(0x27ae60);
-            });
-            
-            // Gamepad support - A or B button goes to menu
-            this.input.gamepad.on('down', (pad, button) => {
-                if (button.index === 0 || button.index === 1) {
-                    this.scene.stop();
-                    this.scene.start('MapSelectScene');
-                }
-            });
-        }
-        
-        // Hide from minimap (collect all UI elements)
-        const uiElements = [overlay, dialogBg, victoryText, completionText];
-        
-        if (this.minimap) {
-            uiElements.forEach(element => {
-                if (element) {
-                    this.minimap.ignore(element);
-                }
-            });
-        }
-        
-        // Celebration effect
-        for (let i = 0; i < 15; i++) {
-            this.time.delayedCall(i * 100, () => {
-                const star = this.add.star(
-                    Phaser.Math.Between(200, this.scale.width - 200),
-                    Phaser.Math.Between(100, this.scale.height - 100),
-                    5, 8, 15,
-                    Phaser.Display.Color.RandomRGB().color
-                ).setScrollFactor(0).setDepth(999);
-                
-                if (this.minimap) {
-                    this.minimap.ignore(star);
-                }
-                
-                this.tweens.add({
-                    targets: star,
-                    alpha: 0,
-                    scale: 1.5,
-                    rotation: Math.PI * 2,
-                    duration: 2000,
-                    onComplete: () => star.destroy()
-                });
-            });
-        }
+        // Pause this scene and launch victory dialog
+        this.scene.pause();
+        this.scene.launch('VictoryDialog', {
+            gameScene: this,
+            mapKey: this.mapKey || this.scene.key,
+            sceneTitle: this.sceneTitle,
+            stopwatch: this.stopwatch,
+            getBestTime: () => this.getBestTime()
+        });
     }
     
     toggleMiniMap() {
@@ -1247,6 +1082,14 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     resetWorm() {
+        // Reset victory state
+        this.victoryAchieved = false;
+        
+        // Close victory dialog if it's open
+        if (this.scene.manager.getScene('VictoryDialog') && this.scene.isActive('VictoryDialog')) {
+            this.scene.stop('VictoryDialog');
+        }
+        
         super.resetWorm();
         
         // Reset and start the timer
@@ -1274,6 +1117,14 @@ export default class JsonMapBase extends BaseLevelScene {
         if (currentBest === null || time < currentBest) {
             localStorage.setItem(storageKey, time.toString());
             this.stopwatch.setBestTime(time);
+            
+            // Also update the progress object so MapSelectScene can display it
+            const progress = JSON.parse(localStorage.getItem('floppyWormProgress') || '{}');
+            if (progress[this.mapKey]) {
+                progress[this.mapKey].bestTime = time;
+                progress[this.mapKey].completed = true;
+                localStorage.setItem('floppyWormProgress', JSON.stringify(progress));
+            }
         }
     }
     

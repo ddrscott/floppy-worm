@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { loadMapMetadata, createMapScene, getMapKeys } from './maps/MapDataRegistry';
+import MapLoader from '../services/MapLoader';
+import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -14,14 +16,9 @@ export default class MapSelectScene extends Phaser.Scene {
     async loadMapsFromDataRegistry() {
         const maps = await loadMapMetadata();
         
-        // Register parameterized map scenes with Phaser (now safe to access scene manager)
+        // Preload all maps using the unified loader
         for (const map of maps) {
-            if (!this.scene.manager.getScene(map.key)) {
-                const MapSceneClass = await createMapScene(map.key);
-                if (MapSceneClass) {
-                    this.scene.manager.add(map.key, MapSceneClass, false);
-                }
-            }
+            await MapLoader.preloadMap(this, map.key);
         }
         
         return maps;
@@ -34,6 +31,10 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Clear any existing button references
         this.mapButtons = [];
+        
+        // Get build mode
+        this.buildMode = await getCachedBuildMode();
+        this.buildConfig = BuildConfig[this.buildMode];
         
         // Initialize keyboard controls immediately (before async loading)
         this.cursors = this.input.keyboard.createCursorKeys();
@@ -120,15 +121,22 @@ export default class MapSelectScene extends Phaser.Scene {
             progress = JSON.parse(savedProgress);
         }
         
+        // In static mode, all levels are always unlocked
+        const allUnlocked = this.buildMode === 'static';
+        
         // Ensure all current maps have entries in progress (for new maps added after save)
         let needsSave = false;
         this.maps.forEach((map, index) => {
             if (!progress[map.key]) {
                 progress[map.key] = {
-                    unlocked: true, // Unlock all maps by default
+                    unlocked: allUnlocked || index === 0, // In static mode all unlocked, otherwise only first
                     completed: false,
                     bestTime: null
                 };
+                needsSave = true;
+            } else if (allUnlocked && !progress[map.key].unlocked) {
+                // Ensure all maps are unlocked in static mode
+                progress[map.key].unlocked = true;
                 needsSave = true;
             }
         });
@@ -162,19 +170,20 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     createMapGrid() {
-        const startX = 200;
-        const startY = 180;
-        const buttonWidth = 280;
-        const buttonHeight = 60;
-        const spacing = 70;
-        const mapsPerRow = 2;
+        const startX = this.scale.width / 2 - 400; // Centered with padding
+        const startY = 220;
+        const buttonWidth = 240;
+        const buttonHeight = 80;
+        const spacingX = 20;
+        const spacingY = 90;
+        const mapsPerRow = 3;
         
         this.maps.forEach((map, index) => {
             const row = Math.floor(index / mapsPerRow);
             const col = index % mapsPerRow;
             
-            const x = startX + col * (buttonWidth + 100);
-            const y = startY + row * spacing;
+            const x = startX + col * (buttonWidth + spacingX) + buttonWidth/2;
+            const y = startY + row * spacingY;
             
             const isUnlocked = this.userProgress[map.key].unlocked;
             const isCompleted = this.userProgress[map.key].completed;
@@ -184,7 +193,7 @@ export default class MapSelectScene extends Phaser.Scene {
             
             // Make button interactive immediately
             buttonBg.setInteractive();
-            buttonBg.on('pointerdown', () => {
+            buttonBg.on('pointerup', () => {
                 this.selectedMapIndex = index;
                 this.updateSelection();
                 this.selectMap();
@@ -217,20 +226,23 @@ export default class MapSelectScene extends Phaser.Scene {
             
             // Map title
             const titleColor = isUnlocked ? '#ffffff' : '#7f8c8d';
-            const title = this.add.text(x - buttonWidth/2 + 60, y - 10, map.title, {
-                fontSize: '18px',
+            const title = this.add.text(x - buttonWidth/2 + 60, y - 18, map.title, {
+                fontSize: '16px',
                 color: titleColor,
                 fontStyle: isCompleted ? 'bold' : 'normal'
             });
             
-            // Difficulty stars
-            const starY = y + 15;
-            for (let i = 0; i < map.difficulty; i++) {
-                const star = this.add.text(x - buttonWidth/2 + 60 + i * 20, starY, '★', {
+            // Best time (show for any map with a recorded time)
+            if (this.userProgress[map.key].bestTime) {
+                const bestTime = this.formatTime(this.userProgress[map.key].bestTime);
+                const timeColor = isCompleted ? '#4ecdc4' : '#95a5a6';
+                this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTime}`, {
                     fontSize: '16px',
-                    color: isUnlocked ? '#f1c40f' : '#7f8c8d'
+                    color: timeColor,
+                    fontStyle: 'bold'
                 });
             }
+            
             
             // Status indicator
             if (isCompleted) {
@@ -303,7 +315,7 @@ export default class MapSelectScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setOrigin(1, 0).setInteractive();
         
-        resetButton.on('pointerdown', () => {
+        resetButton.on('pointerup', () => {
             this.resetProgress();
         });
     }
@@ -445,7 +457,7 @@ export default class MapSelectScene extends Phaser.Scene {
             return;
         }
         
-        const mapsPerRow = 2;
+        const mapsPerRow = 3;
         const currentRow = Math.floor(this.selectedMapIndex / mapsPerRow);
         const currentCol = this.selectedMapIndex % mapsPerRow;
         
@@ -487,13 +499,29 @@ export default class MapSelectScene extends Phaser.Scene {
                 // Add a simple fade transition
                 this.cameras.main.fadeOut(250, 0, 0, 0);
                 
-                this.cameras.main.once('camerafadeoutcomplete', () => {
-                    // Stop current scene first, then start the new one
-                    this.scene.stop();
-                    this.scene.start(mapKey);
+                this.cameras.main.once('camerafadeoutcomplete', async () => {
+                    // Use the unified loader to start the map
+                    try {
+                        await MapLoader.loadAndStart(this, mapKey, {
+                            returnScene: 'MapSelectScene'
+                        });
+                    } catch (error) {
+                        console.error('Failed to load map:', error);
+                        // Restart map select scene on error
+                        this.scene.restart();
+                    }
                 });
             }
         }
+    }
+    
+    formatTime(milliseconds) {
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const ms = Math.floor((milliseconds % 1000) / 10);
+        
+        return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
     
     resetProgress() {

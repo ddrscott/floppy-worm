@@ -33,7 +33,7 @@ The project has a **dual structure** with legacy game code and modern Remix:
 
 ### Legacy Game Structure (`/src`)
 - **Main entry**: `src/app.js` - Legacy Phaser game entry point
-- **Scenes**: `src/scenes/` - Game scenes including MapSelectScene, MapEditor, JsonMapScene
+- **Scenes**: `src/scenes/` - Game scenes including MapSelectScene, MapEditor, JsonMapBase
 - **Entities**: `src/entities/` - Game objects (Worm, platforms, etc.)
 - **Maps**: `src/scenes/maps/` - Map data registry and JSON map files
 
@@ -51,8 +51,9 @@ The project has a **dual structure** with legacy game code and modern Remix:
 
 **Scene Management**:
 - `MapSelectScene.js` - Main menu with progress tracking
-- `JsonMapScene.js` - Parameterized level scenes
+- `JsonMapBase.js` - Base class for all map scenes
 - `MapEditor.js` - Level creation and editing
+- `MapLoader.js` - Centralized map loading service
 
 ## Development Workflow
 
