@@ -898,13 +898,13 @@ export default class DoubleWorm extends WormBase {
             
             // Cap the impulse force magnitude to prevent oversensitivity
             const impulseMagnitude = Math.sqrt(impulseX * impulseX + impulseY * impulseY);
-            Tick.push(`${section.name} impulse`, impulseMagnitude, section.color);
+            // Tick.push(`${section.name} impulse`, impulseMagnitude, section.color);
 
             if (impulseMagnitude > this.config.maxImpulseForce) {
                 const scale = this.config.maxImpulseForce / impulseMagnitude;
                 impulseX *= scale;
                 impulseY *= scale;
-                Tick.push(`${section.name} scale`, scale, section.color);
+                // Tick.push(`${section.name} scale`, scale, section.color);
             }
             
             if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
@@ -1821,7 +1821,7 @@ export default class DoubleWorm extends WormBase {
         if (totalInertia > 0) {
             this.rollMode.angularVelocity = totalAngularMomentum / totalInertia;
             // Limit angular velocity using forces instead of setVelocity
-            Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
+            // Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
             
             if (Math.abs(this.rollMode.angularVelocity) > this.config.roll.maxAngularVelocity) {
                 this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;

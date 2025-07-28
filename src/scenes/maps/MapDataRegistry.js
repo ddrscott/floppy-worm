@@ -6,6 +6,8 @@ import JsonMapScene from '../JsonMapScene';
 // Static imports for production builds
 import Map001Data from './data/Map001.json';
 import Map002Data from './data/Map002.json';
+import Map003Data from './data/Map003.json';
+import Map004Data from './data/Map004.json';
 import SwingMapData from './data/Swing.json';
 import TowerData from './data/Tower.json';
 import TryAnglesData from './data/Try-angles.json';
@@ -17,6 +19,8 @@ import Morgan from './data/Morgan.json';
 const STATIC_MAP_REGISTRY = {
     'Map001': Map001Data,
     'Map002': Map002Data,
+    'Map003': Map003Data,
+    'Map004': Map004Data,
     'Swing': SwingMapData,
     'Tower': TowerData,
     'Try-angles': TryAnglesData,
