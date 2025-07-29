@@ -1195,10 +1195,8 @@ export default class JsonMapBase extends Phaser.Scene {
             return;
         }
         
-        // Check if this is the best time using state manager
-        const currentBest = this.stateManager.getBestTime(this.mapKey);
-        if (currentBest && completionTime >= currentBest) {
-            console.log('Not the best time, ghost not saved');
+        // Check if this is the best time using ghostStorage's own logic
+        if (!this.ghostStorage.shouldSaveGhost(this.mapKey, completionTime)) {
             return;
         }
         
@@ -1207,16 +1205,12 @@ export default class JsonMapBase extends Phaser.Scene {
         const recordingData = await this.ghostRecorder.getRecordingData();
         
         if (recordingData) {
-            const saved = await this.ghostStorage.saveGhost(
+            await this.ghostStorage.saveGhost(
                 this.mapKey,
                 this.mapData,
                 recordingData,
                 completionTime
             );
-            
-            if (saved) {
-                console.log(`New ghost saved with time: ${this.formatTime(completionTime)}`);
-            }
         }
     }
     
