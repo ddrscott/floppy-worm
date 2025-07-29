@@ -152,19 +152,15 @@ export default class ElectricPlatform extends PlatformBase {
         // Visual feedback first
         this.triggerShockEffect();
         
-        // Reset worm to start position (skip shock force since we're teleporting)
-        if (this.scene.resetWorm && typeof this.scene.resetWorm === 'function') {
-            this.scene.resetWorm();
-        }
+        // Add a slight delay before restarting to let the shock effect play
+        this.scene.time.delayedCall(200, () => {
+            // Restart the entire scene - this will reset everything cleanly
+            this.scene.scene.restart();
+        });
         
-        // Trigger recharge cycle
+        // Mark as triggered to prevent multiple restarts
         this.isCharged = false;
         this.lastShockTime = currentTime;
-        
-        // Recharge after duration
-        this.scene.time.delayedCall(this.rechargeDuration, () => {
-            this.isCharged = true;
-        });
     }
     
     applyElectricShock(segment) {

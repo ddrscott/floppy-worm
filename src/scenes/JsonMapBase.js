@@ -26,8 +26,6 @@ export default class JsonMapBase extends Phaser.Scene {
         // Worm reference - should be set by subclasses
         this.worm = null;
         
-        // Store initial worm position for resets
-        this.wormStartPosition = { x: 0, y: 0 };
         
         // Level dimension constants - can be overridden in subclasses
         this.CHAR_WIDTH = config.charWidth || 96;
@@ -158,15 +156,28 @@ export default class JsonMapBase extends Phaser.Scene {
         }
         
         if (this.ghostPlayer) {
-            this.ghostPlayer.destroy();
+            this.ghostPlayer.destroy(); // This destroys the graphics objects
             this.ghostPlayer = null;
         }
     }
 
+    init() {
+        // Reset state on scene init (called before preload)
+        this.victoryAchieved = false;
+        this.victoryReturnTimer = null;
+        this.worm = null;
+        this.platforms = [];
+        this.stickers = [];
+        this.minimapIgnoreList = [];
+        this.buttonMWasPressed = false;
+        this.button0WasPressed = false;
+        this.button1WasPressed = false;
+        this.ghostRecorder = null;
+        this.ghostPlayer = null;
+        this.ghostVisible = true;
+    }
+    
     async create() {
-        // Clean up any existing objects (from BaseLevelScene)
-        this.cleanup();
-        
         // Clean up when scene shuts down (from BaseLevelScene)
         this.events.once('shutdown', () => {
             this.cleanup();
@@ -560,9 +571,6 @@ export default class JsonMapBase extends Phaser.Scene {
         // Use pixel coordinates directly for entity placement
         const wormX = wormStart.x;
         const wormY = wormStart.y;
-        
-        // Store start position for resets
-        this.wormStartPosition = { x: wormX, y: wormY };
         
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
@@ -1114,58 +1122,6 @@ export default class JsonMapBase extends Phaser.Scene {
         this.setupVictoryUI();
     }
     
-    resetWorm() {
-        if (!this.worm) return;
-        
-        // Reset victory state
-        this.victoryAchieved = false;
-        
-        // Close victory dialog if it's open
-        if (this.scene.manager.getScene('VictoryDialog') && this.scene.isActive('VictoryDialog')) {
-            this.scene.stop('VictoryDialog');
-        }
-        
-        // Reset all worm segments to start position (from BaseLevelScene)
-        this.worm.segments.forEach((segment, index) => {
-            // Position segments vertically spaced from start position
-            const yOffset = index * (this.worm.segmentRadii[index] * 2 + 2);
-            this.matter.body.setPosition(segment, {
-                x: this.wormStartPosition.x,
-                y: this.wormStartPosition.y + yOffset
-            });
-            
-            // Completely zero all velocities for instant stop
-            this.matter.body.setVelocity(segment, { x: 0, y: 0 });
-            this.matter.body.setAngularVelocity(segment, 0);
-            
-            // Also reset forces to prevent momentum carryover
-            segment.force.x = 0;
-            segment.force.y = 0;
-            segment.torque = 0;
-        });
-        
-        // Reset any worm-specific state if needed
-        if (typeof this.worm.resetState === 'function') {
-            this.worm.resetState();
-        }
-        
-        // Reset and start the timer
-        if (this.stopwatch) {
-            this.stopwatch.reset();
-            this.stopwatch.start();
-        }
-        
-        // Reset ghost system
-        if (this.ghostRecorder) {
-            this.ghostRecorder.reset();
-            this.ghostRecorder.startRecording();
-        }
-        
-        if (this.ghostPlayer) {
-            this.ghostPlayer.reset();
-            this.ghostPlayer.start();
-        }
-    }
     
     saveBestTime(time) {
         const storageKey = `floppyworm_besttime_${this.mapKey}`;
