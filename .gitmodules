@@ -1,0 +1,3 @@
+[submodule "docs/phaser3-rex-notes"]
+	path = docs/phaser3-rex-notes
+	url = https://github.com/rexrainbow/phaser3-rex-notes.git
