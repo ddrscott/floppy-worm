@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { loadMapMetadata, createMapScene, getMapKeys } from './maps/MapDataRegistry';
 import MapLoader from '../services/MapLoader';
 import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
+import GameStateManager from '../services/GameStateManager';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -11,6 +12,20 @@ export default class MapSelectScene extends Phaser.Scene {
         this.mapButtons = [];
         this.maps = []; // Will be loaded in create()
         this.isFocused = false; // Track if user has started navigating
+        this.stateManager = null; // Will be initialized in init()
+    }
+    
+    init() {
+        // Reset state on scene init (called before preload)
+        this.selectedMapIndex = -1;
+        this.isFocused = false;
+        this.mapButtons = [];
+        
+        // Initialize state manager
+        this.stateManager = GameStateManager.getFromScene(this);
+        
+        // Listen for progress updates from other scenes
+        this.registry.events.on(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
     }
     
     async loadMapsFromDataRegistry() {
@@ -25,13 +40,6 @@ export default class MapSelectScene extends Phaser.Scene {
     }
 
     async create() {
-        // Reset focus state to ensure clean start
-        this.selectedMapIndex = -1;
-        this.isFocused = false;
-        
-        // Clear any existing button references
-        this.mapButtons = [];
-        
         // Get build mode
         this.buildMode = await getCachedBuildMode();
         this.buildConfig = BuildConfig[this.buildMode];
@@ -49,6 +57,10 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Load maps now that scene manager is available
         this.maps = await this.loadMapsFromDataRegistry();
+        
+        // Ensure all maps have progress entries
+        const mapKeys = this.maps.map(map => map.key);
+        this.stateManager.ensureAllMapsHaveProgress(mapKeys);
         
         // Remove loading text
         loadingText.destroy();
@@ -79,9 +91,6 @@ export default class MapSelectScene extends Phaser.Scene {
             fontStyle: 'italic'
         }).setOrigin(0.5);
         
-        // Get user progress from localStorage
-        this.userProgress = this.getUserProgress();
-        
         // Create map selection grid
         this.createMapGrid();
         
@@ -90,6 +99,9 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Set up input (after grid is created)
         this.setupInput();
+        
+        // Clean up events on shutdown
+        this.events.once('shutdown', this.cleanup, this);
         
         // Instructions with responsive sizing
         const instructionSize = isMobile ? '14px' : '16px';
@@ -113,60 +125,16 @@ export default class MapSelectScene extends Phaser.Scene {
         }
     }
     
-    getUserProgress() {
-        const savedProgress = localStorage.getItem('floppyWormProgress');
-        let progress = {};
-        
-        if (savedProgress) {
-            progress = JSON.parse(savedProgress);
-        }
-        
-        // All maps are always unlocked
-        const allUnlocked = true;
-        
-        // Ensure all current maps have entries in progress (for new maps added after save)
-        let needsSave = false;
-        this.maps.forEach((map, index) => {
-            if (!progress[map.key]) {
-                progress[map.key] = {
-                    unlocked: true, // All maps are always unlocked
-                    completed: false,
-                    bestTime: null
-                };
-                needsSave = true;
-            } else if (!progress[map.key].unlocked) {
-                // Ensure all existing maps are unlocked
-                progress[map.key].unlocked = true;
-                needsSave = true;
-            }
-        });
-        
-        if (needsSave) {
-            this.saveUserProgress(progress);
-        }
-        
-        return progress;
+    cleanup() {
+        // Remove event listeners
+        this.registry.events.off(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
     }
     
-    saveUserProgress(progress = this.userProgress) {
-        localStorage.setItem('floppyWormProgress', JSON.stringify(progress));
-    }
-    
-    unlockNextMap(completedMapKey) {
-        const completedIndex = this.maps.findIndex(map => map.key === completedMapKey);
-        if (completedIndex !== -1) {
-            // Mark current map as completed
-            this.userProgress[completedMapKey].completed = true;
-            
-            // Unlock next map if it exists
-            const nextIndex = completedIndex + 1;
-            if (nextIndex < this.maps.length) {
-                const nextMapKey = this.maps[nextIndex].key;
-                this.userProgress[nextMapKey].unlocked = true;
-            }
-            
-            this.saveUserProgress();
-        }
+    onProgressUpdated(progress) {
+        // Refresh the UI when progress is updated from another scene
+        // For now, just restart the scene for simplicity
+        // In a more sophisticated implementation, we'd update the UI directly
+        this.scene.restart();
     }
     
     createMapGrid() {
@@ -185,8 +153,9 @@ export default class MapSelectScene extends Phaser.Scene {
             const x = startX + col * (buttonWidth + spacingX) + buttonWidth/2;
             const y = startY + row * spacingY;
             
-            const isUnlocked = this.userProgress[map.key].unlocked;
-            const isCompleted = this.userProgress[map.key].completed;
+            const mapProgress = this.stateManager.getMapProgress(map.key);
+            const isUnlocked = mapProgress.unlocked;
+            const isCompleted = mapProgress.completed;
             
             // Button background
             const buttonBg = this.add.rectangle(x, y, buttonWidth, buttonHeight);
@@ -230,10 +199,11 @@ export default class MapSelectScene extends Phaser.Scene {
             });
             
             // Best time (show for any map with a recorded time)
-            if (this.userProgress[map.key].bestTime) {
-                const bestTime = this.formatTime(this.userProgress[map.key].bestTime);
+            const bestTime = mapProgress.bestTime;
+            if (bestTime) {
+                const bestTimeText = this.formatTime(bestTime);
                 const timeColor = isCompleted ? '#4ecdc4' : '#95a5a6';
-                this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTime}`, {
+                this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTimeText}`, {
                     fontSize: '16px',
                     color: timeColor,
                     fontStyle: 'bold'
@@ -270,8 +240,8 @@ export default class MapSelectScene extends Phaser.Scene {
         // Clear previous highlights
         this.mapButtons.forEach(button => {
             // Use current progress state
-            const currentProgress = this.userProgress[button.mapKey];
-            const isCompleted = currentProgress.completed;
+            const mapProgress = this.stateManager.getMapProgress(button.mapKey);
+            const isCompleted = mapProgress.completed;
             
             // All maps are unlocked, so use appropriate colors
             button.background.setStrokeStyle(2, 
@@ -291,7 +261,8 @@ export default class MapSelectScene extends Phaser.Scene {
     
     createUI() {
         // Progress summary
-        const completedCount = Object.values(this.userProgress).filter(p => p.completed).length;
+        const stats = this.stateManager.getCompletionStats();
+        const completedCount = stats.completed;
         const totalCount = this.maps.length;
         
         this.add.text(this.scale.width / 2, 140, `Progress: ${completedCount}/${totalCount} maps completed`, {
@@ -517,35 +488,18 @@ export default class MapSelectScene extends Phaser.Scene {
     resetProgress() {
         // Confirm reset
         if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
-            localStorage.removeItem('floppyWormProgress');
+            this.stateManager.resetProgress();
             this.scene.restart();
         }
     }
 }
 
 // Export function to be called when a map is completed
-export function completeMap(mapKey) {
-    const mapSelectScene = game.scene.getScene('MapSelectScene');
-    if (mapSelectScene) {
-        mapSelectScene.unlockNextMap(mapKey);
-    } else {
-        // If scene doesn't exist, update localStorage directly
-        const progress = JSON.parse(localStorage.getItem('floppyWormProgress') || '{}');
-        if (progress[mapKey]) {
-            progress[mapKey].completed = true;
-            
-            // Find and unlock next map using the data registry
-            const mapKeys = getMapKeys();
-            
-            const currentIndex = mapKeys.indexOf(mapKey);
-            if (currentIndex !== -1 && currentIndex < mapKeys.length - 1) {
-                const nextMapKey = mapKeys[currentIndex + 1];
-                if (progress[nextMapKey]) {
-                    progress[nextMapKey].unlocked = true;
-                }
-            }
-            
-            localStorage.setItem('floppyWormProgress', JSON.stringify(progress));
-        }
-    }
+// This function is designed to work even if the MapSelectScene isn't currently active
+export function completeMap(mapKey, scene) {
+    // Get the state manager from any scene's registry
+    const stateManager = GameStateManager.getFromScene(scene);
+    
+    // Mark the map as completed
+    stateManager.completeMap(mapKey);
 }
