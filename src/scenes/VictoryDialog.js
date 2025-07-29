@@ -168,47 +168,77 @@ export default class VictoryDialog extends Phaser.Scene {
         const buttonHeight = 50;
         const spacing = 20;
         
-        // Three buttons horizontally
-        const leftX = this.scale.width / 2 - buttonWidth - spacing;
-        const centerX = this.scale.width / 2;
-        const rightX = this.scale.width / 2 + buttonWidth + spacing;
+        // Check if map editor is actually available
+        const hasMapEditor = this.scene.manager.getScene('MapEditor') !== null;
         
-        // Replay Level button
-        this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
-            this.close();
-            // Restart the scene completely for a clean replay
-            this.gameScene.scene.restart();
-        });
-        
-        // Return to Editor button
-        this.createButton(centerX, centerY, buttonWidth, buttonHeight, 'Return to Editor', 0x27ae60, () => {
-            // Switch to map editor
-            this.close();
-            if (this.scene.manager.getScene('MapEditor')) {
+        if (hasMapEditor) {
+            // Three buttons horizontally when editor is available
+            const leftX = this.scale.width / 2 - buttonWidth - spacing;
+            const centerX = this.scale.width / 2;
+            const rightX = this.scale.width / 2 + buttonWidth + spacing;
+            
+            // Replay Level button
+            this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+                this.close();
+                // Restart the scene completely for a clean replay
+                this.gameScene.scene.restart();
+            });
+            
+            // Return to Editor button
+            this.createButton(centerX, centerY, buttonWidth, buttonHeight, 'Return to Editor', 0x27ae60, () => {
+                // Switch to map editor
+                this.close();
                 this.gameScene.scene.stop();
                 this.gameScene.scene.start('MapEditor');
-            } else {
-                console.warn('Map editor not available');
-            }
-        });
-        
-        // Map Selection button
-        this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
-            this.close();
-            this.gameScene.scene.stop();
-            this.gameScene.scene.start('MapSelectScene');
-        });
-        
-        // Instructions
-        this.add.text(
-            this.scale.width / 2,
-            centerY + buttonHeight / 2 + 30,
-            'Server Mode • TAB to toggle editor',
-            {
-                fontSize: '14px',
-                color: '#95a5a6'
-            }
-        ).setOrigin(0.5).setDepth(10002);
+            });
+            
+            // Map Selection button
+            this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+                this.close();
+                this.gameScene.scene.stop();
+                this.gameScene.scene.start('MapSelectScene');
+            });
+            
+            // Instructions
+            this.add.text(
+                this.scale.width / 2,
+                centerY + buttonHeight / 2 + 30,
+                'Server Mode • TAB to toggle editor',
+                {
+                    fontSize: '14px',
+                    color: '#95a5a6'
+                }
+            ).setOrigin(0.5).setDepth(10002);
+        } else {
+            // Two buttons when no editor (same as static mode layout)
+            const leftX = this.scale.width / 2 - buttonWidth/2 - spacing/2;
+            const rightX = this.scale.width / 2 + buttonWidth/2 + spacing/2;
+            
+            // Replay Level button
+            this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+                this.close();
+                // Restart the scene completely for a clean replay
+                this.gameScene.scene.restart();
+            });
+            
+            // Map Selection button
+            this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+                this.close();
+                this.gameScene.scene.stop();
+                this.gameScene.scene.start('MapSelectScene');
+            });
+            
+            // Instructions
+            this.add.text(
+                this.scale.width / 2,
+                centerY + buttonHeight / 2 + 30,
+                'Use ARROW KEYS or GAMEPAD to select • SPACE/ENTER/A to confirm',
+                {
+                    fontSize: '14px',
+                    color: '#95a5a6'
+                }
+            ).setOrigin(0.5).setDepth(102);
+        }
     }
     
     createButton(x, y, width, height, text, color, onClick) {
