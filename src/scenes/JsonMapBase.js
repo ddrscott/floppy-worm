@@ -13,6 +13,7 @@ import GhostRecorder from '../components/ghost/GhostRecorder';
 import GhostPlayer from '../components/ghost/GhostPlayer';
 import GhostStorage from '../components/ghost/GhostStorage';
 import VictoryDialog from './VictoryDialog';
+import PauseMenu from './PauseMenu';
 import { getCachedBuildMode } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
 
@@ -73,6 +74,10 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // State manager - will be initialized in init()
         this.stateManager = null;
+        
+        // Track pause menu state
+        this.isPaused = false;
+        this.optionButtonWasPressed = false;
     }
     
     getDefaultMapData() {
@@ -107,6 +112,9 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     cleanup() {
+        // Remove event listeners
+        this.events.off('resume');
+        
         // Destroy existing worm if it exists (from BaseLevelScene)
         if (this.worm) {
             this.worm.destroy();
@@ -193,6 +201,11 @@ export default class JsonMapBase extends Phaser.Scene {
         // Clean up when scene shuts down (from BaseLevelScene)
         this.events.once('shutdown', () => {
             this.cleanup();
+        });
+        
+        // Reset pause state when resuming from pause menu
+        this.events.on('resume', () => {
+            this.isPaused = false;
         });
         
         // Get build mode
@@ -776,6 +789,16 @@ export default class JsonMapBase extends Phaser.Scene {
         
         this.minimapIgnoreList.push(title);
         
+        // Pause hint (small text in top right)
+        const pauseHint = this.add.text(this.scale.width - 20, 20, 'ESC: Pause', {
+            fontSize: '14px',
+            color: '#95a5a6',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            padding: { x: 5, y: 2 }
+        }).setOrigin(1, 0).setScrollFactor(0);
+        
+        this.minimapIgnoreList.push(pauseHint);
+        
         // Create stopwatch in top center
         this.stopwatch = new Stopwatch(this, this.scale.width / 2, 20);
         // Load best time from state manager
@@ -933,9 +956,9 @@ export default class JsonMapBase extends Phaser.Scene {
             return;
         }
         
-        // Don't update worm during victory state (from BaseLevelScene)
-        if (this.victoryAchieved) {
-            // Victory dialog handles all interactions
+        // Don't update during victory or pause states
+        if (this.victoryAchieved || this.isPaused) {
+            // Victory dialog or pause menu handles all interactions
             return;
         }
         
@@ -980,17 +1003,22 @@ export default class JsonMapBase extends Phaser.Scene {
             }
         }
         
-        // Normal ESC handling (only if not in victory state)
+        // ESC key opens pause menu
         if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-            // For test/editor modes without returnScene, go back to home
-            if (!this.returnScene) {
-                if (typeof window !== 'undefined') {
-                    window.location.href = '/';
-                }
-            } else {
-                this.scene.start(this.returnScene);
-            }
+            this.showPauseMenu();
             return;
+        }
+        
+        // Check for gamepad option button (button 9 is typically Options/Start)
+        const pad = this.input.gamepad.getPad(0);
+        if (pad && pad.buttons[9]) {
+            const optionButtonPressed = pad.buttons[9].pressed;
+            if (optionButtonPressed && !this.optionButtonWasPressed) {
+                this.showPauseMenu();
+            }
+            this.optionButtonWasPressed = optionButtonPressed;
+        } else {
+            this.optionButtonWasPressed = false;
         }
         
         // Update special platforms
@@ -1011,7 +1039,6 @@ export default class JsonMapBase extends Phaser.Scene {
         }
         
         // Check for gamepad button M to toggle mini-map
-        const pad = this.input.gamepad.getPad(0);
         if (pad && pad.buttons[2] && pad.buttons[2].pressed && !this.buttonMWasPressed) {
             this.toggleMiniMap();
         }
@@ -1249,5 +1276,22 @@ export default class JsonMapBase extends Phaser.Scene {
         const ms = Math.floor((milliseconds % 1000) / 10);
         
         return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+    }
+    
+    showPauseMenu() {
+        // Add PauseMenu scene if not already added
+        if (!this.scene.manager.getScene('PauseMenu')) {
+            this.scene.manager.add('PauseMenu', PauseMenu, false);
+        }
+        
+        // Mark as paused
+        this.isPaused = true;
+        
+        // Pause this scene (it will still render but not update) and launch pause menu
+        this.scene.pause();
+        this.scene.launch('PauseMenu', {
+            gameScene: this,
+            mapKey: this.mapKey || this.scene.key
+        });
     }
 }
