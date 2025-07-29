@@ -121,21 +121,21 @@ export default class MapSelectScene extends Phaser.Scene {
             progress = JSON.parse(savedProgress);
         }
         
-        // In static mode, all levels are always unlocked
-        const allUnlocked = this.buildMode === 'static';
+        // All maps are always unlocked
+        const allUnlocked = true;
         
         // Ensure all current maps have entries in progress (for new maps added after save)
         let needsSave = false;
         this.maps.forEach((map, index) => {
             if (!progress[map.key]) {
                 progress[map.key] = {
-                    unlocked: allUnlocked || index === 0, // In static mode all unlocked, otherwise only first
+                    unlocked: true, // All maps are always unlocked
                     completed: false,
                     bestTime: null
                 };
                 needsSave = true;
-            } else if (allUnlocked && !progress[map.key].unlocked) {
-                // Ensure all maps are unlocked in static mode
+            } else if (!progress[map.key].unlocked) {
+                // Ensure all existing maps are unlocked
                 progress[map.key].unlocked = true;
                 needsSave = true;
             }
@@ -205,11 +205,8 @@ export default class MapSelectScene extends Phaser.Scene {
                 this.updateSelection();
             });
             
-            // Set button style based on state
-            if (!isUnlocked) {
-                buttonBg.setFillStyle(0x2c3e50, 0.5);
-                buttonBg.setStrokeStyle(2, 0x34495e, 0.8);
-            } else if (isCompleted) {
+            // Set button style based on state (all maps are unlocked)
+            if (isCompleted) {
                 buttonBg.setFillStyle(0x27ae60, 0.8);
                 buttonBg.setStrokeStyle(2, 0x2ecc71, 1);
             } else {
@@ -224,8 +221,8 @@ export default class MapSelectScene extends Phaser.Scene {
                 fontStyle: 'bold'
             });
             
-            // Map title
-            const titleColor = isUnlocked ? '#ffffff' : '#7f8c8d';
+            // Map title (all maps are unlocked, so always white)
+            const titleColor = '#ffffff';
             const title = this.add.text(x - buttonWidth/2 + 60, y - 18, map.title, {
                 fontSize: '16px',
                 color: titleColor,
@@ -244,16 +241,11 @@ export default class MapSelectScene extends Phaser.Scene {
             }
             
             
-            // Status indicator
+            // Status indicator (only show checkmark for completed maps)
             if (isCompleted) {
                 this.add.text(x + buttonWidth/2 - 20, y, '✓', {
                     fontSize: '24px',
                     color: '#2ecc71'
-                }).setOrigin(0.5);
-            } else if (!isUnlocked) {
-                this.add.text(x + buttonWidth/2 - 20, y, '🔒', {
-                    fontSize: '20px',
-                    color: '#7f8c8d'
                 }).setOrigin(0.5);
             }
             
@@ -277,13 +269,13 @@ export default class MapSelectScene extends Phaser.Scene {
     updateSelection() {
         // Clear previous highlights
         this.mapButtons.forEach(button => {
-            // Use current progress state, not cached isUnlocked
+            // Use current progress state
             const currentProgress = this.userProgress[button.mapKey];
-            const isUnlocked = currentProgress.unlocked;
             const isCompleted = currentProgress.completed;
             
-            button.background.setStrokeStyle(2, isUnlocked ? 
-                (isCompleted ? 0x2ecc71 : 0x4ecdc4) : 0x34495e, 
+            // All maps are unlocked, so use appropriate colors
+            button.background.setStrokeStyle(2, 
+                isCompleted ? 0x2ecc71 : 0x4ecdc4, 
                 button.mapIndex === this.selectedMapIndex ? 1 : 0.8
             );
         });
@@ -488,30 +480,28 @@ export default class MapSelectScene extends Phaser.Scene {
         
         if (selectedButton) {
             const mapKey = selectedButton.mapKey;
-            const isUnlocked = this.userProgress[mapKey].unlocked;
             
-            if (isUnlocked) {
-                // Clear focus state before transitioning
-                this.isFocused = false;
-                this.selectedMapIndex = -1;
-                this.updateSelection();
-                
-                // Add a simple fade transition
-                this.cameras.main.fadeOut(250, 0, 0, 0);
-                
-                this.cameras.main.once('camerafadeoutcomplete', async () => {
-                    // Use the unified loader to start the map
-                    try {
-                        await MapLoader.loadAndStart(this, mapKey, {
-                            returnScene: 'MapSelectScene'
-                        });
-                    } catch (error) {
-                        console.error('Failed to load map:', error);
-                        // Restart map select scene on error
-                        this.scene.restart();
-                    }
-                });
-            }
+            // All maps are unlocked, so just start the map
+            // Clear focus state before transitioning
+            this.isFocused = false;
+            this.selectedMapIndex = -1;
+            this.updateSelection();
+            
+            // Add a simple fade transition
+            this.cameras.main.fadeOut(250, 0, 0, 0);
+            
+            this.cameras.main.once('camerafadeoutcomplete', async () => {
+                // Use the unified loader to start the map
+                try {
+                    await MapLoader.loadAndStart(this, mapKey, {
+                        returnScene: 'MapSelectScene'
+                    });
+                } catch (error) {
+                    console.error('Failed to load map:', error);
+                    // Restart map select scene on error
+                    this.scene.restart();
+                }
+            });
         }
     }
     

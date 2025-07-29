@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import BaseLevelScene from './BaseLevelScene';
 import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
@@ -16,9 +15,19 @@ import GhostStorage from '../components/ghost/GhostStorage';
 import VictoryDialog from './VictoryDialog';
 import { getCachedBuildMode } from '../utils/buildMode';
 
-export default class JsonMapBase extends BaseLevelScene {
+export default class JsonMapBase extends Phaser.Scene {
     constructor(config = {}) {
         super(config);
+        
+        // Victory state tracking (from BaseLevelScene)
+        this.victoryAchieved = false;
+        this.victoryReturnTimer = null;
+        
+        // Worm reference - should be set by subclasses
+        this.worm = null;
+        
+        // Store initial worm position for resets
+        this.wormStartPosition = { x: 0, y: 0 };
         
         // Level dimension constants - can be overridden in subclasses
         this.CHAR_WIDTH = config.charWidth || 96;
@@ -96,8 +105,20 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     cleanup() {
-        // Call parent cleanup (handles worm, victory state, timers)
-        super.cleanup();
+        // Destroy existing worm if it exists (from BaseLevelScene)
+        if (this.worm) {
+            this.worm.destroy();
+            this.worm = null;
+        }
+        
+        // Reset victory state (from BaseLevelScene)
+        this.victoryAchieved = false;
+        
+        // Cancel any existing timers (from BaseLevelScene)
+        if (this.victoryReturnTimer) {
+            this.victoryReturnTimer.destroy();
+            this.victoryReturnTimer = null;
+        }
         
         // Cleanup special platforms
         this.platforms.forEach(platform => {
@@ -143,8 +164,13 @@ export default class JsonMapBase extends BaseLevelScene {
     }
 
     async create() {
-        // Call parent create (handles cleanup and shutdown event)
-        super.create();
+        // Clean up any existing objects (from BaseLevelScene)
+        this.cleanup();
+        
+        // Clean up when scene shuts down (from BaseLevelScene)
+        this.events.once('shutdown', () => {
+            this.cleanup();
+        });
         
         // Get build mode
         this.buildMode = await getCachedBuildMode();
@@ -887,8 +913,16 @@ export default class JsonMapBase extends BaseLevelScene {
             return;
         }
         
-        // Call parent update (handles worm update and victory check)
-        super.update(time, delta);
+        // Don't update worm during victory state (from BaseLevelScene)
+        if (this.victoryAchieved) {
+            // Victory dialog handles all interactions
+            return;
+        }
+        
+        // Update worm if it exists (from BaseLevelScene)
+        if (this.worm && typeof this.worm.update === 'function') {
+            this.worm.update(delta);
+        }
         
         // Update stopwatch
         if (this.stopwatch && !this.victoryAchieved) {
@@ -903,13 +937,6 @@ export default class JsonMapBase extends BaseLevelScene {
         // Update ghost playback
         if (this.ghostPlayer && this.ghostPlayer.isPlaying && this.stopwatch) {
             this.ghostPlayer.update(this.stopwatch.elapsedTime);
-        }
-        
-        // Handle victory screen input
-        if (this.victoryAchieved) {
-            // Victory dialog handles all interactions
-            // Don't process normal game logic during victory
-            return;
         }
         
         // Server mode keyboard shortcuts
@@ -1065,6 +1092,9 @@ export default class JsonMapBase extends BaseLevelScene {
     }
     
     victory() {
+        // Set victory flag to handle input differently (from BaseLevelScene)
+        this.victoryAchieved = true;
+        
         // Stop the timer and save best time
         if (this.stopwatch) {
             const completionTime = this.stopwatch.stop();
@@ -1074,14 +1104,19 @@ export default class JsonMapBase extends BaseLevelScene {
             this.saveGhostIfBest(completionTime);
         }
         
-        // Call parent victory logic
-        super.victory();
+        // Immediately stop worm audio and clean up worm (from BaseLevelScene)
+        if (this.worm) {
+            this.worm.destroy();
+            this.worm = null;
+        }
         
         // Set up victory UI
         this.setupVictoryUI();
     }
     
     resetWorm() {
+        if (!this.worm) return;
+        
         // Reset victory state
         this.victoryAchieved = false;
         
@@ -1090,7 +1125,29 @@ export default class JsonMapBase extends BaseLevelScene {
             this.scene.stop('VictoryDialog');
         }
         
-        super.resetWorm();
+        // Reset all worm segments to start position (from BaseLevelScene)
+        this.worm.segments.forEach((segment, index) => {
+            // Position segments vertically spaced from start position
+            const yOffset = index * (this.worm.segmentRadii[index] * 2 + 2);
+            this.matter.body.setPosition(segment, {
+                x: this.wormStartPosition.x,
+                y: this.wormStartPosition.y + yOffset
+            });
+            
+            // Completely zero all velocities for instant stop
+            this.matter.body.setVelocity(segment, { x: 0, y: 0 });
+            this.matter.body.setAngularVelocity(segment, 0);
+            
+            // Also reset forces to prevent momentum carryover
+            segment.force.x = 0;
+            segment.force.y = 0;
+            segment.torque = 0;
+        });
+        
+        // Reset any worm-specific state if needed
+        if (typeof this.worm.resetState === 'function') {
+            this.worm.resetState();
+        }
         
         // Reset and start the timer
         if (this.stopwatch) {
