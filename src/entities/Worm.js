@@ -12,7 +12,7 @@ export default class Worm {
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.03,
             segmentFriction: 1,
-            segmentFrictionStatic: 0.8,
+            segmentFrictionStatic: 10,
             segmentRestitution: 0.0001,
             constraintStiffness: 1,
             constraintDamping: 0.08,

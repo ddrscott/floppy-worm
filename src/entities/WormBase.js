@@ -15,11 +15,25 @@ export default class WormBase {
             segmentSizes: [0.75, 1, 1, 0.90, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.015,
             segmentFriction: 1,
-            segmentFrictionStatic: 0.8,
+            segmentFrictionStatic: 10,
             segmentRestitution: 0.0001,
-            constraintStiffness: 0.8,
-            constraintDamping: 0.2,
-            constraintLength: 1,
+            linkConstraint: {
+                angularStiffness: 0.1,
+                stiffness: 0.8,
+                damping: 0.2,
+                length: 1,
+                render: {
+                    visible: true,
+                }
+            },
+            spacingConstraint: {
+                angularStiffness: 0.1,
+                stiffness: 0.005,
+                damping: 0.9,
+                render: {
+                    visible: true,
+                }
+            },
             showDebug: false,
             ...config
         };
@@ -96,16 +110,11 @@ export default class WormBase {
             const radiusB = segmentRadii[i + 1];
             
             const constraint = this.Matter.Constraint.create({
+                ...this.config.linkConstraint,
                 bodyA: segA,
                 bodyB: segB,
                 pointA: { x: 0, y: radiusA + 1 },
                 pointB: { x: 0, y: -radiusB - 1 },
-                length: this.config.constraintLength,
-                stiffness: this.config.constraintStiffness,
-                damping: this.config.constraintDamping,
-                render: {
-                    visible: true,
-                }
             });
             
             this.Matter.World.add(this.matter.world.localWorld, constraint);
@@ -132,13 +141,12 @@ export default class WormBase {
             const minDistance = segmentRadii[i] + segmentRadii[i + 1];
         
             const spacingConstraint = this.Matter.Constraint.create({
+                ...this.config.spacingConstraint,
                 bodyA: segA,
                 bodyB: segB,
                 pointA: { x: 0, y: 0 },
                 pointB: { x: 0, y: 0 },
                 length: minDistance,
-                stiffness: 0.005,
-                damping: 0.9
             });
             this.compressionSprings.push(spacingConstraint);
         }
