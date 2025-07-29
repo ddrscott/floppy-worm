@@ -410,8 +410,8 @@ export default class VictoryDialog extends Phaser.Scene {
     }
     
     close() {
-        // Stop this scene and resume the game scene
+        // Stop this scene and wake the game scene (since it was put to sleep)
         this.scene.stop();
-        this.scene.resume(this.gameScene.scene.key);
+        this.scene.wake(this.gameScene.scene.key);
     }
 }

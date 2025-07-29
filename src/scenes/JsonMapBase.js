@@ -14,6 +14,7 @@ import GhostPlayer from '../components/ghost/GhostPlayer';
 import GhostStorage from '../components/ghost/GhostStorage';
 import VictoryDialog from './VictoryDialog';
 import { getCachedBuildMode } from '../utils/buildMode';
+import GameStateManager from '../services/GameStateManager';
 
 export default class JsonMapBase extends Phaser.Scene {
     constructor(config = {}) {
@@ -69,6 +70,9 @@ export default class JsonMapBase extends Phaser.Scene {
         this.ghostPlayer = null;
         this.ghostStorage = new GhostStorage();
         this.ghostVisible = true;
+        
+        // State manager - will be initialized in init()
+        this.stateManager = null;
     }
     
     getDefaultMapData() {
@@ -161,7 +165,7 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
 
-    init() {
+    init(data) {
         // Reset state on scene init (called before preload)
         this.victoryAchieved = false;
         this.victoryReturnTimer = null;
@@ -175,6 +179,14 @@ export default class JsonMapBase extends Phaser.Scene {
         this.ghostRecorder = null;
         this.ghostPlayer = null;
         this.ghostVisible = true;
+        
+        // Initialize state manager
+        this.stateManager = GameStateManager.getFromScene(this);
+        
+        // Store data passed from scene transition
+        if (data) {
+            this.returnScene = data.returnScene || this.returnScene;
+        }
     }
     
     async create() {
@@ -766,8 +778,8 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Create stopwatch in top center
         this.stopwatch = new Stopwatch(this, this.scale.width / 2, 20);
-        // Load best time from local storage
-        const bestTime = this.getBestTime();
+        // Load best time from state manager
+        const bestTime = this.stateManager.getBestTime(this.mapKey);
         if (bestTime !== null) {
             this.stopwatch.setBestTime(bestTime);
         }
@@ -1052,14 +1064,14 @@ export default class JsonMapBase extends Phaser.Scene {
             this.scene.manager.add('VictoryDialog', VictoryDialog, false);
         }
         
-        // Pause this scene and launch victory dialog
-        this.scene.pause();
+        // Sleep this scene (better than pause for overlay scenes)
+        this.scene.sleep();
         this.scene.launch('VictoryDialog', {
             gameScene: this,
             mapKey: this.mapKey || this.scene.key,
             sceneTitle: this.sceneTitle,
             stopwatch: this.stopwatch,
-            getBestTime: () => this.getBestTime()
+            getBestTime: () => this.stateManager.getBestTime(this.mapKey)
         });
     }
     
@@ -1124,27 +1136,15 @@ export default class JsonMapBase extends Phaser.Scene {
     
     
     saveBestTime(time) {
-        const storageKey = `floppyworm_besttime_${this.mapKey}`;
-        const currentBest = this.getBestTime();
+        // Update best time and mark as completed through state manager
+        const isNewBest = this.stateManager.updateBestTime(this.mapKey, time);
         
-        if (currentBest === null || time < currentBest) {
-            localStorage.setItem(storageKey, time.toString());
+        if (isNewBest) {
             this.stopwatch.setBestTime(time);
-            
-            // Also update the progress object so MapSelectScene can display it
-            const progress = JSON.parse(localStorage.getItem('floppyWormProgress') || '{}');
-            if (progress[this.mapKey]) {
-                progress[this.mapKey].bestTime = time;
-                progress[this.mapKey].completed = true;
-                localStorage.setItem('floppyWormProgress', JSON.stringify(progress));
-            }
         }
-    }
-    
-    getBestTime() {
-        const storageKey = `floppyworm_besttime_${this.mapKey}`;
-        const stored = localStorage.getItem(storageKey);
-        return stored ? parseInt(stored) : null;
+        
+        // Mark map as completed
+        this.stateManager.completeMap(this.mapKey, time);
     }
     
     // Ghost system methods
@@ -1195,8 +1195,9 @@ export default class JsonMapBase extends Phaser.Scene {
             return;
         }
         
-        // Check if this is the best time
-        if (!this.ghostStorage.shouldSaveGhost(this.mapKey, completionTime)) {
+        // Check if this is the best time using state manager
+        const currentBest = this.stateManager.getBestTime(this.mapKey);
+        if (currentBest && completionTime >= currentBest) {
             console.log('Not the best time, ghost not saved');
             return;
         }
