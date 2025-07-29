@@ -195,6 +195,13 @@ export default class DoubleWorm extends WormBase {
         this.tailImpulseMultiplier = swingConfig.tailImpulseMultiplier;
         this.groundingSegments = swingConfig.ground.segments;
         
+        // Ability flags - can be toggled at runtime
+        this.abilities = {
+            jump: true,    // Can use jump springs
+            roll: true,    // Can enter roll mode
+            grab: true     // Can stick to walls
+        };
+        
         // Frame-rate independence constants
         this.targetFrameTime = 1000 / swingConfig.targetFrameRate; // Target time per frame (ms)
         
@@ -240,6 +247,14 @@ export default class DoubleWorm extends WormBase {
             lastStickAngle: null,              // Last stick angle for rotation tracking
             accumulatedRotation: 0,             // Total rotation accumulated
             buttonWasPressed: false             // Track previous button state for edge detection
+        };
+        
+        // Mode priority state tracking
+        this.modeState = {
+            rollButtonDown: false,
+            jumpButtonDown: false,
+            currentMode: 'none',  // 'none', 'roll', 'jump'
+            lastButtonPressed: null  // Track which button was pressed last
         };
         
         // Register the '1' key for roll mode activation
@@ -554,20 +569,6 @@ export default class DoubleWorm extends WormBase {
         const oneKeyPressed = this.rollKey && this.rollKey.isDown;
         const gamepadButton0 = pad && pad.buttons[0] && pad.buttons[0].pressed;
         const rollButtonPressed = oneKeyPressed || gamepadButton0;
-        
-        // Detect button press edge (not held)
-        if (rollButtonPressed && !this.rollMode.buttonWasPressed && !this.rollMode.transitioning) {
-            if (!this.rollMode.active) {
-                // Enter roll mode
-                this.enterRollMode();
-            } else {
-                // Exit roll mode without jump boost
-                this.exitRollMode(false);
-            }
-        }
-        
-        // Update button state for next frame
-        this.rollMode.buttonWasPressed = rollButtonPressed;
 
         let leftStick, rightStick;
 
@@ -643,16 +644,33 @@ export default class DoubleWorm extends WormBase {
             Math.max(leftTrigger, spacePressed ? 1.0 : 0) : 
             Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         
-        // Check if either jump is triggered while in roll mode
-        if (this.rollMode.active && (headTriggerValue > 0.1 || tailTriggerValue > 0.1)) {
-            // Exit roll mode with jump boost
-            this.exitRollMode(true);
-        }
+        // Check if jump button is pressed (either trigger)
+        const jumpButtonPressed = (headTriggerValue > 0.1 || tailTriggerValue > 0.1);
         
-        // Handle jump springs normally (skip if transitioning out of roll)
-        if (!this.rollMode.transitioning) {
-            this.handleJumpSpring('head', headTriggerValue);
-            this.handleJumpSpring('tail', tailTriggerValue);
+        // Update button states and handle mode transitions
+        this.handleModeTransitions(rollButtonPressed, jumpButtonPressed);
+        
+        // Execute current mode behavior
+        if (this.modeState.currentMode === 'roll' && !this.rollMode.transitioning) {
+            // In roll mode - ensure jump springs are detached
+            if (this.jumpSprings.head.attached) {
+                this.detachSpring('head');
+            }
+            if (this.jumpSprings.tail.attached) {
+                this.detachSpring('tail');
+            }
+        } else if (this.modeState.currentMode === 'jump') {
+            // In jump mode - always handle jump springs
+            if (this.abilities.jump) {
+                this.handleJumpSpring('head', headTriggerValue);
+                this.handleJumpSpring('tail', tailTriggerValue);
+            }
+        } else if (this.modeState.currentMode === 'none') {
+            // Not in any mode - handle springs normally (allows jump without mode)
+            if (this.abilities.jump) {
+                this.handleJumpSpring('head', headTriggerValue);
+                this.handleJumpSpring('tail', tailTriggerValue);
+            }
         }
         
         // Update compression spring stiffness based on trigger values
@@ -662,8 +680,8 @@ export default class DoubleWorm extends WormBase {
              (this.config.jump.maxCompressionStiffness - this.config.jump.baseCompressionStiffness));
         this.updateCompressionStiffness(compressionStiffness);
         
-        // Skip stickiness system when in roll mode
-        if (!this.rollMode.active && !this.rollMode.transitioning) {
+        // Skip stickiness system when in roll mode or if grab is disabled
+        if (!this.rollMode.active && !this.rollMode.transitioning && this.abilities.grab) {
             // Determine which grab buttons control which sections based on swapControls
             const headGrabActive = this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0;
             const tailGrabActive = this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0;
@@ -1152,12 +1170,24 @@ export default class DoubleWorm extends WormBase {
         const springData = this.jumpSprings[type];
         if (!springData) return;
         
-        if (isActive && !springData.attached) {
-            this.attachSpring(type, triggerValue);
-        } else if (!isActive && springData.attached) {
-            this.detachSpring(type);
-        } else if (isActive && springData.spring) {
-            this.updateSpringStiffness(type, triggerValue);
+        // Only allow spring attachment when in jump mode or none mode
+        const canAttachSpring = (this.modeState.currentMode === 'jump' || this.modeState.currentMode === 'none');
+        
+        if (isActive) {
+            // Trigger is pressed
+            if (!springData.attached && canAttachSpring) {
+                // Need to attach
+                this.attachSpring(type, triggerValue);
+            } else if (springData.attached && springData.spring) {
+                // Already attached, update stiffness
+                this.updateSpringStiffness(type, triggerValue);
+            }
+        } else {
+            // Trigger is not pressed
+            if (springData.attached) {
+                // Need to detach
+                this.detachSpring(type);
+            }
         }
     }
     
@@ -1627,7 +1657,7 @@ export default class DoubleWorm extends WormBase {
             bodyB: headSegment,
             pointA: { x: 0, y: tailRadius + 1 },  // Bottom of tail
             pointB: { x: 0, y: -headRadius - 1 }, // Top of head
-            length: this.config.constraintLength,
+            length: this.config.linkConstraint.length,
             stiffness: this.config.roll.startStiffness,
             damping: this.config.roll.chordDamping,
         });
@@ -1647,6 +1677,14 @@ export default class DoubleWorm extends WormBase {
         if (this.rollMode.active || this.rollMode.transitioning) return;
         
         this.rollMode.transitioning = true;
+        
+        // Cancel any active jumps before entering roll mode
+        if (this.jumpSprings.head.attached) {
+            this.detachSpring('head');
+        }
+        if (this.jumpSprings.tail.attached) {
+            this.detachSpring('tail');
+        }
         
         // Create chord constraints
         this.rollMode.chordConstraints = this.createWheelConstraints();
@@ -1681,6 +1719,7 @@ export default class DoubleWorm extends WormBase {
     
     exitRollMode(withJump = false) {
         if (!this.rollMode.active && !this.rollMode.transitioning) return;
+        if (!this.matter.world) return;
         
         // Stop any ongoing transition
         if (this.rollMode.transitionTween) {
@@ -1837,6 +1876,78 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
+    handleModeTransitions(rollButtonPressed, jumpButtonPressed) {
+        const prevRollDown = this.modeState.rollButtonDown;
+        const prevJumpDown = this.modeState.jumpButtonDown;
+        
+        // Update current button states
+        this.modeState.rollButtonDown = rollButtonPressed;
+        this.modeState.jumpButtonDown = jumpButtonPressed;
+        
+        // Detect button press edges
+        const rollJustPressed = rollButtonPressed && !prevRollDown;
+        const rollJustReleased = !rollButtonPressed && prevRollDown;
+        const jumpJustPressed = jumpButtonPressed && !prevJumpDown;
+        const jumpJustReleased = !jumpButtonPressed && prevJumpDown;
+        
+        // Handle transitions based on current mode and button events
+        switch (this.modeState.currentMode) {
+            case 'none':
+                if (rollJustPressed && this.abilities.roll) {
+                    this.modeState.currentMode = 'roll';
+                    this.modeState.lastButtonPressed = 'roll';
+                    this.enterRollMode();
+                } else if (jumpJustPressed && this.abilities.jump) {
+                    this.modeState.currentMode = 'jump';
+                    this.modeState.lastButtonPressed = 'jump';
+                    // Jump springs will be handled in the main update
+                }
+                break;
+                
+            case 'roll':
+                if (jumpJustPressed && this.abilities.jump) {
+                    // Jump pressed while in roll - exit roll, enter jump
+                    this.modeState.currentMode = 'jump';
+                    this.modeState.lastButtonPressed = 'jump';
+                    this.exitRollMode(true); // Exit with jump boost
+                } else if (rollJustReleased && jumpButtonPressed && this.abilities.jump) {
+                    // Roll released while jump is held - switch to jump
+                    this.modeState.currentMode = 'jump';
+                    this.modeState.lastButtonPressed = 'jump';
+                    this.exitRollMode(false);
+                } else if (rollJustReleased && !jumpButtonPressed) {
+                    // Roll released and jump not held - exit to none
+                    this.modeState.currentMode = 'none';
+                    this.exitRollMode(false);
+                }
+                break;
+                
+            case 'jump':
+                if (rollJustPressed && this.abilities.roll) {
+                    // Roll pressed while jumping - cancel jump, enter roll
+                    this.modeState.currentMode = 'roll';
+                    this.modeState.lastButtonPressed = 'roll';
+                    // Detach any active jump springs
+                    if (this.jumpSprings.head.attached) {
+                        this.detachSpring('head');
+                    }
+                    if (this.jumpSprings.tail.attached) {
+                        this.detachSpring('tail');
+                    }
+                    this.enterRollMode();
+                } else if (jumpJustReleased && rollButtonPressed && this.abilities.roll) {
+                    // Jump released while roll is held - switch to roll
+                    this.modeState.currentMode = 'roll';
+                    this.enterRollMode();
+                } else if (jumpJustReleased && !rollButtonPressed) {
+                    // Jump released and roll not held - exit to none
+                    this.modeState.currentMode = 'none';
+                    // Jump springs will detach naturally
+                }
+                break;
+        }
+    }
+    
     processCrankingInput(stick, delta) {
         // Only process if stick is outside deadzone
         if (Math.abs(stick.x) <= this.config.stickDeadzone && Math.abs(stick.y) <= this.config.stickDeadzone) {
@@ -1883,6 +1994,45 @@ export default class DoubleWorm extends WormBase {
         }
         
         this.rollMode.lastStickAngle = stickAngle;
+    }
+    
+    /**
+     * Toggle abilities at runtime
+     */
+    setAbility(abilityName, enabled) {
+        if (this.abilities.hasOwnProperty(abilityName)) {
+            this.abilities[abilityName] = enabled;
+            
+            // Clean up any active states when disabling abilities
+            if (!enabled) {
+                switch(abilityName) {
+                    case 'jump':
+                        // Detach any active jump springs
+                        if (this.jumpSprings.head.attached) {
+                            this.detachSpring('head');
+                        }
+                        if (this.jumpSprings.tail.attached) {
+                            this.detachSpring('tail');
+                        }
+                        break;
+                    case 'roll':
+                        // Exit roll mode if active
+                        if (this.rollMode.active || this.rollMode.transitioning) {
+                            this.exitRollMode(false);
+                        }
+                        break;
+                    case 'grab':
+                        // Deactivate all sticky constraints
+                        this.deactivateStickiness('head');
+                        this.deactivateStickiness('tail');
+                        break;
+                }
+            }
+        }
+    }
+    
+    getAbility(abilityName) {
+        return this.abilities[abilityName] || false;
     }
     
     /**
@@ -1966,6 +2116,14 @@ export default class DoubleWorm extends WormBase {
         // Exit roll mode if active
         if (this.rollMode && (this.rollMode.active || this.rollMode.transitioning)) {
             this.exitRollMode(false);
+        }
+        
+        // Reset mode state
+        if (this.modeState) {
+            this.modeState.rollButtonDown = false;
+            this.modeState.jumpButtonDown = false;
+            this.modeState.currentMode = 'none';
+            this.modeState.lastButtonPressed = null;
         }
     }
 }
