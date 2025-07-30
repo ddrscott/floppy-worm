@@ -6,6 +6,7 @@ import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
+import BlackholePlatform from '../entities/BlackholePlatform';
 import Sticker from '../entities/Sticker';
 
 export default class MapEditor extends Phaser.Scene {
@@ -1435,6 +1436,8 @@ export default class MapEditor extends Phaser.Scene {
                 return new ElectricPlatform(this, x, y, platformWidth, platformHeight, config);
             case 'fire':
                 return new FirePlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'blackhole':
+                return new BlackholePlatform(this, x, y, platformWidth, platformHeight, config);
             default:
                 return new PlatformBase(this, x, y, platformWidth, platformHeight, config);
         }
@@ -1457,7 +1460,8 @@ export default class MapEditor extends Phaser.Scene {
                 ice: 0xb3e5fc,
                 bouncy: 0xff69b4,
                 electric: 0xffff00,
-                fire: 0xf44336
+                fire: 0xf44336,
+                blackhole: 0x1a1a1a
             };
             fillColor = specialColors[platformType] || parseInt(color.replace('#', '0x'));
         }
@@ -2446,6 +2450,9 @@ export default class MapEditor extends Phaser.Scene {
                 
             case 'fire':
                 return new FirePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'blackhole':
+                return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
                 
             default:
                 console.warn(`Unknown special platform type: ${platformType}`);

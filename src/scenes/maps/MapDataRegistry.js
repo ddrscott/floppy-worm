@@ -12,6 +12,7 @@ import TryAnglesData from './data/Try-angles.json';
 import Electric from './data/Electric-Slide.json';
 import Morgan from './data/Morgan.json';
 import PendulumTest from './data/Pendulum-Test.json';
+import BlackholeTest from './data/blackhole-test.json';
 
 
 // Static registry for production
@@ -25,7 +26,8 @@ const STATIC_MAP_REGISTRY = {
     'Try-angles': TryAnglesData,
     'Electric-Slide': Electric,
     'Morgan': Morgan,
-    'Pendulum-Test': PendulumTest
+    'Pendulum-Test': PendulumTest,
+    'blackhole-test': BlackholeTest
 };
 
 import { hasAPISupport } from '../../utils/buildMode';

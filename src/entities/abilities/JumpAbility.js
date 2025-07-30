@@ -381,15 +381,23 @@ export default class JumpAbility extends BaseAbility {
             const arrowX = toSegment.position.x - dirX * config.arrowOffset;
             const arrowY = toSegment.position.y - dirY * config.arrowOffset;
             
-            // Draw arrowhead
+            // Draw arrowhead (using the corrected math from the original implementation)
             laser.fillStyle(springData.color, 1);
+            
+            // Calculate arrow tip position (pointing toward the target)
+            const arrowTipX = arrowX + dirX * config.arrowSize;
+            const arrowTipY = arrowY + dirY * config.arrowSize;
+            
+            // Calculate arrow base points (perpendicular to direction)
+            const arrowBase1X = arrowX - dirY * config.arrowSize * 0.5;
+            const arrowBase1Y = arrowY + dirX * config.arrowSize * 0.5;
+            const arrowBase2X = arrowX + dirY * config.arrowSize * 0.5;
+            const arrowBase2Y = arrowY - dirX * config.arrowSize * 0.5;
+            
             laser.fillTriangle(
-                arrowX,
-                arrowY,
-                arrowX - dirX * config.arrowSize - dirY * config.arrowSize * 0.5,
-                arrowY - dirY * config.arrowSize + dirX * config.arrowSize * 0.5,
-                arrowX - dirX * config.arrowSize + dirY * config.arrowSize * 0.5,
-                arrowY - dirY * config.arrowSize - dirX * config.arrowSize * 0.5
+                arrowTipX, arrowTipY,      // Tip of arrow
+                arrowBase1X, arrowBase1Y,  // Left base point
+                arrowBase2X, arrowBase2Y   // Right base point
             );
         }
     }

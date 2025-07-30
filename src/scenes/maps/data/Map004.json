@@ -23,7 +23,7 @@
     {
       "id": "platform_17537",
       "type": "rectangle",
-      "platformType": "standard",
+      "platformType": "ice",
       "x": 708,
       "y": 792,
       "angle": 0,

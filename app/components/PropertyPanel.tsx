@@ -107,7 +107,8 @@ export default function PropertyPanel({
     'ice': 'Ice',
     'bouncy': 'Bouncy',
     'electric': 'Electric',
-    'fire': 'Fire'
+    'fire': 'Fire',
+    'blackhole': 'Black Hole'
   };
   
   const stickerPresets = {
@@ -308,7 +309,8 @@ export default function PropertyPanel({
                         'ice': '#b3e5fc',
                         'bouncy': '#ff69b4', 
                         'electric': '#ffff00',
-                        'fire': '#f44336'
+                        'fire': '#f44336',
+                        'blackhole': '#1a1a1a'
                       };
                       onToolSettingsChange({ 
                         ...toolSettings, 
