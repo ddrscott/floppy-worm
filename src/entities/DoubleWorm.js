@@ -162,9 +162,13 @@ export default class DoubleWorm extends WormBase {
                 stiffnessEaseType: 'Cubic.easeInOut', // Easing for constraint stiffening
                 
                 // Control parameters
-                torqueMultiplier: 0.225,         // Stick input to torque conversion
+                torqueMultiplier: 0.25,           // Stick input to torque conversion (increased for better response)
                 maxAngularVelocity: 20,           // Maximum wheel spin speed (radians/sec)
                 exitVelocityBoost: 1.0,          // Multiplier for velocity on jump exit
+                
+                // Anti-slip parameters
+                slipDetectionThreshold: 0.1,     // Ratio difference to detect slipping
+                antiSlipForce: 2,              // Force multiplier to correct slipping
             },
             
             // Frame-rate Independence - Ensures consistent physics across different refresh rates
@@ -1878,6 +1882,76 @@ export default class DoubleWorm extends WormBase {
                     this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
                 });
             }
+            
+            // Anti-slip system: Check if we're slipping on the ground
+            let groundedSegments = [];
+            let avgRadius = 0;
+            let radiusCount = 0;
+            
+            this.segments.forEach((segment, index) => {
+                // Calculate radius for this segment
+                const dx = segment.position.x - this.rollMode.wheelCenter.x;
+                const dy = segment.position.y - this.rollMode.wheelCenter.y;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                if (r > 0.1) {
+                    avgRadius += r;
+                    radiusCount++;
+                }
+                
+                // Check if grounded
+                if (this.segmentCollisions[index] && 
+                    this.segmentCollisions[index].isColliding && 
+                    this.segmentCollisions[index].surfaceBody &&
+                    this.segmentCollisions[index].surfaceBody.isStatic) {
+                    groundedSegments.push({
+                        segment: segment,
+                        collision: this.segmentCollisions[index]
+                    });
+                }
+            });
+            
+            if (radiusCount > 0 && groundedSegments.length > 0) {
+                avgRadius = avgRadius / radiusCount;
+                
+                // Calculate wheel's linear velocity
+                let totalVelX = 0;
+                this.segments.forEach(seg => {
+                    totalVelX += seg.velocity.x;
+                });
+                const wheelLinearVel = totalVelX / this.segments.length;
+                
+                // For perfect rolling: linear velocity = angular velocity × radius
+                const expectedLinearVel = this.rollMode.angularVelocity * avgRadius;
+                
+                // Calculate slip ratio
+                const velocityDiff = Math.abs(expectedLinearVel - wheelLinearVel);
+                const avgVel = Math.abs(expectedLinearVel) + Math.abs(wheelLinearVel);
+                const slipRatio = avgVel > 0.1 ? velocityDiff / avgVel : 0;
+                
+                // If we're slipping, gently adjust velocities to match expected rolling
+                if (slipRatio > this.config.roll.slipDetectionThreshold && Math.abs(this.rollMode.angularVelocity) > 0.1) {
+                    // Calculate velocity adjustment needed
+                    const targetVelX = expectedLinearVel;
+                    const currentAvgVelX = wheelLinearVel;
+                    const velError = targetVelX - currentAvgVelX;
+                    
+                    // Apply gentle correction proportional to the error
+                    const correctionStrength = 0.05; // 5% correction per frame
+                    const maxCorrection = 2.0; // Maximum velocity adjustment per frame
+                    let velAdjustment = velError * correctionStrength;
+                    
+                    // Clamp the adjustment to prevent instability
+                    velAdjustment = Math.max(-maxCorrection, Math.min(maxCorrection, velAdjustment));
+                    
+                    // Only adjust grounded segments to maintain stability
+                    groundedSegments.forEach(({ segment }) => {
+                        const newVelX = segment.velocity.x + velAdjustment;
+                        const newVelY = segment.velocity.y;
+                        
+                        this.Matter.Body.setVelocity(segment, { x: newVelX, y: newVelY });
+                    });
+                }
+            }
         }
     }
     
@@ -1981,7 +2055,7 @@ export default class DoubleWorm extends WormBase {
                 const rotationRate = angleDiff * (1000 / delta); // radians per second
                 const scaledRotation = rotationRate * (delta / 1000) * stickMagnitude * this.config.roll.torqueMultiplier;
                 
-                // Apply pure torque to the wheel
+                // Apply pure torque to the wheel (original approach)
                 this.segments.forEach(seg => {
                     const dx = seg.position.x - this.rollMode.wheelCenter.x;
                     const dy = seg.position.y - this.rollMode.wheelCenter.y;
