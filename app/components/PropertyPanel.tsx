@@ -19,6 +19,11 @@ interface ToolSettings {
   restitution: number;
   polygonSides: number;
   trapezoidSlope: number;
+  // Motion settings
+  motionEnabled: boolean;
+  motionType: 'horizontal' | 'vertical';
+  motionDistance: number;
+  motionSpeed: number;
   // Sticker settings
   stickerText: string;
   stickerPreset: string;
@@ -443,6 +448,110 @@ export default function PropertyPanel({
                   }}
                   className="w-full h-4"
                 />
+              </div>
+            )}
+            
+            {/* Motion Settings - show for platforms */}
+            {(selectedPlatform || (selectedTool !== 'sticker' && selectedTool !== 'constraint')) && (
+              <div className="border-t border-gray-700 pt-2 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-blue-300">Motion</h4>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatform ? (selectedPlatform.data?.motion ? true : false) : toolSettings.motionEnabled}
+                      onChange={(e) => {
+                        if (selectedPlatform) {
+                          if (e.target.checked) {
+                            onPlatformPropertyChange('motion', {
+                              type: toolSettings.motionType,
+                              distance: toolSettings.motionDistance,
+                              speed: toolSettings.motionSpeed
+                            });
+                          } else {
+                            onPlatformPropertyChange('motion', null);
+                          }
+                        } else {
+                          onToolSettingsChange({ ...toolSettings, motionEnabled: e.target.checked });
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    <span className="text-xs text-gray-400">Enable</span>
+                  </label>
+                </div>
+                
+                {(selectedPlatform ? (selectedPlatform.data?.motion ? true : false) : toolSettings.motionEnabled) && (
+                  <div className="space-y-1">
+                    <div>
+                      <label className="block text-xs text-gray-400">Type</label>
+                      <select
+                        value={selectedPlatform?.data?.motion?.type || toolSettings.motionType}
+                        onChange={(e) => {
+                          const motionType = e.target.value as 'horizontal' | 'vertical';
+                          if (selectedPlatform && selectedPlatform.data?.motion) {
+                            onPlatformPropertyChange('motion', {
+                              ...selectedPlatform.data.motion,
+                              type: motionType
+                            });
+                          } else {
+                            onToolSettingsChange({ ...toolSettings, motionType });
+                          }
+                        }}
+                        className="w-full px-1 py-0.5 bg-gray-700 border border-gray-600 rounded text-xs"
+                      >
+                        <option value="horizontal">Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-gray-400">Distance: {selectedPlatform?.data?.motion?.distance || toolSettings.motionDistance}px</label>
+                      <input
+                        type="range"
+                        min="50"
+                        max="800"
+                        step="50"
+                        value={selectedPlatform?.data?.motion?.distance || toolSettings.motionDistance}
+                        onChange={(e) => {
+                          const distance = parseInt(e.target.value);
+                          if (selectedPlatform && selectedPlatform.data?.motion) {
+                            onPlatformPropertyChange('motion', {
+                              ...selectedPlatform.data.motion,
+                              distance
+                            });
+                          } else {
+                            onToolSettingsChange({ ...toolSettings, motionDistance: distance });
+                          }
+                        }}
+                        className="w-full h-4"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs text-gray-400">Speed: {selectedPlatform?.data?.motion?.speed || toolSettings.motionSpeed}</label>
+                      <input
+                        type="range"
+                        min="10"
+                        max="200"
+                        step="10"
+                        value={selectedPlatform?.data?.motion?.speed || toolSettings.motionSpeed}
+                        onChange={(e) => {
+                          const speed = parseInt(e.target.value);
+                          if (selectedPlatform && selectedPlatform.data?.motion) {
+                            onPlatformPropertyChange('motion', {
+                              ...selectedPlatform.data.motion,
+                              speed
+                            });
+                          } else {
+                            onToolSettingsChange({ ...toolSettings, motionSpeed: speed });
+                          }
+                        }}
+                        className="w-full h-4"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             

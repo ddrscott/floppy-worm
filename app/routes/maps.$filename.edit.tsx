@@ -33,6 +33,11 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
     restitution: 0.3,
     polygonSides: 6,
     trapezoidSlope: 0.5,
+    // Motion settings
+    motionEnabled: false,
+    motionType: 'horizontal' as 'horizontal' | 'vertical',
+    motionDistance: 300,
+    motionSpeed: 60,
     // Sticker settings
     stickerText: 'New Sticker',
     stickerPreset: 'tip',

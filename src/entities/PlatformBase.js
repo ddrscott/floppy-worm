@@ -90,6 +90,9 @@ export default class PlatformBase {
         // Store platform type for collision detection
         this.body.platformType = this.constructor.name;
         this.body.platformInstance = this;
+        
+        // Calculate surface stiffness scale based on motion
+        this.updateSurfaceStiffnessScale();
     }
     
     createVisualElements() {
@@ -186,6 +189,30 @@ export default class PlatformBase {
                 // console.log(`Platform sync: Physics pos=(${this.body.position.x.toFixed(1)}, ${this.body.position.y.toFixed(1)}) angle=${this.body.angle.toFixed(3)}`);
                 // console.log(`               Container pos=(${this.container.x.toFixed(1)}, ${this.container.y.toFixed(1)}) rotation=${this.container.rotation.toFixed(3)}`);
             }
+        }
+    }
+    
+    // Calculate surface stiffness scale based on motion speed
+    updateSurfaceStiffnessScale() {
+        if (!this.config.motion) {
+            // Static platforms use default scale
+            this.config.surfaceStiffnessScale = 1.0;
+        } else {
+            // Scale stiffness based on motion speed
+            // Higher speed = stronger constraint needed
+            const { speed } = this.config.motion;
+            
+            // Scale formula: 1.5 + (speed / 40)
+            // Speed 40 = 2.5x stiffness, Speed 80 = 3.5x stiffness, etc.
+            // This gives better baseline grip for all moving platforms
+            this.config.surfaceStiffnessScale = 15 + (speed / 40);
+            
+            console.log(`Platform motion detected - Speed: ${speed}, Stiffness Scale: ${this.config.surfaceStiffnessScale.toFixed(2)}x`);
+        }
+        
+        // Store on body for easy access during collision
+        if (this.body) {
+            this.body.surfaceStiffnessScale = this.config.surfaceStiffnessScale;
         }
     }
     
