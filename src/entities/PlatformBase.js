@@ -16,6 +16,7 @@ export default class PlatformBase {
             strokeColor: null,
             strokeWidth: 2,
             shape: 'rectangle', // Default shape
+            motion: null, // Motion config: { type: 'horizontal'|'vertical', distance: 300, speed: 60 }
             ...config
         };
         
@@ -26,6 +27,12 @@ export default class PlatformBase {
         
         // For circles, use width as diameter
         this.radius = this.width / 2;
+        
+        // Initialize motion state if motion is configured
+        if (this.config.motion) {
+            this.motionCenter = { x, y };
+            this.motionTime = 0;
+        }
         
         // Create the platform
         this.create();
@@ -129,11 +136,39 @@ export default class PlatformBase {
     }
     
     // Update method called each frame
-    update(delta) {
+    update(time, delta) {
+        // Handle motion if configured
+        if (this.config.motion) {
+            this.updateMotion(time, delta);
+        }
+        
         // Keep visual container synchronized with physics body
         this.syncVisualWithPhysics();
         
         // Override in subclasses for dynamic behavior
+    }
+    
+    updateMotion(time, delta) {
+        const { type, distance, speed } = this.config.motion;
+        
+        // Calculate new position with sinusoidal movement
+        let newX = this.body.position.x;
+        let newY = this.body.position.y;
+        
+        const t = time * 0.001 * speed / 50;
+        
+        if (type === 'horizontal') {
+            newX = this.motionCenter.x + Math.sin(t) * distance / 2;
+        } else if (type === 'vertical') {
+            newY = this.motionCenter.y + Math.sin(t) * distance / 2;
+        }
+        
+        // Move the platform
+        this.scene.matter.body.setPosition(this.body, { x: newX, y: newY });
+        
+        // Update stored position
+        this.x = newX;
+        this.y = newY;
     }
     
     // Synchronize visual container with physics body (source of truth)
