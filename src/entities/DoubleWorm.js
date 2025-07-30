@@ -805,6 +805,11 @@ export default class DoubleWorm extends WormBase {
 
     updateStickDisplay() {
         Object.values(this.anchors).forEach(anchorData => {
+            // Skip tail anchor updates during roll mode
+            if (this.rollMode.active && anchorData === this.anchors.tail) {
+                return;
+            }
+            
             // Update range graphics
             anchorData.rangeGraphics.clear();
             anchorData.rangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, anchorData.color, this.config.rangeIndicatorAlpha);
@@ -1849,6 +1854,19 @@ export default class DoubleWorm extends WormBase {
                 x: this.rollMode.wheelCenter.x,
                 y: this.rollMode.wheelCenter.y
             });
+        }
+        
+        // Keep tail anchor with its segment during roll mode
+        const tailAnchor = this.anchors.tail;
+        if (tailAnchor.body && tailAnchor.attachIndex < this.segments.length) {
+            const tailSegment = this.segments[tailAnchor.attachIndex];
+            this.Matter.Body.setPosition(tailAnchor.body, {
+                x: tailSegment.position.x,
+                y: tailSegment.position.y
+            });
+            // Update rest position too
+            tailAnchor.restPos.x = tailSegment.position.x;
+            tailAnchor.restPos.y = tailSegment.position.y;
         }
         
         // Calculate and limit angular velocity
