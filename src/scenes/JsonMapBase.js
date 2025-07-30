@@ -7,6 +7,7 @@ import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
+import BlackholePlatform from '../entities/BlackholePlatform';
 import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
@@ -516,6 +517,9 @@ export default class JsonMapBase extends Phaser.Scene {
                 
             case 'fire':
                 return new FirePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'blackhole':
+                return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
                 
             default:
                 console.warn(`Unknown special platform type: ${platformType}`);

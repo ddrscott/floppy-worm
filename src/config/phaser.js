@@ -14,6 +14,9 @@ export const BaseGameConfig = {
         default: 'matter',
         matter: {
             gravity: { y: 1 },
+            plugins: {
+                attractors: true
+            },
             debug: {
                 showAxes: false,
                 showAngleIndicator: true,
