@@ -242,7 +242,7 @@ export default class WormBase {
         // Smooth velocity curve (exponential for more dramatic effect)
         // Ensure the result is finite
         const velocityCurve = Number.isFinite(normalizedVel) ? 
-            Math.pow(Math.min(1, normalizedVel), 1.8) : 0;
+            Math.pow(Math.min(1, normalizedVel), 1.4) : 0;
         
         // Calculate airborne ratio for gating (still useful to avoid ground scraping sounds)
         const airborneCount = this.segments.filter((_, i) => 
@@ -251,7 +251,7 @@ export default class WormBase {
         const airborneRatio = airborneCount / this.segments.length;
         
         // Volume: pure speed-based, gated by being somewhat airborne
-        this.audioState.targetVolume = airborneRatio > 0.3 ? velocityCurve * 0.9 : 0;
+        this.audioState.targetVolume = airborneRatio > 0.2 ? velocityCurve * 0.7 : 0;
         
         // Frequency: also pure speed-based (faster = higher pitch)
         this.audioState.targetFrequency = velocityCurve;
