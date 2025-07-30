@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "name": "Pendulum Test",
+    "name": "Hang In There",
     "difficulty": 2,
-    "description": "Test map for physics-based pendulum platforms",
-    "modified": "2025-07-30T05:00:28.785Z"
+    "description": "Don't get squished.",
+    "modified": "2025-07-30T05:38:44.618Z"
   },
   "dimensions": {
     "width": 1920,
@@ -24,8 +24,8 @@
       "id": "ground_left",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 156,
-      "y": 1300,
+      "x": 132,
+      "y": 1311,
       "width": 360,
       "height": 276,
       "color": "#666666",
@@ -171,7 +171,7 @@
       "bodyA": "pendulum_a",
       "pointA": {
         "x": 0,
-        "y": -200
+        "y": -220
       },
       "angularStiffness": 0,
       "length": 850,
@@ -194,7 +194,7 @@
       "bodyA": "pendulum_b",
       "pointA": {
         "x": 0,
-        "y": -200
+        "y": -220
       },
       "angularStiffness": 0,
       "length": 700,
@@ -217,7 +217,7 @@
       "bodyA": "pendulum_c",
       "pointA": {
         "x": 0,
-        "y": -200
+        "y": -220
       },
       "angularStiffness": 0,
       "length": 600,
@@ -240,7 +240,7 @@
       "bodyA": "pendulum_d",
       "pointA": {
         "x": 0,
-        "y": -200
+        "y": -220
       },
       "angularStiffness": 0,
       "length": 400,

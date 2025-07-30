@@ -66,7 +66,7 @@ export default class ElectricPlatform extends PlatformBase {
     setupElectricalActivity() {
         // Periodic electrical pulse
         this.electricTimer = this.scene.time.addEvent({
-            delay: 2000 + Math.random() * 3000,
+            delay: 150 + Math.random() * 200,
             callback: this.createElectricPulse,
             callbackScope: this,
             loop: true
@@ -76,21 +76,21 @@ export default class ElectricPlatform extends PlatformBase {
     createElectricPulse() {
         if (!this.isCharged) return;
         
-        // Create brief electric arc effect
+        // Create brief electric arc effect as child of container
         const arcGraphics = this.scene.add.graphics();
-        arcGraphics.lineStyle(2, 0xe91e63, 0.8);
+        arcGraphics.lineStyle(3, 0xddddff, 1);
         
-        // Draw jagged lightning bolt across platform
-        const steps = 8;
+        // Draw jagged lightning bolt across platform (relative to container center at 0,0)
+        const steps = parseInt(this.width / 32);
         const stepWidth = this.width / steps;
-        let currentX = this.x - this.width/2;
-        let currentY = this.y;
+        let currentX = -this.width/2;
+        let currentY = (Math.random() - 0.5) * this.height;
         
         arcGraphics.moveTo(currentX, currentY);
         
         for (let i = 1; i <= steps; i++) {
-            const nextX = this.x - this.width/2 + i * stepWidth;
-            const jagY = currentY + (Math.random() - 0.5) * this.height * 0.3;
+            const nextX = -this.width/2 + i * stepWidth;
+            const jagY = (Math.random() - 0.5) * this.height;
             
             arcGraphics.lineTo(nextX, jagY);
             currentY = jagY;
@@ -98,12 +98,18 @@ export default class ElectricPlatform extends PlatformBase {
         
         arcGraphics.strokePath();
         
+        // Add the arc graphics to the container so it moves with the platform
+        this.container.add(arcGraphics);
+        
         // Fade out the arc
         this.scene.tweens.add({
             targets: arcGraphics,
             alpha: 0,
-            duration: 200,
-            onComplete: () => arcGraphics.destroy()
+            duration: 500,
+            onComplete: () => {
+                this.container.remove(arcGraphics);
+                arcGraphics.destroy();
+            }
         });
     }
     

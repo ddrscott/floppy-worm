@@ -3,7 +3,7 @@
     "name": "Baller - Electric",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-28T21:51:18.646Z"
+    "modified": "2025-07-30T06:08:26.767Z"
   },
   "dimensions": {
     "width": 10000,
@@ -25,7 +25,7 @@
       "type": "rectangle",
       "platformType": "electric",
       "x": 240,
-      "y": 1068,
+      "y": 912,
       "angle": 0,
       "color": "#ffff00",
       "physics": {
@@ -34,8 +34,8 @@
         "restitution": 0.3
       },
       "shape": "rectangle",
-      "width": 492,
-      "height": 456
+      "width": 504,
+      "height": 132
     },
     {
       "id": 1753711099553,
@@ -262,5 +262,6 @@
       "height": 120
     }
   ],
-  "stickers": []
+  "stickers": [],
+  "constraints": []
 }
