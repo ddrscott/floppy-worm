@@ -8,6 +8,8 @@ import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
 import BlackholePlatform from '../entities/BlackholePlatform';
+import SimpleMovingPlatform from '../entities/SimpleMovingPlatform';
+import ConstraintMovingPlatform from '../entities/ConstraintMovingPlatform';
 import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
@@ -520,6 +522,12 @@ export default class JsonMapBase extends Phaser.Scene {
                 
             case 'blackhole':
                 return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'moving':
+                return new SimpleMovingPlatform(this, centerX, centerY, platformWidth, platformHeight, parseInt(color?.replace('#', '0x')) || 0x4444ff, config);
+                
+            case 'constraintMoving':
+                return new ConstraintMovingPlatform(this, centerX, centerY, platformWidth, platformHeight, parseInt(color?.replace('#', '0x')) || 0xff44ff, config);
                 
             default:
                 console.warn(`Unknown special platform type: ${platformType}`);
@@ -1360,7 +1368,7 @@ export default class JsonMapBase extends Phaser.Scene {
         // Update special platforms and dynamic platforms
         this.platforms.forEach(platform => {
             if (platform.isSpecial && platform.instance && platform.instance.update) {
-                platform.instance.update(delta);
+                platform.instance.update(time, delta);
             }
             
             // Sync visual with physics body for dynamic platforms
