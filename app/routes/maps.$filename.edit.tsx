@@ -23,6 +23,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
   const [selectedTool, setSelectedTool] = useState('rectangle');
   const [gridSnapEnabled, setGridSnapEnabled] = useState(true);
   const [selectedPlatform, setSelectedPlatform] = useState<any>(null);
+  const [selectedConstraint, setSelectedConstraint] = useState<any>(null);
   
   const [toolSettings, setToolSettings] = useState({
     platformType: 'standard',
@@ -36,7 +37,12 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
     stickerText: 'New Sticker',
     stickerPreset: 'tip',
     stickerFontSize: '18px',
-    stickerColor: '#ffffff'
+    stickerColor: '#ffffff',
+    // Constraint settings
+    constraintStiffness: 0.8,
+    constraintDamping: 0.2,
+    constraintLength: null,
+    constraintRender: true
   });
 
   useEffect(() => {
@@ -46,6 +52,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
         onToolChange: setSelectedTool,
         onGridSnapChange: setGridSnapEnabled,
         onPlatformSelect: setSelectedPlatform,
+        onConstraintSelected: setSelectedConstraint,
         onToolSettingsChange: setToolSettings,
         mapMetadata,
         mapDimensions,
@@ -283,6 +290,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
             toolSettings={toolSettings}
             gridSnapEnabled={gridSnapEnabled}
             selectedPlatform={selectedPlatform}
+            selectedConstraint={selectedConstraint}
             filename={filename}
             saveStatus={saveStatus}
             onMapMetadataChange={setMapMetadata}
@@ -374,6 +382,19 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
             onImportJSON={(file) => {
               // TODO: Import JSON
               console.log('Import JSON:', file);
+            }}
+            onConstraintPropertyChange={(property, value) => {
+              // Communicate with Phaser game to update constraint
+              console.log('PropertyPanel: onConstraintPropertyChange called', { property, value });
+              
+              const scene = (window as any).game?.scene?.getScene('MapEditor');
+              
+              if (scene && scene.selectedConstraint) {
+                console.log('PropertyPanel: calling scene.updateConstraintProperty');
+                scene.updateConstraintProperty(scene.selectedConstraint, property, value);
+              } else {
+                console.warn('PropertyPanel: Cannot update constraint property - scene or selectedConstraint not available');
+              }
             }}
           />
       </div>

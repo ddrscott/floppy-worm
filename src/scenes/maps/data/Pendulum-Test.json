@@ -1,0 +1,285 @@
+{
+  "metadata": {
+    "name": "Pendulum Test",
+    "difficulty": 2,
+    "description": "Test map for physics-based pendulum platforms",
+    "modified": "2025-07-30T05:00:28.785Z"
+  },
+  "dimensions": {
+    "width": 1920,
+    "height": 1600
+  },
+  "entities": {
+    "wormStart": {
+      "x": 168,
+      "y": 828
+    },
+    "goal": {
+      "x": 1764,
+      "y": 312
+    }
+  },
+  "platforms": [
+    {
+      "id": "ground_left",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 156,
+      "y": 1300,
+      "width": 360,
+      "height": 276,
+      "color": "#666666",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 10,
+        "restitution": 0,
+        "isStatic": true
+      }
+    },
+    {
+      "id": "ground_right",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1728,
+      "y": 1044,
+      "width": 432,
+      "height": 1128,
+      "color": "#666666",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0,
+        "isStatic": true
+      }
+    },
+    {
+      "id": "pendulum_a",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 456,
+      "y": 1444,
+      "width": 288,
+      "height": 500,
+      "color": "#ff6b6b",
+      "matter": {
+        "friction": 1,
+        "frictionStatic": 10,
+        "restitution": 0.5,
+        "isStatic": false,
+        "density": 20,
+        "frictionAir": 0.01
+      },
+      "angle": 0
+    },
+    {
+      "id": "pendulum_b",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 756,
+      "y": 1200,
+      "width": 288,
+      "height": 500,
+      "color": "#ff6b6b",
+      "matter": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0,
+        "isStatic": false,
+        "density": 1,
+        "frictionAir": 0.01
+      },
+      "angle": 0
+    },
+    {
+      "id": "pendulum_c",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1056,
+      "y": 1032,
+      "width": 288,
+      "height": 500,
+      "color": "#ff6b6b",
+      "matter": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0,
+        "isStatic": false,
+        "density": 1,
+        "frictionAir": 0.01
+      },
+      "angle": 0
+    },
+    {
+      "id": "pendulum_d",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1356,
+      "y": 828,
+      "width": 288,
+      "height": 500,
+      "color": "#ff6b6b",
+      "matter": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0,
+        "isStatic": false,
+        "density": 1,
+        "frictionAir": 0.01
+      },
+      "angle": 0
+    },
+    {
+      "id": "electric_ceiling",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 960,
+      "y": -36,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 2040,
+      "height": 84
+    },
+    {
+      "id": "electric_floor",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 960,
+      "y": 1595,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 2040,
+      "height": 84
+    }
+  ],
+  "constraints": [
+    {
+      "id": "spring_a",
+      "pointB": {
+        "x": 468,
+        "y": 0
+      },
+      "bodyA": "pendulum_a",
+      "pointA": {
+        "x": 0,
+        "y": -200
+      },
+      "angularStiffness": 0,
+      "length": 850,
+      "stiffness": 0.0001,
+      "damping": 0,
+      "render": {
+        "visible": true,
+        "type": "spring",
+        "lineWidth": 3,
+        "strokeStyle": "#90A4AE",
+        "anchors": true
+      }
+    },
+    {
+      "id": "spring_b",
+      "pointB": {
+        "x": 768,
+        "y": 0
+      },
+      "bodyA": "pendulum_b",
+      "pointA": {
+        "x": 0,
+        "y": -200
+      },
+      "angularStiffness": 0,
+      "length": 700,
+      "stiffness": 0.0001,
+      "damping": 0,
+      "render": {
+        "visible": true,
+        "type": "spring",
+        "lineWidth": 3,
+        "strokeStyle": "#90A4AE",
+        "anchors": true
+      }
+    },
+    {
+      "id": "spring_c",
+      "pointB": {
+        "x": 1056,
+        "y": 0
+      },
+      "bodyA": "pendulum_c",
+      "pointA": {
+        "x": 0,
+        "y": -200
+      },
+      "angularStiffness": 0,
+      "length": 600,
+      "stiffness": 0.0001,
+      "damping": 0,
+      "render": {
+        "visible": true,
+        "type": "spring",
+        "lineWidth": 3,
+        "strokeStyle": "#90A4AE",
+        "anchors": true
+      }
+    },
+    {
+      "id": "spring_d",
+      "pointB": {
+        "x": 1356,
+        "y": 0
+      },
+      "bodyA": "pendulum_d",
+      "pointA": {
+        "x": 0,
+        "y": -200
+      },
+      "angularStiffness": 0,
+      "length": 400,
+      "stiffness": 0.0001,
+      "damping": 0,
+      "render": {
+        "visible": true,
+        "type": "spring",
+        "lineWidth": 3,
+        "strokeStyle": "#90A4AE",
+        "anchors": true
+      }
+    }
+  ],
+  "stickers": [
+    {
+      "id": "sticker_1753823349307_k327j2s58",
+      "x": 336,
+      "y": 924,
+      "text": "Jump on the swinging platform!",
+      "config": {
+        "fontSize": "18px",
+        "fontFamily": "Arial, sans-serif",
+        "color": "#888888",
+        "backgroundColor": "rgba(0, 0, 0, 0.0)",
+        "padding": {
+          "x": 8,
+          "y": 4
+        },
+        "borderRadius": 4,
+        "strokeColor": "#333333",
+        "strokeWidth": 1,
+        "depth": -1,
+        "maxWidth": 300,
+        "wordWrap": true,
+        "align": "center",
+        "borderColor": "#333333",
+        "id": "sticker_1753823349307_k327j2s58"
+      }
+    }
+  ]
+}

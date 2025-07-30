@@ -371,8 +371,13 @@ export default class DoubleWorm extends WormBase {
                 attachSegment.position.y,
                 this.config.anchorSensorRadius,
                 {
-                    isSensor: true,
+                    label: `worm_anchor_${type}`,
+                    isSensor: false,
                     density: this.config.anchorDensity,
+                    collisionFilter: {
+                        category: 0x0004,  // Unique category for anchors
+                        mask: 0x0000       // Collide with nothing
+                    },
                     render: {
                         fillStyle: this.colorToHex(anchorData.color),
                         strokeStyle: this.colorToHex(anchorData.strokeColor),

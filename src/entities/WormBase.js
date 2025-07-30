@@ -68,6 +68,7 @@ export default class WormBase {
             segmentRadii.push(radius);
             
             const segment = this.matter.add.circle(x, currentY, radius, {
+                label: 'worm',
                 friction: this.config.segmentFriction,
                 frictionStatic: this.config.segmentFrictionStatic,
                 frictionAir: this.config.airFriction || 0,
@@ -81,6 +82,7 @@ export default class WormBase {
                     visible: true,
                 },
             });
+            segment.isWorm = true;
             
             // Add visual circle using Phaser graphics
             const segmentGraphics = this.scene.add.graphics();

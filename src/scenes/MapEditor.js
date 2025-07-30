@@ -93,8 +93,10 @@ export default class MapEditor extends Phaser.Scene {
         this.selectedTool = 'rectangle';
         this.selectedPlatform = null;
         this.selectedSticker = null;
+        this.selectedConstraint = null;
         this.platforms = [];
         this.stickers = [];
+        this.constraints = [];
         this.entities = {
             wormStart: { ...this.CONFIG.ENTITIES.DEFAULT_WORM_START },
             goal: { ...this.CONFIG.ENTITIES.DEFAULT_GOAL }
@@ -105,6 +107,11 @@ export default class MapEditor extends Phaser.Scene {
         this.toolSettings = this.createDefaultToolSettings();
         this.autoSaveTimer = null;
         this.eventListeners = []; // Track all event listeners for cleanup
+        
+        // Constraint creation state
+        this.constraintCreationMode = false;
+        this.constraintFirstBody = null;
+        this.constraintPreviewLine = null;
     }
     
     createDefaultToolSettings() {
@@ -118,7 +125,12 @@ export default class MapEditor extends Phaser.Scene {
             stickerText: "New Sticker",
             stickerPreset: "tip",
             stickerFontSize: "18px",
-            stickerColor: "#ffffff"
+            stickerColor: "#ffffff",
+            // Constraint settings
+            constraintStiffness: 0.8,
+            constraintDamping: 0.2,
+            constraintLength: null, // null means auto-calculate
+            constraintRender: true
         };
     }
     
@@ -137,7 +149,8 @@ export default class MapEditor extends Phaser.Scene {
             dimensions: { ...this.CONFIG.DEFAULTS.MAP_DIMENSIONS },
             entities: this.entities,
             platforms: this.platforms,
-            stickers: this.stickers
+            stickers: this.stickers,
+            constraints: this.constraints
         };
     }
     
@@ -148,8 +161,12 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     create() {
-        // Turn off debug rendering initially
-        this.matter.world.drawDebug = false;
+        // Check URL for debug parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugEnabled = urlParams.get('debug') === '1';
+        
+        // Set debug rendering based on URL parameter
+        this.matter.world.drawDebug = debugEnabled;
         
         // Re-check for server data in case it wasn't available during constructor
         if (typeof window !== 'undefined' && window.serverMapData && !this.mapData.dimensions) {
@@ -200,6 +217,21 @@ export default class MapEditor extends Phaser.Scene {
         // Create entities
         this.createEntitySprites();
         
+        // Create constraint graphics layer BEFORE loading constraints
+        this.constraintGraphics = this.add.graphics();
+        this.constraintGraphics.setDepth(50); // Above platforms but below handles
+        
+        // Restore constraints from session if any
+        if (this.mapData.constraints && this.mapData.constraints.length > 0) {
+            console.log('Loading constraints from mapData:', this.mapData.constraints);
+            this.mapData.constraints.forEach(constraintData => {
+                this.addConstraintToScene(constraintData);
+            });
+            
+            // Force a graphics update after all constraints are loaded
+            this.updateConstraintGraphics();
+        }
+        
         // Setup input
         this.setupInput();
         
@@ -220,6 +252,12 @@ export default class MapEditor extends Phaser.Scene {
             const worldX = pointer.worldX;
             const worldY = pointer.worldY;
             
+            // Handle constraint tool separately
+            if (this.getSelectedTool() === 'constraint') {
+                this.handleConstraintClick(pointer);
+                return;
+            }
+            
             // Check if this is a double-click
             if (now - lastClickTime < this.CONFIG.TIMING.DOUBLE_CLICK_THRESHOLD) {
                 // Double-click detected - try to create item
@@ -227,25 +265,33 @@ export default class MapEditor extends Phaser.Scene {
                 lastClickTime = 0; // Reset to prevent triple-click issues
             } else {
                 // Single click - handle selection
-                // Check if clicking on sticker first (they're on top)
-                const clickedSticker = this.stickers.find(s => 
-                    s.containsPoint(worldX, worldY)
-                );
+                // Check if clicking on constraint first
+                const clickedConstraint = this.findConstraintAtPoint(worldX, worldY);
                 
-                if (clickedSticker) {
-                    this.selectSticker(clickedSticker);
+                if (clickedConstraint) {
+                    this.selectConstraint(clickedConstraint);
                 } else {
-                    // Check if clicking on platform graphics
-                    const clickedPlatform = this.platforms.find(p => {
-                        if (!p.graphics) return false;
-                        return p.graphics.getBounds().contains(worldX, worldY);
-                    });
+                    // Check if clicking on sticker (they're on top)
+                    const clickedSticker = this.stickers.find(s => 
+                        s.containsPoint(worldX, worldY)
+                    );
                     
-                    if (clickedPlatform) {
-                        this.selectPlatform(clickedPlatform);
+                    if (clickedSticker) {
+                        this.selectSticker(clickedSticker);
                     } else {
-                        this.selectPlatform(null);
-                        this.selectSticker(null);
+                        // Check if clicking on platform graphics
+                        const clickedPlatform = this.platforms.find(p => {
+                            if (!p.graphics) return false;
+                            return p.graphics.getBounds().contains(worldX, worldY);
+                        });
+                        
+                        if (clickedPlatform) {
+                            this.selectPlatform(clickedPlatform);
+                        } else {
+                            this.selectPlatform(null);
+                            this.selectSticker(null);
+                            this.selectConstraint(null);
+                        }
                     }
                 }
                 lastClickTime = now;
@@ -316,6 +362,12 @@ export default class MapEditor extends Phaser.Scene {
                 goal: { x: 1700, y: 200 }
             };
             this.platforms = []; // Will be rebuilt from mapData.platforms
+            this.constraints = []; // Will be rebuilt from mapData.constraints
+            
+            // Ensure mapData has constraints array
+            if (!this.mapData.constraints) {
+                this.mapData.constraints = [];
+            }
             
             // Store reference globally so server can access the scene
             window.mapEditorScene = this;
@@ -324,6 +376,7 @@ export default class MapEditor extends Phaser.Scene {
             window.testPlatformTypeChange = () => this.testPropertyUpdate();
             
             console.log('MapEditor initialized with entities:', this.entities);
+            console.log('MapEditor initialized with constraints:', this.mapData.constraints);
         }
     }
     
@@ -1076,6 +1129,7 @@ export default class MapEditor extends Phaser.Scene {
         this.input.keyboard.on('keydown-P', () => this.selectedTool = 'polygon');
         this.input.keyboard.on('keydown-T', () => this.selectedTool = 'trapezoid');
         this.input.keyboard.on('keydown-V', () => this.selectedTool = 'custom');
+        this.input.keyboard.on('keydown-L', () => this.selectedTool = 'constraint');
         this.input.keyboard.on('keydown-TAB', async () => {
             // In server mode, TAB switches to play mode
             const { getCachedBuildMode } = await import('../utils/buildMode');
@@ -1089,24 +1143,45 @@ export default class MapEditor extends Phaser.Scene {
                 this.toggleTestMode();
             }
         });
-        this.input.keyboard.on('keydown-DELETE', () => this.deleteSelectedPlatform());
+        this.input.keyboard.on('keydown-DELETE', () => {
+            if (this.selectedConstraint) {
+                this.deleteSelectedConstraint();
+            } else if (this.selectedPlatform) {
+                this.deleteSelectedPlatform();
+            } else if (this.selectedSticker) {
+                this.deleteSelectedSticker();
+            }
+        });
         this.input.keyboard.on('keydown-BACKSPACE', () => this.deleteSelectedPlatform());
         
         // ESC key handling
         this.input.keyboard.on('keydown-ESC', () => {
+            // Cancel constraint creation mode if active
+            if (this.constraintCreationMode) {
+                this.constraintCreationMode = false;
+                this.constraintFirstBody = null;
+                if (this.constraintPreviewLine) {
+                    this.constraintPreviewLine.destroy();
+                    this.constraintPreviewLine = null;
+                }
+                this.showConstraintFeedback('Constraint creation cancelled');
+                return;
+            }
+            
             // In editor mode, ESC should undo last action if available
             // For now, just deselect
             this.selectPlatform(null);
             this.selectSticker(null);
+            this.selectConstraint(null);
         });
         
         // Copy/paste support
         this.input.keyboard.on('keydown', (event) => {
             if ((event.ctrlKey || event.metaKey)) {
                 if (event.key === 'c' || event.key === 'C') {
-                    this.copySelectedPlatform();
+                    this.copySelected();
                 } else if (event.key === 'v' || event.key === 'V') {
-                    this.pastePlatform();
+                    this.paste();
                 }
             }
         });
@@ -2598,6 +2673,7 @@ export default class MapEditor extends Phaser.Scene {
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
         this.mapData.stickers = this.stickers.map(s => s.toJSON());
+        this.mapData.constraints = this.constraints.map(c => c.data);
         
         const dataStr = JSON.stringify(this.mapData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -2616,6 +2692,7 @@ export default class MapEditor extends Phaser.Scene {
         this.mapData.entities = this.entities;
         this.mapData.platforms = this.platforms.map(p => p.data);
         this.mapData.stickers = this.stickers.map(s => s.toJSON());
+        this.mapData.constraints = this.constraints.map(c => c.data);
         
         const dataStr = JSON.stringify(this.mapData, null, 2);
         
@@ -2961,6 +3038,45 @@ TESTING TIPS:
         // Camera controls (only when not in test mode)
         if (!this.isTestMode) {
             this.updateCameraControls(delta);
+            
+            // Update constraint preview line if in constraint creation mode
+            if (this.constraintCreationMode && this.constraintPreviewLine && this.constraintFirstBody) {
+                const pointer = this.input.activePointer;
+                const worldX = pointer.worldX;
+                const worldY = pointer.worldY;
+                
+                let startPos;
+                if (this.constraintFirstBody.type === 'platform') {
+                    startPos = { x: this.constraintFirstBody.platform.data.x, y: this.constraintFirstBody.platform.data.y };
+                } else if (this.constraintFirstBody.type === 'worm') {
+                    startPos = { ...this.entities.wormStart };
+                } else if (this.constraintFirstBody.type === 'goal') {
+                    startPos = { ...this.entities.goal };
+                }
+                
+                if (startPos) {
+                    this.constraintPreviewLine.setTo(startPos.x, startPos.y, worldX, worldY);
+                }
+            }
+            
+            // Update constraint graphics when platforms move
+            if (this.selectedPlatform && this.isResizing) {
+                this.updateConstraintGraphics();
+            }
+            
+            // Update constraint handles positions if selected constraint
+            if (this.selectedConstraint && this.selectedConstraint.handles) {
+                const posA = this.getConstraintPointPosition(this.selectedConstraint, 'A');
+                const posB = this.getConstraintPointPosition(this.selectedConstraint, 'B');
+                
+                this.selectedConstraint.handles.forEach(handle => {
+                    if (handle.constraintPoint === 'A' && posA) {
+                        handle.setPosition(posA.x, posA.y);
+                    } else if (handle.constraintPoint === 'B' && posB) {
+                        handle.setPosition(posB.x, posB.y);
+                    }
+                });
+            }
         }
         
         if (this.isTestMode && this.testWorm) {
@@ -3193,6 +3309,758 @@ TESTING TIPS:
     }
     
     
+    // Constraint handling methods
+    handleConstraintClick(pointer) {
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        
+        // Handle paste mode for constraints
+        if (this.pasteConstraintMode) {
+            const body = this.findBodyAtPoint(worldX, worldY);
+            if (body) {
+                this.constraintFirstBody = body;
+                this.constraintCreationMode = true;
+                this.pasteConstraintMode = false;
+                
+                // Create preview line
+                this.constraintPreviewLine = this.add.line(0, 0, 0, 0, 0, 0, 0x00ffff, 0.5);
+                this.constraintPreviewLine.setDepth(100);
+                
+                // Show feedback
+                this.showConstraintFeedback('Select second body for pasted constraint');
+            }
+            return;
+        }
+        
+        if (!this.constraintCreationMode) {
+            // First click - select first body
+            const body = this.findBodyAtPoint(worldX, worldY);
+            if (body) {
+                this.constraintFirstBody = body;
+                this.constraintCreationMode = true;
+                
+                // Create preview line
+                this.constraintPreviewLine = this.add.line(0, 0, 0, 0, 0, 0, 0x00ffff, 0.5);
+                this.constraintPreviewLine.setDepth(100);
+                
+                // Show feedback
+                this.showConstraintFeedback('Select second body for constraint');
+            }
+        } else {
+            // Second click - create constraint
+            const body = this.findBodyAtPoint(worldX, worldY);
+            if (body && body !== this.constraintFirstBody) {
+                // Create constraint between the two bodies
+                if (this.pasteConstraintData) {
+                    // Use pasted constraint data
+                    this.createConstraintFromData(this.constraintFirstBody, body, this.pasteConstraintData);
+                    this.pasteConstraintData = null;
+                } else {
+                    // Create new constraint with default settings
+                    this.createConstraint(this.constraintFirstBody, body);
+                }
+                
+                // Reset state
+                this.constraintCreationMode = false;
+                this.constraintFirstBody = null;
+                if (this.constraintPreviewLine) {
+                    this.constraintPreviewLine.destroy();
+                    this.constraintPreviewLine = null;
+                }
+            } else {
+                // Cancel if clicking same body or empty space
+                this.constraintCreationMode = false;
+                this.constraintFirstBody = null;
+                if (this.constraintPreviewLine) {
+                    this.constraintPreviewLine.destroy();
+                    this.constraintPreviewLine = null;
+                }
+                this.showConstraintFeedback('Constraint creation cancelled');
+            }
+        }
+    }
+    
+    findBodyAtPoint(x, y) {
+        // Check platforms
+        const platform = this.platforms.find(p => {
+            if (!p.graphics) return false;
+            return p.graphics.getBounds().contains(x, y);
+        });
+        
+        if (platform) {
+            return { type: 'platform', id: platform.data.id, platform: platform };
+        }
+        
+        // Check worm start
+        const wormDist = Phaser.Math.Distance.Between(x, y, this.entities.wormStart.x, this.entities.wormStart.y);
+        if (wormDist < 30) {
+            return { type: 'worm', id: 'worm_start' };
+        }
+        
+        // Check goal
+        const goalDist = Phaser.Math.Distance.Between(x, y, this.entities.goal.x, this.entities.goal.y);
+        if (goalDist < 30) {
+            return { type: 'goal', id: 'goal' };
+        }
+        
+        return null;
+    }
+    
+    createConstraint(bodyA, bodyB) {
+        const toolSettings = this.getToolSettings();
+        
+        // Calculate positions for constraint attachment
+        let posA, posB;
+        
+        if (bodyA.type === 'platform') {
+            const platformA = bodyA.platform;
+            posA = { x: platformA.data.x, y: platformA.data.y };
+        } else if (bodyA.type === 'worm') {
+            posA = { ...this.entities.wormStart };
+        } else if (bodyA.type === 'goal') {
+            posA = { ...this.entities.goal };
+        }
+        
+        if (bodyB.type === 'platform') {
+            const platformB = bodyB.platform;
+            posB = { x: platformB.data.x, y: platformB.data.y };
+        } else if (bodyB.type === 'worm') {
+            posB = { ...this.entities.wormStart };
+        } else if (bodyB.type === 'goal') {
+            posB = { ...this.entities.goal };
+        }
+        
+        // Calculate default length if not specified
+        const length = toolSettings.constraintLength || 
+            Phaser.Math.Distance.Between(posA.x, posA.y, posB.x, posB.y);
+        
+        const constraintData = {
+            id: `constraint_${Date.now()}`,
+            bodyA: bodyA.id,
+            bodyB: bodyB.id,
+            pointA: { x: 0, y: 0 }, // Attachment point relative to body center
+            pointB: { x: 0, y: 0 },
+            stiffness: toolSettings.constraintStiffness,
+            damping: toolSettings.constraintDamping,
+            length: length,
+            render: {
+                visible: toolSettings.constraintRender,
+                strokeStyle: '#90A4AE',
+                lineWidth: 2
+            }
+        };
+        
+        this.addConstraintToScene(constraintData);
+        this.autoSave();
+        
+        this.showConstraintFeedback(`Constraint created between ${bodyA.id} and ${bodyB.id}`);
+    }
+    
+    createConstraintFromData(bodyA, bodyB, templateData) {
+        // Calculate positions for constraint attachment  
+        let posA, posB;
+        
+        if (bodyA.type === 'platform') {
+            const platformA = bodyA.platform;
+            posA = { x: platformA.data.x, y: platformA.data.y };
+        } else if (bodyA.type === 'worm') {
+            posA = { ...this.entities.wormStart };
+        } else if (bodyA.type === 'goal') {
+            posA = { ...this.entities.goal };
+        }
+        
+        if (bodyB.type === 'platform') {
+            const platformB = bodyB.platform;
+            posB = { x: platformB.data.x, y: platformB.data.y };
+        } else if (bodyB.type === 'worm') {
+            posB = { ...this.entities.wormStart };
+        } else if (bodyB.type === 'goal') {
+            posB = { ...this.entities.goal };
+        }
+        
+        // Calculate default length if not specified
+        const length = templateData.length || 
+            Phaser.Math.Distance.Between(posA.x, posA.y, posB.x, posB.y);
+        
+        const constraintData = {
+            id: `constraint_${Date.now()}`,
+            bodyA: bodyA.id,
+            bodyB: bodyB.id,
+            pointA: templateData.pointA || { x: 0, y: 0 },
+            pointB: templateData.pointB || { x: 0, y: 0 },
+            stiffness: templateData.stiffness || 0.8,
+            damping: templateData.damping || 0.2,
+            length: length,
+            render: templateData.render || {
+                visible: true,
+                strokeStyle: '#90A4AE',
+                lineWidth: 2
+            }
+        };
+        
+        this.addConstraintToScene(constraintData);
+        this.autoSave();
+        
+        this.showConstraintFeedback(`Constraint pasted between ${bodyA.id} and ${bodyB.id}`);
+    }
+    
+    addConstraintToScene(constraintData) {
+        const bodyA = this.findBodyById(constraintData.bodyA);
+        const bodyB = this.findBodyById(constraintData.bodyB);
+        
+        if (!bodyA) {
+            console.warn(`Constraint bodyA not found: ${constraintData.bodyA}`);
+            return;
+        }
+        if (!bodyB && constraintData.bodyB) { // bodyB can be null for world constraints
+            console.warn(`Constraint bodyB not found: ${constraintData.bodyB}`);
+            return;
+        }
+        
+        const constraint = {
+            data: constraintData,
+            id: constraintData.id,
+            bodyA: bodyA,
+            bodyB: bodyB
+        };
+        
+        this.constraints.push(constraint);
+        console.log(`Added constraint ${constraintData.id} to scene`, constraint);
+        this.updateConstraintGraphics();
+    }
+    
+    findBodyById(id) {
+        // Find platform by id
+        const platform = this.platforms.find(p => p.data.id === id);
+        if (platform) return platform;
+        
+        // Check if it's worm or goal
+        if (id === 'worm_start') return { type: 'entity', id: 'worm_start', position: this.entities.wormStart };
+        if (id === 'goal') return { type: 'entity', id: 'goal', position: this.entities.goal };
+        
+        return null;
+    }
+    
+    updateConstraintGraphics() {
+        if (!this.constraintGraphics) {
+            console.warn('updateConstraintGraphics: constraintGraphics not initialized');
+            return;
+        }
+        
+        this.constraintGraphics.clear();
+        
+        console.log(`Updating constraint graphics for ${this.constraints.length} constraints`);
+        
+        this.constraints.forEach(constraint => {
+            if (!constraint.data.render) {
+                console.log(`Constraint ${constraint.id} has no render data, using defaults`);
+                constraint.data.render = { visible: true, strokeStyle: '#90A4AE', lineWidth: 2 };
+            }
+            
+            if (!constraint.data.render.visible) {
+                console.log(`Constraint ${constraint.id} is not visible`);
+                return;
+            }
+            
+            let posA, posB;
+            
+            // Get position for bodyA
+            if (constraint.bodyA) {
+                if (constraint.bodyA.type === 'entity') {
+                    posA = constraint.bodyA.position;
+                } else if (constraint.bodyA.data) {
+                    posA = { x: constraint.bodyA.data.x, y: constraint.bodyA.data.y };
+                }
+                
+                // Add pointA offset if specified
+                if (constraint.data.pointA) {
+                    posA = {
+                        x: posA.x + constraint.data.pointA.x,
+                        y: posA.y + constraint.data.pointA.y
+                    };
+                }
+            }
+            
+            // Get position for bodyB (can be null for world constraints)
+            if (constraint.bodyB) {
+                if (constraint.bodyB.type === 'entity') {
+                    posB = constraint.bodyB.position;
+                } else if (constraint.bodyB.data) {
+                    posB = { x: constraint.bodyB.data.x, y: constraint.bodyB.data.y };
+                }
+                
+                // Add pointB offset if specified
+                if (constraint.data.pointB && posB) {
+                    posB = {
+                        x: posB.x + constraint.data.pointB.x,
+                        y: posB.y + constraint.data.pointB.y
+                    };
+                }
+            } else if (constraint.data.pointB) {
+                // World constraint - pointB is absolute world position
+                posB = constraint.data.pointB;
+            }
+            
+            if (posA && posB) {
+                const isSelected = constraint === this.selectedConstraint;
+                const strokeColor = isSelected ? 0x00ffff : parseInt(constraint.data.render.strokeStyle.replace('#', '0x'));
+                const lineWidth = isSelected ? (constraint.data.render.lineWidth || 2) + 2 : (constraint.data.render.lineWidth || 2);
+                
+                this.constraintGraphics.lineStyle(lineWidth, strokeColor);
+                
+                // Draw based on stiffness (high stiffness = line, low = spring)
+                const stiffness = constraint.data.stiffness || 1;
+                
+                if (stiffness > 0.5) {
+                    // Rigid constraint
+                    this.constraintGraphics.moveTo(posA.x, posA.y);
+                    this.constraintGraphics.lineTo(posB.x, posB.y);
+                } else {
+                    // Spring constraint
+                    this.drawSpring(posA, posB);
+                }
+                
+                // Draw anchor points if selected or specified in render
+                if (isSelected || constraint.data.render.anchors) {
+                    this.constraintGraphics.fillStyle(strokeColor);
+                    this.constraintGraphics.fillCircle(posA.x, posA.y, 4);
+                    this.constraintGraphics.fillCircle(posB.x, posB.y, 4);
+                }
+            }
+        });
+        
+        this.constraintGraphics.strokePath();
+    }
+    
+    drawSpring(posA, posB) {
+        const dx = posB.x - posA.x;
+        const dy = posB.y - posA.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const segments = Math.max(8, Math.floor(distance / 20));
+        const amplitude = 8;
+        
+        this.constraintGraphics.beginPath();
+        this.constraintGraphics.moveTo(posA.x, posA.y);
+        
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments;
+            const x = posA.x + dx * t;
+            const y = posA.y + dy * t;
+            
+            // Add perpendicular offset for zigzag
+            const perpX = -dy / distance * amplitude * (i % 2 === 0 ? 1 : -1);
+            const perpY = dx / distance * amplitude * (i % 2 === 0 ? 1 : -1);
+            
+            this.constraintGraphics.lineTo(x + perpX, y + perpY);
+        }
+        
+        this.constraintGraphics.lineTo(posB.x, posB.y);
+        this.constraintGraphics.strokePath();
+    }
+    
+    findConstraintAtPoint(x, y) {
+        // Simple line-point distance check for constraints
+        for (const constraint of this.constraints) {
+            let posA, posB;
+            
+            if (constraint.bodyA) {
+                if (constraint.bodyA.type === 'entity') {
+                    posA = constraint.bodyA.position;
+                } else if (constraint.bodyA.data) {
+                    posA = { x: constraint.bodyA.data.x, y: constraint.bodyA.data.y };
+                }
+                
+                // Add pointA offset if specified
+                if (constraint.data.pointA) {
+                    posA = {
+                        x: posA.x + constraint.data.pointA.x,
+                        y: posA.y + constraint.data.pointA.y
+                    };
+                }
+            }
+            
+            if (constraint.bodyB) {
+                if (constraint.bodyB.type === 'entity') {
+                    posB = constraint.bodyB.position;
+                } else if (constraint.bodyB.data) {
+                    posB = { x: constraint.bodyB.data.x, y: constraint.bodyB.data.y };
+                }
+                
+                // Add pointB offset if specified
+                if (constraint.data.pointB && posB) {
+                    posB = {
+                        x: posB.x + constraint.data.pointB.x,
+                        y: posB.y + constraint.data.pointB.y
+                    };
+                }
+            } else if (constraint.data.pointB) {
+                // World constraint - pointB is absolute world position
+                posB = constraint.data.pointB;
+            }
+            
+            if (posA && posB) {
+                const dist = this.distanceToLineSegment(x, y, posA.x, posA.y, posB.x, posB.y);
+                if (dist < 10) { // 10 pixel threshold
+                    return constraint;
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    distanceToLineSegment(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        if (length === 0) return Math.sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1));
+        
+        const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (length * length)));
+        const projX = x1 + t * dx;
+        const projY = y1 + t * dy;
+        
+        return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+    }
+    
+    selectConstraint(constraint) {
+        // Clear previous constraint handles
+        if (this.selectedConstraint && this.selectedConstraint !== constraint) {
+            this.clearConstraintHandles(this.selectedConstraint);
+        }
+        
+        this.selectedConstraint = constraint;
+        this.selectedPlatform = null;
+        this.selectedSticker = null;
+        
+        if (constraint) {
+            // Add handles to the selected constraint
+            this.addConstraintHandles(constraint);
+            
+            // Update property panel if available
+            if (window.editorCallbacks && window.editorCallbacks.onConstraintSelected) {
+                window.editorCallbacks.onConstraintSelected(constraint);
+            }
+        }
+        
+        this.updateConstraintGraphics();
+    }
+    
+    addConstraintHandles(constraint) {
+        if (!constraint.handles) {
+            constraint.handles = [];
+        }
+        
+        // Get current positions
+        let posA, posB;
+        
+        if (constraint.bodyA) {
+            if (constraint.bodyA.type === 'entity') {
+                posA = { ...constraint.bodyA.position };
+            } else if (constraint.bodyA.data) {
+                posA = { x: constraint.bodyA.data.x, y: constraint.bodyA.data.y };
+            }
+            
+            if (constraint.data.pointA) {
+                posA.x += constraint.data.pointA.x;
+                posA.y += constraint.data.pointA.y;
+            }
+        }
+        
+        if (constraint.bodyB) {
+            if (constraint.bodyB.type === 'entity') {
+                posB = { ...constraint.bodyB.position };
+            } else if (constraint.bodyB.data) {
+                posB = { x: constraint.bodyB.data.x, y: constraint.bodyB.data.y };
+            }
+            
+            if (constraint.data.pointB && posB) {
+                posB.x += constraint.data.pointB.x;
+                posB.y += constraint.data.pointB.y;
+            }
+        } else if (constraint.data.pointB) {
+            posB = { ...constraint.data.pointB };
+        }
+        
+        // Create handle for point A
+        if (posA) {
+            const handleA = this.add.circle(
+                posA.x, 
+                posA.y, 
+                this.CONFIG.HANDLES.SIZE, 
+                this.CONFIG.HANDLES.COLOR
+            );
+            handleA.setStrokeStyle(2, this.CONFIG.HANDLES.STROKE_COLOR);
+            handleA.setInteractive({ draggable: true });
+            handleA.setDepth(this.CONFIG.HANDLES.DEPTH);
+            handleA.constraintPoint = 'A';
+            handleA.constraint = constraint;
+            
+            // Set up drag behavior
+            this.setupConstraintHandleDrag(handleA);
+            
+            constraint.handles.push(handleA);
+        }
+        
+        // Create handle for point B if not a world constraint or if it is a world constraint
+        if (posB) {
+            const handleB = this.add.circle(
+                posB.x, 
+                posB.y, 
+                this.CONFIG.HANDLES.SIZE, 
+                constraint.bodyB ? this.CONFIG.HANDLES.COLOR : this.CONFIG.HANDLES.ROTATION_COLOR
+            );
+            handleB.setStrokeStyle(2, constraint.bodyB ? this.CONFIG.HANDLES.STROKE_COLOR : this.CONFIG.HANDLES.ROTATION_STROKE_COLOR);
+            handleB.setInteractive({ draggable: true });
+            handleB.setDepth(this.CONFIG.HANDLES.DEPTH);
+            handleB.constraintPoint = 'B';
+            handleB.constraint = constraint;
+            
+            // Set up drag behavior
+            this.setupConstraintHandleDrag(handleB);
+            
+            constraint.handles.push(handleB);
+        }
+    }
+    
+    clearConstraintHandles(constraint) {
+        if (constraint && constraint.handles) {
+            constraint.handles.forEach(handle => handle.destroy());
+            constraint.handles = [];
+        }
+    }
+    
+    setupConstraintHandleDrag(handle) {
+        handle.on('dragstart', () => {
+            handle.setFillStyle(this.CONFIG.HANDLES.HOVER_COLOR);
+        });
+        
+        handle.on('drag', (pointer, dragX, dragY) => {
+            // Apply grid snap if enabled
+            const snappedPos = this.applyGridSnap(dragX, dragY);
+            handle.x = snappedPos.x;
+            handle.y = snappedPos.y;
+            
+            // Update constraint data
+            this.updateConstraintPoint(handle.constraint, handle.constraintPoint, snappedPos);
+            
+            // Update graphics in real-time
+            this.updateConstraintGraphics();
+        });
+        
+        handle.on('dragend', () => {
+            handle.setFillStyle(
+                handle.constraintPoint === 'B' && !handle.constraint.bodyB ? 
+                this.CONFIG.HANDLES.ROTATION_COLOR : 
+                this.CONFIG.HANDLES.COLOR
+            );
+            this.autoSave();
+        });
+    }
+    
+    updateConstraintPoint(constraint, point, newPos) {
+        if (point === 'A' && constraint.bodyA) {
+            // Calculate offset from body position
+            let bodyPos;
+            if (constraint.bodyA.type === 'entity') {
+                bodyPos = constraint.bodyA.position;
+            } else if (constraint.bodyA.data) {
+                bodyPos = { x: constraint.bodyA.data.x, y: constraint.bodyA.data.y };
+            }
+            
+            constraint.data.pointA = {
+                x: newPos.x - bodyPos.x,
+                y: newPos.y - bodyPos.y
+            };
+        } else if (point === 'B') {
+            if (constraint.bodyB) {
+                // Calculate offset from body position
+                let bodyPos;
+                if (constraint.bodyB.type === 'entity') {
+                    bodyPos = constraint.bodyB.position;
+                } else if (constraint.bodyB.data) {
+                    bodyPos = { x: constraint.bodyB.data.x, y: constraint.bodyB.data.y };
+                }
+                
+                constraint.data.pointB = {
+                    x: newPos.x - bodyPos.x,
+                    y: newPos.y - bodyPos.y
+                };
+            } else {
+                // World constraint - absolute position
+                constraint.data.pointB = { x: newPos.x, y: newPos.y };
+            }
+        }
+        
+        // Recalculate length if needed
+        const posA = this.getConstraintPointPosition(constraint, 'A');
+        const posB = this.getConstraintPointPosition(constraint, 'B');
+        if (posA && posB) {
+            constraint.data.length = Phaser.Math.Distance.Between(posA.x, posA.y, posB.x, posB.y);
+        }
+    }
+    
+    getConstraintPointPosition(constraint, point) {
+        if (point === 'A' && constraint.bodyA) {
+            let pos;
+            if (constraint.bodyA.type === 'entity') {
+                pos = { ...constraint.bodyA.position };
+            } else if (constraint.bodyA.data) {
+                pos = { x: constraint.bodyA.data.x, y: constraint.bodyA.data.y };
+            }
+            
+            if (constraint.data.pointA) {
+                pos.x += constraint.data.pointA.x;
+                pos.y += constraint.data.pointA.y;
+            }
+            return pos;
+        } else if (point === 'B') {
+            if (constraint.bodyB) {
+                let pos;
+                if (constraint.bodyB.type === 'entity') {
+                    pos = { ...constraint.bodyB.position };
+                } else if (constraint.bodyB.data) {
+                    pos = { x: constraint.bodyB.data.x, y: constraint.bodyB.data.y };
+                }
+                
+                if (constraint.data.pointB) {
+                    pos.x += constraint.data.pointB.x;
+                    pos.y += constraint.data.pointB.y;
+                }
+                return pos;
+            } else if (constraint.data.pointB) {
+                return { ...constraint.data.pointB };
+            }
+        }
+        return null;
+    }
+    
+    deleteSelectedConstraint() {
+        if (!this.selectedConstraint) return;
+        
+        const index = this.constraints.indexOf(this.selectedConstraint);
+        if (index > -1) {
+            this.constraints.splice(index, 1);
+            this.selectedConstraint = null;
+            this.updateConstraintGraphics();
+            this.autoSave();
+        }
+    }
+    
+    showConstraintFeedback(message) {
+        const text = this.add.text(this.cameras.main.centerX, 100, message, {
+            fontSize: '20px',
+            color: '#00ffff',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        this.tweens.add({
+            targets: text,
+            alpha: 0,
+            duration: 2000,
+            onComplete: () => text.destroy()
+        });
+    }
+    
+    updateConstraintProperty(constraint, property, value) {
+        if (!constraint || !constraint.data) return;
+        
+        constraint.data[property] = value;
+        
+        // Special handling for render properties
+        if (property === 'visible') {
+            constraint.data.render = constraint.data.render || {};
+            constraint.data.render.visible = value;
+        }
+        
+        this.updateConstraintGraphics();
+        this.autoSave();
+    }
+    
+    // Copy/Paste functionality
+    copySelected() {
+        this.clipboard = null;
+        
+        if (this.selectedPlatform) {
+            this.clipboard = {
+                type: 'platform',
+                data: JSON.parse(JSON.stringify(this.selectedPlatform.data))
+            };
+            this.showFeedback('Platform copied');
+        } else if (this.selectedConstraint) {
+            this.clipboard = {
+                type: 'constraint',
+                data: JSON.parse(JSON.stringify(this.selectedConstraint.data))
+            };
+            this.showFeedback('Constraint copied');
+        } else if (this.selectedSticker) {
+            this.clipboard = {
+                type: 'sticker',
+                data: this.selectedSticker.toJSON()
+            };
+            this.showFeedback('Sticker copied');
+        }
+    }
+    
+    paste() {
+        if (!this.clipboard) {
+            this.showFeedback('Nothing to paste');
+            return;
+        }
+        
+        const pointer = this.input.activePointer;
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        const snappedPos = this.applyGridSnap(worldX, worldY);
+        
+        switch (this.clipboard.type) {
+            case 'platform':
+                const platformData = { ...this.clipboard.data };
+                platformData.id = `platform_${Date.now()}`;
+                platformData.x = snappedPos.x;
+                platformData.y = snappedPos.y;
+                this.addPlatformToScene(platformData);
+                this.showFeedback('Platform pasted');
+                break;
+                
+            case 'constraint':
+                // For constraints, we need to select new bodies
+                this.pasteConstraintMode = true;
+                this.pasteConstraintData = { ...this.clipboard.data };
+                this.selectedTool = 'constraint';
+                this.showFeedback('Click first body for constraint');
+                break;
+                
+            case 'sticker':
+                const stickerData = { ...this.clipboard.data };
+                stickerData.id = `sticker_${Date.now()}`;
+                stickerData.x = snappedPos.x;
+                stickerData.y = snappedPos.y;
+                this.addStickerToScene(stickerData);
+                this.showFeedback('Sticker pasted');
+                break;
+        }
+        
+        this.autoSave();
+    }
+    
+    showFeedback(message) {
+        const text = this.add.text(this.cameras.main.centerX, 50, message, {
+            fontSize: '20px',
+            color: '#4ecdc4',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        this.tweens.add({
+            targets: text,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => text.destroy()
+        });
+    }
+
     destroy() {
         // Clean up event listeners
         this.cleanupEventListeners();
@@ -3201,6 +4069,11 @@ TESTING TIPS:
         if (this.autoSaveTimer) {
             clearTimeout(this.autoSaveTimer);
             this.autoSaveTimer = null;
+        }
+        
+        // Clean up constraint handles
+        if (this.selectedConstraint) {
+            this.clearConstraintHandles(this.selectedConstraint);
         }
         
         // Clean up platforms

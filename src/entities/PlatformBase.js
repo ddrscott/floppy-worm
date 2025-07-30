@@ -44,20 +44,30 @@ export default class PlatformBase {
         // Create visual representation based on shape (centered in container at 0,0)
         this.createVisualElements();
         
+        // Build Matter.js body options
+        const bodyOptions = {
+            isStatic: true, // Default to static
+            friction: this.config.friction,
+            restitution: this.config.restitution,
+            density: this.config.density
+        };
+        
+        // If matter config is provided, merge it with defaults
+        if (this.config.matter) {
+            Object.assign(bodyOptions, this.config.matter);
+            console.log(`Platform ${this.config.id} using matter config:`, this.config.matter);
+        }
+        
         // Create physics body (separate from container for flexible collision shapes)
         if (this.config.shape === 'circle') {
             this.body = this.scene.matter.add.circle(this.x, this.y, this.radius, {
-                isStatic: true,
-                friction: this.config.friction,
-                restitution: this.config.restitution,
-                density: this.config.density
+                label: `platform_${this.constructor.name.toLowerCase()}`,
+                ...bodyOptions
             });
         } else {
             this.body = this.scene.matter.add.rectangle(this.x, this.y, this.width, this.height, {
-                isStatic: true,
-                friction: this.config.friction,
-                restitution: this.config.restitution,
-                density: this.config.density
+                label: `platform_${this.constructor.name.toLowerCase()}`,
+                ...bodyOptions
             });
         }
         
