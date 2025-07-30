@@ -115,8 +115,6 @@ export default class BouncyPlatform extends PlatformBase {
         // Project velocity onto surface normal to get impact speed
         const impactSpeed = Math.abs(velocity.x * normal.x + velocity.y * normal.y);
         
-        console.log(`BouncyPlatform collision: impactSpeed=${impactSpeed.toFixed(3)}, normal=(${normal.x.toFixed(2)}, ${normal.y.toFixed(2)})`);
-        
         if (impactSpeed >= this.minimumImpactSpeed) {
             // Apply bounce force with enhanced multiplier
             const bounceMultiplier = Math.max(1, impactSpeed * 0.5); // Scale with impact
@@ -124,8 +122,6 @@ export default class BouncyPlatform extends PlatformBase {
                 x: -normal.x * this.bounceForce * bounceMultiplier,
                 y: -normal.y * this.bounceForce * bounceMultiplier
             };
-            
-            console.log(`Applying bounce force: (${bounceForceVector.x.toFixed(4)}, ${bounceForceVector.y.toFixed(4)})`);
             
             this.scene.matter.body.applyForce(segment, segment.position, bounceForceVector);
             
@@ -136,8 +132,6 @@ export default class BouncyPlatform extends PlatformBase {
             if (this.bounceSound && this.scene.sound) {
                 this.scene.sound.play(this.bounceSound, { volume: Math.min(impactSpeed / 10, 1) });
             }
-        } else {
-            console.log(`Impact too slow for bounce (${impactSpeed.toFixed(3)} < ${this.minimumImpactSpeed})`);
         }
     }
     

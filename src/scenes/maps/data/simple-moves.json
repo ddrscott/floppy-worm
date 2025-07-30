@@ -3,7 +3,7 @@
     "name": "Simple Moves",
     "difficulty": 2,
     "description": "Test map for moving platforms",
-    "modified": "2025-07-30T21:13:44.764Z"
+    "modified": "2025-07-30T23:51:17.392Z"
   },
   "dimensions": {
     "width": 1920,
@@ -11,8 +11,8 @@
   },
   "entities": {
     "wormStart": {
-      "x": 1404,
-      "y": 288
+      "x": 960,
+      "y": 432
     },
     "goal": {
       "x": 1860,
@@ -41,8 +41,8 @@
     {
       "id": "moving_horizontal",
       "type": "rectangle",
-      "x": 612,
-      "y": 900,
+      "x": 660,
+      "y": 888,
       "width": 312,
       "height": 96,
       "color": "#4444ff",
@@ -55,8 +55,8 @@
     {
       "id": "moving_vertical",
       "type": "rectangle",
-      "x": 960,
-      "y": 1236,
+      "x": 1248,
+      "y": 1140,
       "width": 312,
       "height": 108,
       "color": "#44ff44",
@@ -69,16 +69,17 @@
     {
       "id": "another_horizontal",
       "type": "rectangle",
-      "x": 1400,
+      "x": 1404,
       "y": 720,
       "width": 312,
       "height": 96,
-      "color": "#ff44ff",
+      "color": "#ffff00",
       "motion": {
         "type": "horizontal",
         "distance": 300,
         "speed": 60
-      }
+      },
+      "platformType": "electric"
     }
   ],
   "stickers": [],

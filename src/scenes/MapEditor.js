@@ -1050,6 +1050,11 @@ export default class MapEditor extends Phaser.Scene {
             };
         };
         
+        // Also update motion indicators if they exist
+        if (platform.motionIndicators) {
+            this.updateMotionIndicators(platform);
+        }
+        
         let resizeHandleCount = 0;
         platform.handles.forEach((handle, index) => {
             // Skip graphics objects (rotation icon)
@@ -1273,7 +1278,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createBasePlatformData(selectedTool, x, y, toolSettings) {
-        return {
+        const data = {
             id: `platform_${Date.now()}`,
             type: selectedTool,
             platformType: toolSettings.platformType,
@@ -1287,6 +1292,17 @@ export default class MapEditor extends Phaser.Scene {
                 restitution: toolSettings.restitution
             }
         };
+        
+        // Add motion if enabled
+        if (toolSettings.motionEnabled) {
+            data.motion = {
+                type: toolSettings.motionType,
+                distance: toolSettings.motionDistance,
+                speed: toolSettings.motionSpeed
+            };
+        }
+        
+        return data;
     }
     
     createDefaultSticker(x, y) {
@@ -1396,7 +1412,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createPlatformInstance(platformData) {
-        const { type, platformType = 'standard', x, y, width, height, radius, color = '#666666', angle = 0 } = platformData;
+        const { type, platformType = 'standard', x, y, width, height, radius, color = '#666666', angle = 0, motion } = platformData;
         
         console.log(`Creating platform instance: type=${type}, platformType=${platformType}, color=${color}`);
         
@@ -1418,7 +1434,8 @@ export default class MapEditor extends Phaser.Scene {
             angle: angle,
             shape: type === 'circle' ? 'circle' : 'rectangle',
             strokeColor: 0x333333,
-            strokeWidth: 2
+            strokeWidth: 2,
+            motion: motion // Pass motion config through
         };
         
         // Only set custom color for standard platforms - special platforms use their built-in colors
@@ -1547,6 +1564,11 @@ export default class MapEditor extends Phaser.Scene {
         if (this.selectedPlatform) {
             this.clearPlatformHighlight(this.selectedPlatform);
             this.clearHandles(this.selectedPlatform);
+            // Clear motion indicators
+            if (this.selectedPlatform.motionIndicators) {
+                this.selectedPlatform.motionIndicators.forEach(indicator => indicator.destroy());
+                this.selectedPlatform.motionIndicators = [];
+            }
         }
         
         // Select new platform
@@ -1555,6 +1577,8 @@ export default class MapEditor extends Phaser.Scene {
             this.highlightSelectedPlatform(platform);
             // Add resize handles
             this.addHandlesToPlatform(platform);
+            // Add motion indicators if platform has motion
+            this.updateMotionIndicators(platform);
         }
         
         // Notify React PropertyPanel of platform selection
@@ -1802,6 +1826,13 @@ export default class MapEditor extends Phaser.Scene {
             this.recreateEntirePlatform(platform);
         }
         
+        // Handle motion property
+        else if (property === 'motion') {
+            platform.data.motion = value;
+            // Update or remove motion indicators
+            this.updateMotionIndicators(platform);
+        }
+        
         // Handle physics properties (store for test mode)
         else if (property === 'friction' || property === 'frictionStatic' || property === 'restitution') {
             // Just update the data - physics will be applied in test mode
@@ -2010,6 +2041,111 @@ export default class MapEditor extends Phaser.Scene {
             handle.setFillStyle(this.CONFIG.HANDLES.ROTATION_COLOR);
             rotationIcon.setAlpha(1.0);
         });
+    }
+    
+    updateMotionIndicators(platform) {
+        // Remove existing motion indicators
+        if (platform.motionIndicators) {
+            platform.motionIndicators.forEach(indicator => indicator.destroy());
+            platform.motionIndicators = [];
+        }
+        
+        // Only create indicators if motion is enabled
+        if (!platform.data.motion) return;
+        
+        const { type, distance, speed } = platform.data.motion;
+        const { x, y } = platform.data;
+        
+        platform.motionIndicators = [];
+        
+        // Create motion range indicators
+        if (type === 'horizontal') {
+            // Left and right endpoints
+            const leftX = x - distance / 2;
+            const rightX = x + distance / 2;
+            
+            // Motion path line
+            const pathLine = this.add.graphics();
+            pathLine.lineStyle(2, 0x4444ff, 0.5);
+            pathLine.lineBetween(leftX, y, rightX, y);
+            pathLine.setDepth(this.CONFIG.HANDLES.DEPTH - 1);
+            platform.motionIndicators.push(pathLine);
+            
+            // Endpoint arrows
+            const leftArrow = this.createMotionArrow(leftX, y, 'left');
+            const rightArrow = this.createMotionArrow(rightX, y, 'right');
+            platform.motionIndicators.push(leftArrow, rightArrow);
+            
+        } else if (type === 'vertical') {
+            // Top and bottom endpoints
+            const topY = y - distance / 2;
+            const bottomY = y + distance / 2;
+            
+            // Motion path line
+            const pathLine = this.add.graphics();
+            pathLine.lineStyle(2, 0x44ff44, 0.5);
+            pathLine.lineBetween(x, topY, x, bottomY);
+            pathLine.setDepth(this.CONFIG.HANDLES.DEPTH - 1);
+            platform.motionIndicators.push(pathLine);
+            
+            // Endpoint arrows
+            const topArrow = this.createMotionArrow(x, topY, 'up');
+            const bottomArrow = this.createMotionArrow(x, bottomY, 'down');
+            platform.motionIndicators.push(topArrow, bottomArrow);
+        }
+        
+        // Speed indicator (visual hint)
+        if (platform.motionIndicators.length > 0) {
+            const speedText = this.add.text(x, y - 30, `Speed: ${speed}`, {
+                fontSize: '12px',
+                fill: '#888888'
+            });
+            speedText.setOrigin(0.5);
+            speedText.setDepth(this.CONFIG.HANDLES.DEPTH);
+            platform.motionIndicators.push(speedText);
+        }
+    }
+    
+    createMotionArrow(x, y, direction) {
+        const arrow = this.add.graphics();
+        arrow.fillStyle(0x6666ff, 0.8);
+        arrow.lineStyle(1, 0x4444ff);
+        
+        const arrowSize = 8;
+        
+        switch(direction) {
+            case 'left':
+                arrow.fillTriangle(
+                    x - arrowSize, y,
+                    x, y - arrowSize/2,
+                    x, y + arrowSize/2
+                );
+                break;
+            case 'right':
+                arrow.fillTriangle(
+                    x + arrowSize, y,
+                    x, y - arrowSize/2,
+                    x, y + arrowSize/2
+                );
+                break;
+            case 'up':
+                arrow.fillTriangle(
+                    x, y - arrowSize,
+                    x - arrowSize/2, y,
+                    x + arrowSize/2, y
+                );
+                break;
+            case 'down':
+                arrow.fillTriangle(
+                    x, y + arrowSize,
+                    x - arrowSize/2, y,
+                    x + arrowSize/2, y
+                );
+                break;
+        }
+        
+        arrow.setDepth(this.CONFIG.HANDLES.DEPTH);
+        return arrow;
     }
     
     deleteSelectedPlatform() {

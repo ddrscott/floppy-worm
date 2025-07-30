@@ -47,7 +47,9 @@ export default class WormBase {
                 // - normal.y = 0.0 means collision from the side
                 // - normal.y = 1.0 means collision from below (worm hitting ceiling)
                 // We use -0.3 as threshold to include slightly angled surfaces (slopes)
-                normalThreshold: -0.5
+                normalThreshold: -0.5,
+                // Maximum stretch factor before breaking constraint (e.g., 3.0 = break at 3x original length)
+                maxStretchFactor: 5.0
             },
             showDebug: false,
             ...config
@@ -204,6 +206,9 @@ export default class WormBase {
                 dot.y = (segA.position.y + segB.position.y) / 2;
             }
         });
+        
+        // Clean up overstretched surface constraints
+        this.cleanupOverstretchedConstraints();
         
         // Update audio based on flight physics
         this.updateAudio(delta);
@@ -502,13 +507,25 @@ export default class WormBase {
                 const isOnTop = normal.y < this.config.surfaceConstraint.normalThreshold;
                 
                 if (isOnTop) {
+                    // Get stiffness scale from platform (default to 1.0 if not set)
+                    const stiffnessScale = otherBody.surfaceStiffnessScale || 1.0;
+                    
+                    // Apply scale to base stiffness
+                    const adjustedStiffness = this.config.surfaceConstraint.stiffness * stiffnessScale;
+                    
+                    // Log when applying scaled stiffness for moving platforms
+                    if (stiffnessScale > 1.0) {
+                        console.log(`Surface constraint with ${stiffnessScale.toFixed(2)}x stiffness (base: ${this.config.surfaceConstraint.stiffness}, adjusted: ${adjustedStiffness.toFixed(4)})`);
+                    }
+                    
                     const constraint = this.scene.matter.add.constraint(
                         otherBody,
                         segment,
                         this.config.surfaceConstraint.length,
-                        this.config.surfaceConstraint.stiffness,
+                        adjustedStiffness,
                         {
                             ...this.config.surfaceConstraint,
+                            stiffness: adjustedStiffness, // Override with adjusted value
                             pointA: {
                                 x: contactPoint.x - otherBody.position.x,
                                 y: contactPoint.y - otherBody.position.y
@@ -567,6 +584,73 @@ export default class WormBase {
                 surfaceNormal: { x: 0, y: 1 },
                 isOnIce: false
             };
+        });
+    }
+    
+    cleanupOverstretchedConstraints() {
+        // Maximum allowed constraint length before breaking
+        const maxStretchFactor = this.config.surfaceConstraint.maxStretchFactor || 3.0;
+        
+        // Track constraints to remove
+        const constraintsToRemove = [];
+        
+        this.surfaceConstraints.forEach((constraint, segment) => {
+            if (!constraint || !constraint.bodyA || !constraint.bodyB) return;
+            
+            // Calculate current distance between constraint points
+            const bodyA = constraint.bodyA;
+            const bodyB = constraint.bodyB;
+            
+            // Get world positions of the constraint attachment points
+            const pointAWorld = {
+                x: bodyA.position.x + constraint.pointA.x,
+                y: bodyA.position.y + constraint.pointA.y
+            };
+            
+            const pointBWorld = {
+                x: bodyB.position.x + constraint.pointB.x,
+                y: bodyB.position.y + constraint.pointB.y
+            };
+            
+            // Calculate current distance
+            const currentDistance = Math.sqrt(
+                Math.pow(pointAWorld.x - pointBWorld.x, 2) +
+                Math.pow(pointAWorld.y - pointBWorld.y, 2)
+            );
+            
+            // Check if constraint is overstretched
+            const originalLength = constraint.length || this.config.surfaceConstraint.length;
+            const maxAllowedLength = originalLength * maxStretchFactor;
+            
+            //Tick.push('currentDistance', currentDistance, 0xff6b6b);
+            if (currentDistance > maxAllowedLength) {
+                constraintsToRemove.push({ segment, constraint, distance: currentDistance });
+            }
+        });
+        
+        // Remove overstretched constraints
+        constraintsToRemove.forEach(({ segment, constraint, distance }) => {
+            // Calculate the contact point from the constraint attachment
+            // Use the segment's attachment point (bodyB) as it's where the worm connects to the surface
+            const contactX = segment.position.x + constraint.pointB.x;
+            const contactY = segment.position.y + constraint.pointB.y;
+            
+            // Create a visual break effect at the contact point
+            this.createConstraintBreakEffect(contactX, contactY);
+            
+            try {
+                this.scene.matter.world.remove(constraint);
+            } catch (e) {
+                // Constraint might already be removed
+            }
+            
+            this.surfaceConstraints.delete(segment);
+            
+            // Also clear collision data for this segment
+            const segmentIndex = this.segments.indexOf(segment);
+            if (segmentIndex !== -1 && this.segmentCollisions[segmentIndex]) {
+                this.segmentCollisions[segmentIndex].isColliding = false;
+            }
         });
     }
     
@@ -719,5 +803,36 @@ export default class WormBase {
                 }
             }
         }, 5);
+    }
+    
+    // Create a visual effect when a surface constraint breaks
+    createConstraintBreakEffect(x, y) {
+        // TODO convert to particle emitter and make it looks like water splashing
+        const numParticles = 6;
+        const lightBlue = 0x00bfff; // Light blue color for particles
+        for (let i = 0; i < numParticles; i++) {
+            const particle = this.scene.add.circle(x, y, 1.5, lightBlue, 0.5);
+            
+            // Randomize the angle more for a natural scatter effect
+            const baseAngle = (Math.PI * 2 * i) / numParticles;
+            const angleVariation = (Math.random() - 0.5) * Math.PI / 3; // ±30 degrees variation
+            const angle = baseAngle + angleVariation;
+            
+            // Randomize speed slightly
+            const speed = 10 + Math.random() * 20; // 40-70 pixels
+            
+            this.scene.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * speed,
+                y: y + Math.sin(angle) * speed,
+                alpha: 0,
+                scale: 0.5,
+                duration: 50 + Math.random() * 100, // 250-350ms
+                ease: 'Power2',
+                onComplete: () => {
+                    particle.destroy();
+                }
+            });
+        }
     }
 }
