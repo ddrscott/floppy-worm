@@ -34,12 +34,30 @@ export default class WormBase {
                     visible: true,
                 }
             },
+            surfaceConstraint: {
+                stiffness: 0.005,
+                damping: 0.1,
+                length: 2,
+                render: {
+                    visible: true,
+                },
+                // Normal vector threshold for determining if a collision is "from above"
+                // In Matter.js, Y coordinates increase downward, so:
+                // - normal.y = -1.0 means collision from directly above (worm landing on top)
+                // - normal.y = 0.0 means collision from the side
+                // - normal.y = 1.0 means collision from below (worm hitting ceiling)
+                // We use -0.3 as threshold to include slightly angled surfaces (slopes)
+                normalThreshold: -0.5
+            },
             showDebug: false,
             ...config
         };
         
         // Initialize collision tracking for stickiness system
         this.segmentCollisions = [];
+        
+        // Track surface constraints for better friction
+        this.surfaceConstraints = new Map(); // segment -> constraint
         
         // Initialize audio system
         this.initializeAudio();
@@ -476,6 +494,38 @@ export default class WormBase {
                     surfaceBody: otherBody
                 });
             }
+            
+            // Create surface constraint for better friction (if not already exists)
+            if (!this.surfaceConstraints.has(segment) && !otherBody.isSensor) {
+                // Check if segment is roughly on top of surface (not hitting from side)
+                // Using configurable threshold to determine what counts as "landing on top"
+                const isOnTop = normal.y < this.config.surfaceConstraint.normalThreshold;
+                
+                if (isOnTop) {
+                    const constraint = this.scene.matter.add.constraint(
+                        otherBody,
+                        segment,
+                        this.config.surfaceConstraint.length,
+                        this.config.surfaceConstraint.stiffness,
+                        {
+                            ...this.config.surfaceConstraint,
+                            pointA: {
+                                x: contactPoint.x - otherBody.position.x,
+                                y: contactPoint.y - otherBody.position.y
+                            },
+                            pointB: {
+                                x: contactPoint.x - segment.position.x,
+                                y: contactPoint.y - segment.position.y
+                            },
+                            render: {
+                                visible: true
+                            }
+                        }
+                    );
+                    
+                    this.surfaceConstraints.set(segment, constraint);
+                }
+            }
         });
     }
     
@@ -502,6 +552,13 @@ export default class WormBase {
                 });
             }
             
+            // Remove surface constraint when collision ends
+            const constraint = this.surfaceConstraints.get(segment);
+            if (constraint) {
+                this.scene.matter.world.remove(constraint);
+                this.surfaceConstraints.delete(segment);
+            }
+            
             // Clear collision data
             this.segmentCollisions[segmentIndex] = {
                 isColliding: false,
@@ -517,6 +574,16 @@ export default class WormBase {
         if (this.matter && this.matter.world) {
             this.matter.world.off('collisionstart', this.handleCollisionStart);
             this.matter.world.off('collisionend', this.handleCollisionEnd);
+            
+            // Remove all surface constraints
+            this.surfaceConstraints.forEach(constraint => {
+                try {
+                    this.matter.world.remove(constraint);
+                } catch (e) {
+                    // Constraint might already be removed
+                }
+            });
+            this.surfaceConstraints.clear();
         }
     }
     

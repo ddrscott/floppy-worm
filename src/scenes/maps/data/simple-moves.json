@@ -41,53 +41,43 @@
     {
       "id": "moving_horizontal",
       "type": "rectangle",
-      "platformType": "moving",
       "x": 612,
       "y": 900,
       "width": 312,
       "height": 96,
       "color": "#4444ff",
-      "physics": {
-        "moveType": "horizontal",
-        "moveDistance": 800,
-        "moveSpeed": 40,
-        "ignoresGravity": true,
-        "isStatic": true,
-        "forceMultiplier": 4
+      "motion": {
+        "type": "horizontal",
+        "distance": 800,
+        "speed": 40
       }
     },
     {
       "id": "moving_vertical",
       "type": "rectangle",
-      "platformType": "moving",
       "x": 960,
       "y": 1236,
       "width": 312,
       "height": 108,
       "color": "#44ff44",
-      "physics": {
-        "moveType": "vertical",
-        "moveDistance": 300,
-        "moveSpeed": 80,
-        "ignoresGravity": true,
-        "isStatic": true
+      "motion": {
+        "type": "vertical",
+        "distance": 300,
+        "speed": 80
       }
     },
     {
-      "id": "constraint_horizontal",
+      "id": "another_horizontal",
       "type": "rectangle",
-      "platformType": "constraintMoving",
       "x": 1400,
       "y": 720,
       "width": 312,
       "height": 96,
       "color": "#ff44ff",
-      "physics": {
-        "moveType": "horizontal",
-        "moveDistance": 300,
-        "moveSpeed": 60,
-        "constraintStiffness": 0.02,
-        "constraintLength": 1
+      "motion": {
+        "type": "horizontal",
+        "distance": 300,
+        "speed": 60
       }
     }
   ],

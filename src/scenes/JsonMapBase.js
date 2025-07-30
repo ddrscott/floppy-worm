@@ -3,13 +3,12 @@ import DoubleWorm from '../entities/DoubleWorm';
 import VirtualControls from '../components/VirtualControls';
 import ControlsDisplay from '../components/ControlsDisplay';
 import Stopwatch from '../components/Stopwatch';
+import PlatformBase from '../entities/PlatformBase';
 import IcePlatform from '../entities/IcePlatform';
 import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
 import BlackholePlatform from '../entities/BlackholePlatform';
-import SimpleMovingPlatform from '../entities/SimpleMovingPlatform';
-import ConstraintMovingPlatform from '../entities/ConstraintMovingPlatform';
 import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
@@ -383,11 +382,14 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createPlatformFromJSON(platformData) {
-        const { type, platformType = 'standard', physics = {}, color, id } = platformData;
+        const { type, platformType = 'standard', physics = {}, motion, color, id } = platformData;
         
-        // Check if this is a special platform type
-        if (platformType && platformType !== 'standard') {
-            const platformInstance = this.createSpecialPlatform(platformData);
+        // Check if this is a special platform type or has motion
+        if ((platformType && platformType !== 'standard') || motion) {
+            const platformInstance = this.createSpecialPlatform({
+                ...platformData,
+                platformType: platformType || 'standard'
+            });
             if (platformInstance) {
                 this.platforms.push({ 
                     instance: platformInstance,
@@ -474,7 +476,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createSpecialPlatform(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, color } = platformData;
+        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color } = platformData;
         
         // Use the same coordinate transformations as regular platforms
         const centerX = x;
@@ -484,6 +486,7 @@ export default class JsonMapBase extends Phaser.Scene {
         // Don't pass color for special platform types as they have their own colors
         const config = {
             shape: type, // Pass the shape type (rectangle, circle, etc.)
+            motion: motion, // Pass motion config if present
             ...physics,
         };
         
@@ -523,11 +526,12 @@ export default class JsonMapBase extends Phaser.Scene {
             case 'blackhole':
                 return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
                 
-            case 'moving':
-                return new SimpleMovingPlatform(this, centerX, centerY, platformWidth, platformHeight, parseInt(color?.replace('#', '0x')) || 0x4444ff, config);
-                
-            case 'constraintMoving':
-                return new ConstraintMovingPlatform(this, centerX, centerY, platformWidth, platformHeight, parseInt(color?.replace('#', '0x')) || 0xff44ff, config);
+            case 'standard':
+                // Standard platform with motion needs to use PlatformBase
+                return new PlatformBase(this, centerX, centerY, platformWidth, platformHeight, {
+                    ...config,
+                    color: parseInt(color?.replace('#', '0x')) || 0x666666
+                });
                 
             default:
                 console.warn(`Unknown special platform type: ${platformType}`);
