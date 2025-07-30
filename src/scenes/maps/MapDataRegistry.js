@@ -13,6 +13,7 @@ import Electric from './data/Electric-Slide.json';
 import Morgan from './data/Morgan.json';
 import PendulumTest from './data/Pendulum-Test.json';
 import BlackholeTest from './data/blackhole-test.json';
+import SimpleMoves from './data/simple-moves.json';
 
 
 // Static registry for production
@@ -27,7 +28,8 @@ const STATIC_MAP_REGISTRY = {
     'Electric-Slide': Electric,
     'Morgan': Morgan,
     'Pendulum-Test': PendulumTest,
-    'blackhole-test': BlackholeTest
+    'blackhole-test': BlackholeTest,
+    'simple-moves': SimpleMoves
 };
 
 import { hasAPISupport } from '../../utils/buildMode';
