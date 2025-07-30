@@ -1,5 +1,9 @@
 import WormBase from './WormBase';
-import Tick from 'src/utils/Tick.js';
+import AbilityStateMachine from './abilities/AbilityStateMachine';
+import MovementAbility from './abilities/MovementAbility';
+import JumpAbility from './abilities/JumpAbility';
+import RollAbility from './abilities/RollAbility';
+import GrabAbility from './abilities/GrabAbility';
 
 export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
@@ -17,71 +21,31 @@ export default class DoubleWorm extends WormBase {
             dotColor: 0x2c3e50,
             
             // Anchor Physics - Controls how stick input translates to worm movement
-            anchorRadius: 60,              // Max distance stick can pull anchor from segment (pixels)
-                                          // Higher = wider movement range, more dramatic swings
-                                          // Lower = tighter control, smaller movements
-            anchorStiffness: 0.5,        // How strongly anchor pulls back to attached segment (0-1)
-                                          // Higher = snappier response, less lag, can cause jitter
-                                          // Lower = smoother but slower response, more fluid movement
-            anchorDamping: 0.05,          // How quickly anchor oscillations fade out (0-1)
-                                          // Higher = stops bouncing faster, more controlled
-                                          // Lower = more bouncy/springy feel, can cause instability
-            anchorSensorRadius: 5,        // Visual/collision size of anchor body (pixels) - debug only
-            anchorDensity: 0.0001,        // Mass density of anchor body (affects physics calculations)
-                                          // Higher = heavier anchors, different momentum behavior
-                                          // Lower = lighter anchors, more responsive
+            anchorRadius: 60,
+            anchorStiffness: 0.5,
+            anchorDamping: 0.05,
+            anchorSensorRadius: 5,
+            anchorDensity: 0.0001,
             
+            // Air resistance
+            airFriction: 0.018,
             
-            // Air resistance - Uses Matter.js native air friction
-            airFriction: 0.018,                 // Air friction/drag coefficient (0-1)
-                                               // 0 = no air resistance (default Matter.js value)
-                                               // 0.01 = subtle air resistance
-                                               // 0.05 = noticeable drag
-                                               // 0.1 = heavy air resistance
-                                               // 0.5 = like moving through thick fluid
+            // Movement Physics
+            velocityDamping: 1,
+            maxImpulseForce: 0.6,
+            headImpulseMultiplier: 0.002,
+            tailImpulseMultiplier: 0.0025,
+            stickDeadzone: 0.06,
+            positionForceMagnitude: 0.00001,
+            minForceThreshold: 0.00001,
+            minDistanceThreshold: 0.1,
             
-            // Movement Physics - Controls dual force system (position + velocity)
-            velocityDamping: 1,         // How much momentum is retained after stick release (0-1)
-                                           // Higher = more carried momentum, smoother movement
-                                           // Lower = less momentum, more abrupt stops
-            maxImpulseForce: 0.6,          // Maximum impulse force magnitude that can be applied
-                                           // Caps the actual physics force to prevent oversensitivity
-                                           // Lower = more controlled, less "flicky" behavior
-                                           // Higher = allows stronger impulses from quick movements
-            headImpulseMultiplier: 0.002,  // Strength multiplier for head velocity-based forces (0-0.01 typical)
-                                           // Higher = faster stick movements create stronger forces
-                                           // Lower = less responsive to quick stick flicks
-            tailImpulseMultiplier: 0.0025, // Strength multiplier for tail velocity-based forces (0-0.01 typical)
-                                           // Higher value compensates for smaller tail segment mass
-                                           // Tune this to balance head/tail force output
-            stickDeadzone: 0.06,          // Minimum stick input to register movement (0-0.2 typical)
-                                          // Higher = larger dead zone, less sensitive to small inputs
-                                          // Lower = more sensitive, may cause drift or jitter
-            positionForceMagnitude: 0.00001, // Strength of position-based spring forces (0-0.001 typical)
-                                          // Higher = stronger pull toward stick position, more responsive
-                                          // Lower = gentler positioning, more natural feel
-            minForceThreshold: 0.00001,   // Minimum force required to apply impulse (prevents micro-movements)
-                                          // Higher = filters out tiny forces, cleaner movement
-                                          // Lower = more sensitive to small movements
-            minDistanceThreshold: 0.1,    // Minimum distance before position force activates (pixels)
-                                          // Higher = larger deadband around target position
-                                          // Lower = tighter position control
-            
-            // Ground Physics - Prevents unrealistic floating/flying behavior
+            // Ground Physics
             ground: {
-                segments: 0.3,                 // Fraction of segments receiving grounding (0-1)
-                                               // Higher = more segments grounded, stiffer feel
-                                               // Lower = fewer grounded segments, more flexible
-                centerWeight: 0.5,             // Extra grounding bias toward center segments
-                                               // Higher = center stays down more, ends can lift
-                                               // Lower = more uniform grounding distribution
-                centerOffset: 0.7,              // Shifts counter-force weight distribution inward from head/tail (0-1)
-                                               // 0 = Normal bell curve across selected segments
-                                               // 0.3 = Shifts peak 30% closer to worm's true center (default)
-                                               // 1.0 = Concentrates all force at the very center segments
-                                               // This prevents unnatural sliding when pushing both sticks diagonally
-                                               // by ensuring counter-forces are applied away from the ends
-                percentageForce: 0.9,          // Percentage of segment force applied to counteract gravity
+                segments: 0.3,
+                centerWeight: 0.5,
+                centerOffset: 0.7,
+                percentageForce: 0.9,
             },
 
             // Visual parameters
@@ -89,32 +53,15 @@ export default class DoubleWorm extends WormBase {
             rangeIndicatorAlpha: 0.4,
             rangeIndicatorLineWidth: 1,
             
-            // Jump Physics - Controls trigger-activated compression springs and body tension
+            // Jump Physics
             jump: {
-                // Spring Physics
-                springLengthMultiplier: 1.3,       // How much longer jump springs are vs natural distance
-                                                 // Higher = more compression potential, stronger jumps
-                                                 // Lower = less compression, gentler spring effect
-                triggerThreshold: 0.01,          // Minimum trigger value to activate jump springs (0-1)
-                                                 // Higher = harder to activate, requires fuller trigger press
-                                                 // Lower = easier to activate, more sensitive triggers
-                stiffness: 0.0375,               // Maximum stiffness of jump springs when fully activated
-                                                 // Higher = more explosive jumps, stronger spring force
-                                                 // Lower = gentler spring assistance, subtle effect
-
-                // Compression Spring Physics - Controls trigger-responsive body tension
-                baseCompressionStiffness: 0.05,    // Base stiffness when no triggers pressed
-                                                    // Higher = stiffer baseline body, less flexibility
-                                                    // Lower = more flexible baseline, looser feel
-                maxCompressionStiffness: 0.7,      // Maximum stiffness at full trigger activation
-                                                    // Higher = very rigid body when tensed, precise control
-                                                    // Lower = moderate stiffening, maintains some flexibility
-                compressionTriggerSensitivity: 1.0, // How responsive compression is to trigger input (0-2 typical)
-                                                    // Higher = more dramatic stiffness changes per trigger input
-                                                    // Lower = subtle stiffness changes, more gradual response
-
-                useGroundAnchor: false,          //  Whether to use ground anchor for jump springs
-                // Laser guidance visuals
+                springLengthMultiplier: 1.3,
+                triggerThreshold: 0.01,
+                stiffness: 0.0375,
+                baseCompressionStiffness: 0.05,
+                maxCompressionStiffness: 0.7,
+                compressionTriggerSensitivity: 1.0,
+                useGroundAnchor: false,
                 laser: {
                     lineWidth: 4,
                     glowWidth: 8,
@@ -126,63 +73,49 @@ export default class DoubleWorm extends WormBase {
                 }
             },
             
-            // Grab Physics - Constraint-based surface grip system when pressing into walls
+            // Grab Physics
             grab: {
-                activationThreshold: 0.2,        // Minimum stick input magnitude to activate
-                constraintStiffness: 0.2,        // Strength of sticky constraints (0-1)
-                constraintDamping: 0.5,          // Damping for sticky constraints  
-                headSegmentCount: 0.3,           // Fraction of head segments that can stick
-                tailSegmentCount: 0.3,           // Fraction of tail segments that can stick
-                
-                // Visual Effects - Pulsating circles at grip points
+                activationThreshold: 0.2,
+                constraintStiffness: 0.2,
+                constraintDamping: 0.5,
+                headSegmentCount: 0.3,
+                tailSegmentCount: 0.3,
                 visual: {
-                    circleRadius: 15,            // Base radius of pulsating circle
-                    pulseScale: 0.25,            // How much bigger it gets when pulsing
-                    pulseDuration: 2500,         // Time for one pulse cycle (ms)
-                    circleColor: 0x3bff2b,      // Green color for grip indication
-                    circleAlpha: 0.9,           // Base transparency
-                    // strokeWidth: 2,             // Circle outline thickness
-                    // strokeColor: 0xFF0000       // White outline for contrast
+                    circleRadius: 15,
+                    pulseScale: 0.25,
+                    pulseDuration: 2500,
+                    circleColor: 0x3bff2b,
+                    circleAlpha: 0.9,
                 }
             },
             
-            // Roll Physics - Transform worm into wheel using chord constraints
+            // Roll Physics
             roll: {
-                // Chord patterns define which segments to connect
                 chordPatterns: [
-                    { skip: 7, count: 12 },     // Primary structure: 0→3, 3→6, 6→9, 9→0 (square)
+                    { skip: 7, count: 12 },
                 ],
-                startStiffness: 0.125,          // Initial stiffness of chord constraints
-                endStiffness: 0.5,              // Stiffness of chord constraints when formed
-                chordDamping: 0.9,              // Damping for chord constraints
-                chordLengthMultiplier: 1,       // Multiplier for calculated chord length (tune wheel tightness)
-                
-                // Transition parameters
-                formationTime: 250,              // Time to form wheel shape (ms)
-                stiffnessEaseType: 'Cubic.easeInOut', // Easing for constraint stiffening
-                
-                // Control parameters
-                torqueMultiplier: 0.25,           // Stick input to torque conversion (increased for better response)
-                maxAngularVelocity: 20,           // Maximum wheel spin speed (radians/sec)
-                exitVelocityBoost: 1.0,          // Multiplier for velocity on jump exit
-                
-                // Anti-slip parameters
-                slipDetectionThreshold: 0.1,     // Ratio difference to detect slipping
-                antiSlipForce: 2,              // Force multiplier to correct slipping
+                startStiffness: 0.125,
+                endStiffness: 0.5,
+                chordDamping: 0.9,
+                chordLengthMultiplier: 1,
+                formationTime: 250,
+                stiffnessEaseType: 'Cubic.easeInOut',
+                torqueMultiplier: 0.25,
+                maxAngularVelocity: 20,
+                exitVelocityBoost: 1.0,
+                slipDetectionThreshold: 0.1,
+                antiSlipForce: 2,
             },
             
-            // Frame-rate Independence - Ensures consistent physics across different refresh rates
-            targetFrameRate: 60,          // Target frame rate for physics calculations (fps)
-                                         // All time-based calculations normalized to this rate
-                                         // Higher = more precise but potentially more expensive
-                                         // Lower = less precise but more compatible
+            // Frame-rate Independence
+            targetFrameRate: 60,
             
             // Attach points
             headAttachIndex: 1,
             tailAttachFromEnd: 2,
             tailSpringAttachPercent: 0.4,
             
-            // Control swapping - when true, left stick controls tail, right stick controls head
+            // Control swapping
             swapControls: false,
             
             ...config
@@ -190,7 +123,7 @@ export default class DoubleWorm extends WormBase {
         
         super(scene, x, y, swingConfig);
         
-        // Copy config values to instance
+        // Copy config values to instance for compatibility
         this.anchorRadius = swingConfig.anchorRadius;
         this.anchorStiffness = swingConfig.anchorStiffness;
         this.anchorDamping = swingConfig.anchorDamping;
@@ -201,64 +134,25 @@ export default class DoubleWorm extends WormBase {
         
         // Ability flags - can be toggled at runtime
         this.abilities = {
-            jump: true,    // Can use jump springs
-            roll: true,    // Can enter roll mode
-            grab: true     // Can stick to walls
+            jump: true,
+            roll: true,
+            grab: true
         };
         
         // Frame-rate independence constants
-        this.targetFrameTime = 1000 / swingConfig.targetFrameRate; // Target time per frame (ms)
+        this.targetFrameTime = 1000 / swingConfig.targetFrameRate;
         
-        // Stick tracking for momentum
-        this.leftStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
-        this.rightStickState = { x: 0, y: 0, prevX: 0, prevY: 0, velocity: { x: 0, y: 0 } };
-        
-        // Keyboard Simulation Physics - Controls how keyboard inputs simulate analog sticks
+        // Keyboard Simulation Physics
         this.keyboardConfig = {
-            maxDuration: 200,             // Time to reach full stick deflection (milliseconds)
-                                         // Higher = slower ramp-up, more gradual acceleration
-                                         // Lower = faster response, more immediate full power
-            curve: 2,                    // Response curve shape (1 = linear, 2+ = exponential)
-                                         // Higher = more curved, slower start then rapid acceleration
-                                         // Lower = more linear, consistent acceleration rate
+            maxDuration: 200,
+            curve: 2,
             ...config.keyboardConfig
         };
         
         // Keyboard state tracking
         this.keyboardState = {
-            left: { w: 0, a: 0, s: 0, d: 0 }, // WASD for left stick
-            right: { up: 0, left: 0, down: 0, right: 0 } // Arrows for right stick
-        };
-        
-        // Initialize stickiness system
-        this.stickyConstraints = {
-            head: [],  // Array of active sticky constraints for head section
-            tail: []   // Array of active sticky constraints for tail section
-        };
-        
-        // Initialize pulsating circles for stickiness visual feedback
-        this.stickinessCircles = new Map(); // Map constraint → circle graphics
-        
-        // Initialize roll mode state
-        this.rollMode = {
-            active: false,                      // Whether roll mode is currently active
-            transitioning: false,               // Whether we're transitioning in/out
-            chordConstraints: [],               // Active chord constraints
-            wheelCenter: { x: 0, y: 0 },        // Calculated center of wheel
-            angularVelocity: 0,                 // Current rotational velocity
-            transitionTween: null,              // Active transition tween
-            stickHistory: [],                   // History of stick positions for circular motion detection
-            lastStickAngle: null,              // Last stick angle for rotation tracking
-            accumulatedRotation: 0,             // Total rotation accumulated
-            buttonWasPressed: false             // Track previous button state for edge detection
-        };
-        
-        // Mode priority state tracking
-        this.modeState = {
-            rollButtonDown: false,
-            jumpButtonDown: false,
-            currentMode: 'none',  // 'none', 'roll', 'jump'
-            lastButtonPressed: null  // Track which button was pressed last
+            left: { w: 0, a: 0, s: 0, d: 0 },
+            right: { up: 0, left: 0, down: 0, right: 0 }
         };
         
         // Register the '1' key for roll mode activation
@@ -266,331 +160,75 @@ export default class DoubleWorm extends WormBase {
             this.rollKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
         }
         
-        // Initialize anchor system
-        this.anchors = {
-            head: {
-                body: null,
-                constraint: null,
-                attachIndex: swingConfig.headAttachIndex,
-                restPos: { x: 0, y: 0 },
-                rangeGraphics: null,
-                stickIndicator: null,
-                color: this.config.headColor,
-                strokeColor: this.config.headStrokeColor,
-                stickState: swingConfig.swapControls ? this.rightStickState : this.leftStickState
-            },
-            tail: {
-                body: null,
-                constraint: null,
-                attachIndex: 0, // Will be set after segments are created
-                restPos: { x: 0, y: 0 },
-                rangeGraphics: null,
-                stickIndicator: null,
-                color: this.config.tailColor,
-                strokeColor: this.config.tailStrokeColor,
-                stickState: swingConfig.swapControls ? this.leftStickState : this.rightStickState
-            }
-        };
+        // Initialize state machine
+        this.stateMachine = new AbilityStateMachine();
         
-        // Set correct tail attach index now that segments exist
-        this.anchors.tail.attachIndex = this.segments.length - swingConfig.tailAttachFromEnd;
+        // Initialize abilities with full config
+        this.movementAbility = new MovementAbility(this, swingConfig);
+        this.jumpAbility = new JumpAbility(this, { ...swingConfig.jump, ...swingConfig });
+        this.rollAbility = new RollAbility(this, { ...swingConfig.roll, ...swingConfig });
+        this.grabAbility = new GrabAbility(this, { ...swingConfig.grab, ...swingConfig });
         
-        // Create section configuration for systematic processing
-        this.sections = {
-            head: {
-                name: 'head',
-                stick: swingConfig.swapControls ? this.rightStickState : this.leftStickState,
-                anchor: this.anchors.head,
-                springData: null, // Will be set after jump springs are initialized
-                segmentRange: { start: 0, end: this.config.grab.headSegmentCount },
-                stickinessSegmentCount: this.config.grab.headSegmentCount,
-                color: this.config.headColor,
-                strokeColor: this.config.headStrokeColor,
-                oppositeRangeForGrounding: { start: 0.7, end: 1.0 }
-            },
-            tail: {
-                name: 'tail',
-                stick: swingConfig.swapControls ? this.leftStickState : this.rightStickState,
-                anchor: this.anchors.tail,
-                springData: null, // Will be set after jump springs are initialized
-                segmentRange: { start: 1 - this.config.grab.tailSegmentCount, end: 1 },
-                stickinessSegmentCount: this.config.grab.tailSegmentCount,
-                color: this.config.tailColor,
-                strokeColor: this.config.tailStrokeColor,
-                oppositeRangeForGrounding: { start: 0.0, end: 0.3 }
-            }
-        };
+        // Set cross-references
+        this.rollAbility.setMovementAbility(this.movementAbility);
         
-        // Create anchor system
-        this.createAnchors();
-
-        // Initialize spring system
-        this.jumpSprings = {
-            head: {
-                spring: null,
-                attached: false,
-                length: 0,
-                laser: this.scene.add.graphics(),
-                color: this.config.headColor,
-                getSegments: () => ({
-                    from: this.segments[0],
-                    to: this.segments[this.segments.length - 2]
-                })
-            },
-            tail: {
-                spring: null,
-                attached: false,
-                length: 0,
-                laser: this.scene.add.graphics(),
-                color: this.config.tailColor,
-                getSegments: () => ({
-                    from: this.segments[this.segments.length - 1],
-                    to: this.segments[1]
-                })
-            }
-        };
+        // Initialize jump spring lengths while worm is in resting position
+        this.jumpAbility.initializeSpringLengths();
         
-        // Set laser depths
-        Object.values(this.jumpSprings).forEach(springData => {
-            springData.laser.setDepth(100);
-        });
+        // Set up state machine listeners
+        this.setupStateMachineListeners();
         
-        // Link sections to their corresponding spring data
-        this.sections.head.springData = this.jumpSprings.head;
-        this.sections.tail.springData = this.jumpSprings.tail;
-        
-        // Calculate initial worm lengths for jump springs
-        this.calculateInitialLengths();
+        // Activate default abilities
+        this.movementAbility.activate();
+        this.grabAbility.activate();
     }
     
-    createAnchors() {
-        const constraints = [];
-        
-        Object.entries(this.anchors).forEach(([type, anchorData]) => {
-            const attachSegment = this.segments[anchorData.attachIndex];
-            
-            // Create anchor body
-            anchorData.body = this.matter.add.circle(
-                attachSegment.position.x,
-                attachSegment.position.y,
-                this.config.anchorSensorRadius,
-                {
-                    label: `worm_anchor_${type}`,
-                    isSensor: false,
-                    density: this.config.anchorDensity,
-                    collisionFilter: {
-                        category: 0x0004,  // Unique category for anchors
-                        mask: 0x0000       // Collide with nothing
-                    },
-                    render: {
-                        fillStyle: this.colorToHex(anchorData.color),
-                        strokeStyle: this.colorToHex(anchorData.strokeColor),
-                        lineWidth: 2,
-                        visible: this.config.showDebug
-                    }
-                }
-            );
-            
-            // Create constraint
-            anchorData.constraint = this.Matter.Constraint.create({
-                bodyA: anchorData.body,
-                bodyB: attachSegment,
-                stiffness: this.anchorStiffness,
-                damping: this.anchorDamping,
-                length: 0,
-                render: {
-                    visible: this.config.showDebug,
-                    strokeStyle: this.colorToHex(anchorData.color),
-                    lineWidth: 2
-                }
-            });
-            
-            constraints.push(anchorData.constraint);
-            
-            // Store rest position
-            anchorData.restPos.x = attachSegment.position.x;
-            anchorData.restPos.y = attachSegment.position.y;
-            
-            // Create visual indicators
-            anchorData.rangeGraphics = this.scene.add.graphics();
-            anchorData.rangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, anchorData.color, this.config.rangeIndicatorAlpha);
-            anchorData.rangeGraphics.strokeCircle(anchorData.restPos.x, anchorData.restPos.y, this.anchorRadius);
-            
-            // Create stick position indicators
-            anchorData.stickIndicator = this.scene.add.graphics();
-            anchorData.stickIndicator.fillStyle(anchorData.color, 0.8);
-            anchorData.stickIndicator.fillCircle(0, 0, this.config.stickIndicatorRadius);
+    setupStateMachineListeners() {
+        // Listen for state changes to activate/deactivate abilities
+        this.stateMachine.on('enter:default', () => {
+            this.jumpAbility.deactivate();
+            this.rollAbility.deactivate();
         });
         
-        // Add all constraints to the world
-        this.Matter.World.add(this.matter.world.localWorld, constraints);
-    }
-    
-    calculateInitialLengths() {
-        if (this.segments.length > 2) {
-            const segA = this.segments[0];
-            const segB = this.segments[this.segments.length - 2];
-            this.jumpSprings.head.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jump.springLengthMultiplier;
-        }
-        
-        if (this.segments.length > 2) {
-            const segA = this.segments[1];
-            const segB = this.segments[this.segments.length - 1];
-            this.jumpSprings.tail.length = Phaser.Math.Distance.BetweenPoints(segA.position, segB.position) * this.config.jump.springLengthMultiplier;
-        }
-    }
-
-    createJumpSegment(from, to, length, stiffness) {
-        const spring = this.Matter.Constraint.create({
-            bodyA: from,
-            bodyB: to,
-            length: length,
-            stiffness: stiffness,
+        this.stateMachine.on('enter:jumping', () => {
+            this.rollAbility.deactivate();
+            this.jumpAbility.activate();
         });
         
-        return spring;
+        this.stateMachine.on('enter:rolling', () => {
+            this.jumpAbility.deactivate();
+            this.rollAbility.activate();
+        });
     }
-    
     
     update(delta) {
         // Call parent update for graphics
         super.update(delta);
     }
     
-    // Override destroy to clean up swing components
-    destroy() {
-        console.log('DoubleWorm.destroy() - Starting cleanup');
-        
-        // Clean up anchors
-        const anchorCount = Object.keys(this.anchors).length;
-        Object.values(this.anchors).forEach(anchorData => {
-            if (anchorData.body && this.matter && this.matter.world) {
-                try {
-                    this.matter.world.remove(anchorData.body);
-                } catch (error) {
-                    console.warn('Failed to remove anchor body:', error);
-                }
-            }
-            if (anchorData.constraint && this.matter && this.matter.world) {
-                try {
-                    this.matter.world.remove(anchorData.constraint);
-                } catch (error) {
-                    console.warn('Failed to remove anchor constraint:', error);
-                }
-            }
-            if (anchorData.rangeGraphics) {
-                try {
-                    anchorData.rangeGraphics.destroy();
-                } catch (error) {
-                    console.warn('Failed to destroy range graphics:', error);
-                }
-            }
-            if (anchorData.stickIndicator) {
-                try {
-                    anchorData.stickIndicator.destroy();
-                } catch (error) {
-                    console.warn('Failed to destroy stick indicator:', error);
-                }
-            }
-        });
-        console.log(`Cleaned up ${anchorCount} anchor constraints`);
-        
-        // Clean up jump springs if attached
-        let jumpSpringCount = 0;
-        Object.values(this.jumpSprings).forEach(springData => {
-            if (springData.spring && springData.attached && this.matter && this.matter.world) {
-                try {
-                    this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
-                    jumpSpringCount++;
-                } catch (error) {
-                    console.warn('Failed to remove jump spring:', error);
-                }
-            }
-            if (springData.laser) {
-                try {
-                    springData.laser.destroy();
-                } catch (error) {
-                    console.warn('Failed to destroy spring laser:', error);
-                }
-            }
-            // Clean up ground-anchored spring properties
-            if (springData.isGroundAnchored) {
-                springData.isGroundAnchored = false;
-                springData.groundBody = null;
-                springData.groundedSegment = null;
-            }
-        });
-        console.log(`Cleaned up ${jumpSpringCount} jump spring constraints`);
-        
-        // Clean up sticky constraints and circles
-        let stickyConstraintCount = 0;
-        if (this.stickyConstraints && this.matter && this.matter.world) {
-            Object.values(this.stickyConstraints).forEach(constraints => {
-                constraints.forEach(constraintData => {
-                    try {
-                        if (constraintData.constraint) {
-                            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-                            this.removeStickinessCircle(constraintData.constraint);
-                            stickyConstraintCount++;
-                        }
-                    } catch (error) {
-                        console.warn('Failed to remove sticky constraint:', error);
-                    }
-                });
-            });
-        }
-        console.log(`Cleaned up ${stickyConstraintCount} sticky constraints`);
-        
-        // Clean up any remaining stickiness circles
-        if (this.stickinessCircles) {
-            this.stickinessCircles.forEach((circle, constraint) => {
-                if (circle && circle.scene) {
-                    circle.destroy();
-                }
-            });
-            this.stickinessCircles.clear();
-        }
-        
-        // Clean up roll mode
-        if (this.rollMode) {
-            // Exit roll mode if active
-            if (this.rollMode.active || this.rollMode.transitioning) {
-                this.exitRollMode(false);
-            }
-        }
-        
-        // Call parent destroy
-        console.log('DoubleWorm.destroy() - Calling parent destroy');
-        super.destroy();
-        console.log('DoubleWorm.destroy() completed');
-    }
-
     updateMovement(delta) {
-        this.updateStickDisplay();
         const pad = this.scene?.input?.gamepad?.getPad(0);
+        const deltaSeconds = delta / 1000;
         
-        const deltaSeconds = delta / 1000; // Convert to seconds
+        // Get input states
+        const leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
+        const rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
         
-        this.leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
-        this.rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
-        
-        // Check for roll mode activation/deactivation with '1' key or gamepad button 0
+        // Check for roll mode activation with '1' key or gamepad button 0
         const oneKeyPressed = this.rollKey && this.rollKey.isDown;
         const gamepadButton0 = pad && pad.buttons[0] && pad.buttons[0].pressed;
         const rollButtonPressed = oneKeyPressed || gamepadButton0;
-
+        
+        // Get stick inputs
         let leftStick, rightStick;
-
         if (pad) {
-            // Use gamepad if available
             leftStick = pad.leftStick;
             rightStick = pad.rightStick;
             
-            // But also check keyboard and combine inputs
+            // Combine with keyboard inputs
             const keyboardLeft = this.simulateStickFromKeyboard('left', delta);
             const keyboardRight = this.simulateStickFromKeyboard('right', delta);
             
-            // Combine gamepad and keyboard inputs (take the one with larger magnitude)
             const padLeftMag = Math.sqrt(leftStick.x * leftStick.x + leftStick.y * leftStick.y);
             const keyLeftMag = Math.sqrt(keyboardLeft.x * keyboardLeft.x + keyboardLeft.y * keyboardLeft.y);
             if (keyLeftMag > padLeftMag) {
@@ -603,49 +241,22 @@ export default class DoubleWorm extends WormBase {
                 rightStick = keyboardRight;
             }
         } else {
-            // Fall back to keyboard simulation only
             leftStick = this.simulateStickFromKeyboard('left', delta);
             rightStick = this.simulateStickFromKeyboard('right', delta);
         }
         
-        // Update stick states
-        this.updateStickState(this.leftStickState, leftStick, deltaSeconds);
-        this.updateStickState(this.rightStickState, rightStick, deltaSeconds);
-        
-        // Determine which sticks control which sections based on swapControls
-        const headStick = this.config.swapControls ? rightStick : leftStick;
-        const tailStick = this.config.swapControls ? leftStick : rightStick;
-        
-        // Handle roll mode physics
-        if (this.rollMode.active) {
-            this.updateRollPhysics(delta);
-            this.processCrankingInput(headStick, delta);
-            
-            // Skip all normal movement in roll mode
-        } else if (!this.rollMode.transitioning) {
-            // Normal movement mode
-            // Update anchor positions using section-based processing
-            const sectionForces = this.updateSectionAnchors([
-                { section: this.sections.head, stick: headStick },
-                { section: this.sections.tail, stick: tailStick }
-            ], delta);
-            
-            // Apply counter-forces to middle segments to prevent unnatural movement
-            // Pass in the forces being applied to head and tail
-            this.applyBodyStabilizationForces(sectionForces.head, sectionForces.tail, delta);
-        }
-        
-        // Handle triggers to attach/detach and stiffen springs
+        // Get trigger inputs
         const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
         const rightTrigger = pad && pad.buttons[7] ? pad.buttons[7].value : 0;
         
-        // Always check keyboard keys for jump (works even with gamepad connected)
+        // Check keyboard keys for jump
         const keyboard = this.scene.input.keyboard;
         const spacePressed = keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SPACE]?.isDown;
         const slashPressed = keyboard.keys[191]?.isDown ||
-            keyboard.keys[Phaser.Input.Keyboard.KeyCodes.QUESTION_MARK]?.isDown || (keyboard.addKey && keyboard.addKey(191).isDown);
+            keyboard.keys[Phaser.Input.Keyboard.KeyCodes.QUESTION_MARK]?.isDown || 
+            (keyboard.addKey && keyboard.addKey(191).isDown);
         
-        // Determine which triggers control which sections based on swapControls
+        // Combine trigger values with keyboard
         const headTriggerValue = this.config.swapControls ? 
             Math.max(rightTrigger, slashPressed ? 1.0 : 0) : 
             Math.max(leftTrigger, spacePressed ? 1.0 : 0);
@@ -653,1574 +264,130 @@ export default class DoubleWorm extends WormBase {
             Math.max(leftTrigger, spacePressed ? 1.0 : 0) : 
             Math.max(rightTrigger, slashPressed ? 1.0 : 0);
         
-        // Check if jump button is pressed (either trigger)
+        // Check if jump button is pressed
         const jumpButtonPressed = (headTriggerValue > 0.1 || tailTriggerValue > 0.1);
         
-        // Update button states and handle mode transitions
-        this.handleModeTransitions(rollButtonPressed, jumpButtonPressed);
-        
-        // Execute current mode behavior
-        if (this.modeState.currentMode === 'roll' && !this.rollMode.transitioning) {
-            // In roll mode - ensure jump springs are detached
-            if (this.jumpSprings.head.attached) {
-                this.detachSpring('head');
-            }
-            if (this.jumpSprings.tail.attached) {
-                this.detachSpring('tail');
-            }
-        } else if (this.modeState.currentMode === 'jump') {
-            // In jump mode - always handle jump springs
-            if (this.abilities.jump) {
-                this.handleJumpSpring('head', headTriggerValue);
-                this.handleJumpSpring('tail', tailTriggerValue);
-            }
-        } else if (this.modeState.currentMode === 'none') {
-            // Not in any mode - handle springs normally (allows jump without mode)
-            if (this.abilities.jump) {
-                this.handleJumpSpring('head', headTriggerValue);
-                this.handleJumpSpring('tail', tailTriggerValue);
-            }
-        }
-        
-        // Update compression spring stiffness based on trigger values
-        const maxTriggerValue = Math.max(headTriggerValue, tailTriggerValue);
-        const compressionStiffness = this.config.jump.baseCompressionStiffness + 
-            (maxTriggerValue * this.config.jump.compressionTriggerSensitivity * 
-             (this.config.jump.maxCompressionStiffness - this.config.jump.baseCompressionStiffness));
-        this.updateCompressionStiffness(compressionStiffness);
-        
-        // Skip stickiness system when in roll mode or if grab is disabled
-        if (!this.rollMode.active && !this.rollMode.transitioning && this.abilities.grab) {
-            // Determine which grab buttons control which sections based on swapControls
-            const headGrabActive = this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0;
-            const tailGrabActive = this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0;
-            
-            // Update stickiness system using section-based processing
-            this.updateStickinessSystemSections([
-                { section: this.sections.head, stick: headStick, active: headGrabActive },
-                { section: this.sections.tail, stick: tailStick, active: tailGrabActive }
-            ]);
-            
-            // Clean up invalid sticky constraints
-            this.cleanupInvalidStickyConstraints();
-        }
-    }
-    
-    applyBodyStabilizationForces(headForces, tailForces, delta) {
-        // Ensure input forces are valid
-        if (!headForces || !tailForces || 
-            !Number.isFinite(headForces.x) || !Number.isFinite(headForces.y) ||
-            !Number.isFinite(tailForces.x) || !Number.isFinite(tailForces.y)) {
-            return; // Invalid forces, skip
-        }
-        
-        // Calculate total forces being applied
-        const totalForce = {
-            x: (headForces.x + tailForces.x) * this.config.ground.percentageForce,
-            y: (headForces.y + tailForces.y) * this.config.ground.percentageForce,
-        };
-        
-        // Calculate the magnitude of forces at each end
-        const headMag = Math.sqrt(headForces.x ** 2 + headForces.y ** 2);
-        const tailMag = Math.sqrt(tailForces.x ** 2 + tailForces.y ** 2);
-        
-        // Only apply stabilization if there are significant forces
-        const minForceMagnitude = 0.00001;
-        if (headMag < minForceMagnitude && tailMag < minForceMagnitude) {
-            return; // No significant forces to counter
-        }
-        
-        // Calculate middle segments
-        const totalSegments = this.segments.length;
-        const middleCount = Math.floor(totalSegments * this.groundingSegments);
-        const startIndex = Math.floor((totalSegments - middleCount) / 2);
-        const endIndex = startIndex + middleCount;
-        const actualMiddleCount = endIndex - startIndex;
-        
-        // Offset the center weight distribution (0.0 = normal center, higher = shifted toward actual center)
-        const centerOffset = this.config.ground.centerOffset;
-        
-        if (actualMiddleCount <= 0) return; // No middle segments to apply forces to
-        
-        // Calculate total weight for normalization
-        let totalWeight = 0;
-        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
-            const positionInMiddle = (i - startIndex) / Math.max(1, actualMiddleCount - 1);
-            
-            // Shift the center position based on which side we're on
-            let adjustedPosition = positionInMiddle;
-            if (positionInMiddle < 0.5) {
-                // Left side - shift toward center
-                adjustedPosition = positionInMiddle + (centerOffset * (0.5 - positionInMiddle));
-            } else {
-                // Right side - shift toward center
-                adjustedPosition = positionInMiddle - (centerOffset * (positionInMiddle - 0.5));
-            }
-            
-            // Center segments get more weight (1.0 at center, approaching 0 at edges)
-            const centerWeight = 1 - Math.abs(adjustedPosition - 0.5) * 2;
-            totalWeight += centerWeight;
-        }
-        
-        if (totalWeight <= 0) return; // Safety check
-        
-        // Distribute counter-force across body segments with center weighting
-        let totalAppliedX = 0;
-        let totalAppliedY = 0;
-        
-        for (let i = startIndex; i < endIndex && i < totalSegments; i++) {
-            const segment = this.segments[i];
-            
-            // Calculate position in middle section (0 = start, 1 = end)
-            const positionInMiddle = (i - startIndex) / Math.max(1, actualMiddleCount - 1);
-            
-            // Shift the center position based on which side we're on
-            let adjustedPosition = positionInMiddle;
-            if (positionInMiddle < 0.5) {
-                // Left side - shift toward center
-                adjustedPosition = positionInMiddle + (centerOffset * (0.5 - positionInMiddle));
-            } else {
-                // Right side - shift toward center
-                adjustedPosition = positionInMiddle - (centerOffset * (positionInMiddle - 0.5));
-            }
-            
-            // Center segments get more weight (1.0 at center, approaching 0 at edges)
-            const centerWeight = 1 - Math.abs(adjustedPosition - 0.5) * 2;
-            const normalizedWeight = centerWeight / totalWeight;
-            
-            // Each segment gets its weighted share of the counter-force
-            const segmentCounterForce = {
-                x: -totalForce.x * normalizedWeight,
-                y: -totalForce.y * normalizedWeight
-            };
-            
-            // Apply the force to this segment
-            this.matter.body.applyForce(segment, segment.position, segmentCounterForce);
-            
-            // Track total applied forces for plotting
-            totalAppliedX += segmentCounterForce.x;
-            totalAppliedY += segmentCounterForce.y;
-        }
-    }
-
-    updateStickDisplay() {
-        Object.values(this.anchors).forEach(anchorData => {
-            // Skip tail anchor updates during roll mode
-            if (this.rollMode.active && anchorData === this.anchors.tail) {
-                return;
-            }
-            
-            // Update range graphics
-            anchorData.rangeGraphics.clear();
-            anchorData.rangeGraphics.lineStyle(this.config.rangeIndicatorLineWidth, anchorData.color, this.config.rangeIndicatorAlpha);
-            anchorData.rangeGraphics.strokeCircle(anchorData.restPos.x, anchorData.restPos.y, this.anchorRadius);
-            
-            // Update stick position indicators
-            anchorData.stickIndicator.x = anchorData.restPos.x + (anchorData.stickState.x * this.anchorRadius);
-            anchorData.stickIndicator.y = anchorData.restPos.y + (anchorData.stickState.y * this.anchorRadius);
-        });
-    }
-    
-    updateSectionAnchors(sectionStickPairs, delta) {
-        const forces = {};
-        
-        // Process each section systematically
-        sectionStickPairs.forEach(({ section }) => {
-            forces[section.name] = this.updateAnchorPositionSection(section, delta);
-        });
-        
-        return forces;
-    }
-    
-    updateAnchorPositionSection(section, delta) {
-        const anchorData = section.anchor;
-        if (!anchorData.body) return { x: 0, y: 0 };
-        
-        // Track total forces applied
-        let totalForce = { x: 0, y: 0 };
-        
-        // Get the segment that this anchor is attached to
-        const segment = this.segments[anchorData.attachIndex];
-        const stickState = section.stick;
-        const restPos = anchorData.restPos;
-        
-        // Update rest position to follow the attached segment
-        // Skip this if in roll mode and this is the head anchor (it's already set to wheel center)
-        if (!(this.rollMode.active && section.name === 'head')) {
-            restPos.x = segment.position.x;
-            restPos.y = segment.position.y;
-        }
-        
-        // When stick is centered, move anchor to appropriate position to prevent pullback
-        if (Math.abs(stickState.x) <= this.config.stickDeadzone && Math.abs(stickState.y) <= this.config.stickDeadzone) {
-            // In roll mode, head anchor should center at wheel center
-            if (this.rollMode.active && section.name === 'head') {
-                this.Matter.Body.setPosition(anchorData.body, { x: restPos.x, y: restPos.y });
-            } else {
-                this.Matter.Body.setPosition(anchorData.body, { x: segment.position.x, y: segment.position.y });
-            }
-        }
-        
-        // Apply position-based force only when stick is actively moved
-        if (Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) {
-            // Calculate target position based on stick input
-            const targetX = restPos.x + (stickState.x * this.anchorRadius);
-            const targetY = restPos.y + (stickState.y * this.anchorRadius);
-            
-            // Move anchor to target position
-            this.Matter.Body.setPosition(anchorData.body, { x: targetX, y: targetY });
-            
-            // Calculate force toward target position
-            const dx = targetX - segment.position.x;
-            const dy = targetY - segment.position.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance > this.config.minDistanceThreshold) {
-                // Apply force proportional to distance
-                const forceMagnitude = distance * this.config.positionForceMagnitude;
-                const forceX = (dx / distance) * forceMagnitude;
-                const forceY = (dy / distance) * forceMagnitude;
-                
-                // In roll mode with head anchor, apply torque to the wheel instead of direct force
-                if (this.rollMode.active && section.name === 'head') {
-                    // Only apply force if we've detected circular motion
-                    const rotationThreshold = 0.3; // Radians of rotation needed
-                    
-                    if (Math.abs(this.rollMode.accumulatedRotation) > rotationThreshold) {
-                        // Apply rotation force based on accumulated rotation direction
-                        const rotationDirection = Math.sign(this.rollMode.accumulatedRotation);
-                        
-                        // Apply tangential forces to create rotation
-                        this.segments.forEach(seg => {
-                            const segDx = seg.position.x - this.rollMode.wheelCenter.x;
-                            const segDy = seg.position.y - this.rollMode.wheelCenter.y;
-                            const segDist = Math.sqrt(segDx * segDx + segDy * segDy);
-                            
-                            if (segDist > 0.1) {
-                                // Force perpendicular to radius (creates rotation)
-                                const forceMag = forceMagnitude * 0.02 * rotationDirection;
-                                const tangentX = -segDy / segDist * forceMag;
-                                const tangentY = segDx / segDist * forceMag;
-                                
-                                this.matter.body.applyForce(seg, seg.position, { x: tangentX, y: tangentY });
-                            }
-                        });
-                        
-                        // Decay accumulated rotation
-                        this.rollMode.accumulatedRotation *= 0.9;
-                    }
-                } else {
-                    // Normal force application
-                    this.matter.body.applyForce(segment, segment.position, { x: forceX, y: forceY });
-                }
-                
-                totalForce.x += forceX;
-                totalForce.y += forceY;
-            }
-        }
-        
-        // Apply velocity-based impulse only when stick is active and not on release or returning to center
-        if ((Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone) && 
-            !stickState.released && !stickState.returningToCenter) {
-            const mass = segment.mass;
-            // Use appropriate impulse multiplier based on section
-            const impulseMultiplier = section.name === 'head' ? this.headImpulseMultiplier : this.tailImpulseMultiplier;
-            let impulseX = stickState.velocity.x * impulseMultiplier * mass;
-            let impulseY = stickState.velocity.y * impulseMultiplier * mass;
-            
-            // Cap the impulse force magnitude to prevent oversensitivity
-            const impulseMagnitude = Math.sqrt(impulseX * impulseX + impulseY * impulseY);
-            // Tick.push(`${section.name} impulse`, impulseMagnitude, section.color);
-
-            if (impulseMagnitude > this.config.maxImpulseForce) {
-                const scale = this.config.maxImpulseForce / impulseMagnitude;
-                impulseX *= scale;
-                impulseY *= scale;
-                // Tick.push(`${section.name} scale`, scale, section.color);
-            }
-            
-            if (Math.abs(impulseX) > this.config.minForceThreshold || Math.abs(impulseY) > this.config.minForceThreshold) {
-                this.matter.body.applyForce(segment, segment.position, { x: impulseX, y: impulseY });
-                totalForce.x += impulseX;
-                totalForce.y += impulseY;
-            }
-        }
-        
-        return totalForce;
-    }
-    
-    updateStickState(stickState, gamepadStick, deltaSeconds) {
-        if (!gamepadStick) return;
-        
-        // Store previous position
-        stickState.prevX = stickState.x;
-        stickState.prevY = stickState.y;
-        
-        // Update current position
-        stickState.x = gamepadStick.x;
-        stickState.y = gamepadStick.y;
-        
-        // Check if this is a keyboard release
-        const isKeyboardRelease = gamepadStick.keyboardRelease || false;
-        
-        // Calculate current and previous magnitudes for directional momentum detection
-        const prevMagnitude = Math.sqrt(stickState.prevX * stickState.prevX + stickState.prevY * stickState.prevY);
-        const currentMagnitude = Math.sqrt(stickState.x * stickState.x + stickState.y * stickState.y);
-        
-        // Detect if stick is truly returning to center (moving toward center AND magnitude decreasing significantly)
-        // Only trigger when magnitude is decreasing substantially and moving toward deadzone
-        const movingTowardCenter = currentMagnitude < prevMagnitude * 0.85 && 
-                                  currentMagnitude < prevMagnitude - 0.1 &&
-                                  currentMagnitude > this.config.stickDeadzone;
-        
-        // Calculate velocity (change per second)
-        const deltaX = stickState.x - stickState.prevX;
-        const deltaY = stickState.y - stickState.prevY;
-        
-        // Velocity is change per second - normalized to target frame rate
-        if (deltaSeconds > 0 && !isKeyboardRelease && !movingTowardCenter) {
-            // Normalize velocity calculation to target frame rate
-            const targetDeltaSeconds = this.targetFrameTime / 1000;
-            const velocityScale = deltaSeconds / targetDeltaSeconds;
-            stickState.velocity.x = (deltaX / deltaSeconds) * velocityScale;
-            stickState.velocity.y = (deltaY / deltaSeconds) * velocityScale;
-        } else if (isKeyboardRelease || movingTowardCenter) {
-            // On keyboard release or when moving toward center, zero out velocity to prevent snapback
-            stickState.velocity.x = 0;
-            stickState.velocity.y = 0;
-        }
-        
-        // Track if stick is returning to center
-        stickState.returningToCenter = movingTowardCenter;
-        
-        // Apply damping to velocity (exponential decay over time)
-        // Normalize damping to target frame rate for consistent behavior
-        const normalizedDeltaSeconds = deltaSeconds * (this.config.targetFrameRate / 60);
-        const dampingFactor = Math.pow(this.velocityDamping, normalizedDeltaSeconds);
-        stickState.velocity.x *= dampingFactor;
-        stickState.velocity.y *= dampingFactor;
-        
-        // Detect release (stick returning to center)
-        const wasActive = Math.abs(stickState.prevX) > this.config.stickDeadzone || Math.abs(stickState.prevY) > this.config.stickDeadzone;
-        const isActive = Math.abs(stickState.x) > this.config.stickDeadzone || Math.abs(stickState.y) > this.config.stickDeadzone;
-        
-        if (wasActive && !isActive && !isKeyboardRelease) {
-            // Stick was released - apply impulse only for gamepad, not keyboard
-            stickState.released = true;
-        } else {
-            stickState.released = false;
-        }
-    }
-    
-    
-    simulateStickFromKeyboard(stick, delta) {
-        const keyboard = this.scene.input.keyboard;
-        const state = this.keyboardState[stick];
-        const kc = Phaser.Input.Keyboard.KeyCodes;
-        
-        // Check each direction using proper Phaser key checking
-        let isUpPressed, isLeftPressed, isDownPressed, isRightPressed;
-        
-        if (stick === 'left') {
-            // For WASD, try multiple ways to access the keys
-            isUpPressed = keyboard.keys[kc.W]?.isDown || 
-                         (this.scene.wasd && this.scene.wasd.W?.isDown) ||
-                         keyboard.checkDown(keyboard.addKey(kc.W));
-            isLeftPressed = keyboard.keys[kc.A]?.isDown || 
-                           (this.scene.wasd && this.scene.wasd.A?.isDown) ||
-                           keyboard.checkDown(keyboard.addKey(kc.A));
-            isDownPressed = keyboard.keys[kc.S]?.isDown || 
-                           (this.scene.wasd && this.scene.wasd.S?.isDown) ||
-                           keyboard.checkDown(keyboard.addKey(kc.S));
-            isRightPressed = keyboard.keys[kc.D]?.isDown || 
-                            (this.scene.wasd && this.scene.wasd.D?.isDown) ||
-                            keyboard.checkDown(keyboard.addKey(kc.D));
-        } else {
-            // Arrow keys work with standard method
-            isUpPressed = keyboard.keys[kc.UP]?.isDown;
-            isLeftPressed = keyboard.keys[kc.LEFT]?.isDown;
-            isDownPressed = keyboard.keys[kc.DOWN]?.isDown;
-            isRightPressed = keyboard.keys[kc.RIGHT]?.isDown;
-        }
-        
-        // Track if any key was just released
-        let keyboardRelease = false;
-        
-        // Update press durations
-        if (stick === 'left') {
-            if (!isUpPressed && state.w > 0) keyboardRelease = true;
-            if (!isLeftPressed && state.a > 0) keyboardRelease = true;
-            if (!isDownPressed && state.s > 0) keyboardRelease = true;
-            if (!isRightPressed && state.d > 0) keyboardRelease = true;
-            
-            state.w = isUpPressed ? Math.min(state.w + delta, this.keyboardConfig.maxDuration) : 0;
-            state.a = isLeftPressed ? Math.min(state.a + delta, this.keyboardConfig.maxDuration) : 0;
-            state.s = isDownPressed ? Math.min(state.s + delta, this.keyboardConfig.maxDuration) : 0;
-            state.d = isRightPressed ? Math.min(state.d + delta, this.keyboardConfig.maxDuration) : 0;
-        } else {
-            if (!isUpPressed && state.up > 0) keyboardRelease = true;
-            if (!isLeftPressed && state.left > 0) keyboardRelease = true;
-            if (!isDownPressed && state.down > 0) keyboardRelease = true;
-            if (!isRightPressed && state.right > 0) keyboardRelease = true;
-            
-            state.up = isUpPressed ? Math.min(state.up + delta, this.keyboardConfig.maxDuration) : 0;
-            state.left = isLeftPressed ? Math.min(state.left + delta, this.keyboardConfig.maxDuration) : 0;
-            state.down = isDownPressed ? Math.min(state.down + delta, this.keyboardConfig.maxDuration) : 0;
-            state.right = isRightPressed ? Math.min(state.right + delta, this.keyboardConfig.maxDuration) : 0;
-        }
-        
-        // Calculate stick values with configurable curve
-        const curve = this.keyboardConfig.curve;
-        const maxDur = this.keyboardConfig.maxDuration;
-        
-        const getValue = (duration) => {
-            const normalized = duration / maxDur;
-            return Math.pow(normalized, 1 / curve);
-        };
-        
-        // Calculate X and Y values
-        let x = 0;
-        let y = 0;
-        
-        if (stick === 'left') {
-            if (state.a > 0) x -= getValue(state.a);
-            if (state.d > 0) x += getValue(state.d);
-            if (state.w > 0) y -= getValue(state.w);
-            if (state.s > 0) y += getValue(state.s);
-        } else {
-            if (state.left > 0) x -= getValue(state.left);
-            if (state.right > 0) x += getValue(state.right);
-            if (state.up > 0) y -= getValue(state.up);
-            if (state.down > 0) y += getValue(state.down);
-        }
-        
-        // Normalize diagonal movement
-        const magnitude = Math.sqrt(x * x + y * y);
-        if (magnitude > 1) {
-            x /= magnitude;
-            y /= magnitude;
-        }
-        
-        return { x, y, keyboardRelease };
-    }
-    
-    showJumpTrajectory(type, fromSegment, toSegment) {
-        const springData = this.jumpSprings[type];
-        const laser = springData.laser;
-        const color = springData.color;
-        
-        // Clear previous drawing
-        laser.clear();
-        
-        // Calculate direction vector (from connection point to head/tail)
-        const dx = toSegment.position.x - fromSegment.position.x;
-        const dy = toSegment.position.y - fromSegment.position.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance > 0) {
-            // Normalize direction
-            const dirX = dx / distance;
-            const dirY = dy / distance;
-            
-            // Calculate laser length inversely proportional to distance
-            // When segments are close (compressed spring), laser is longer
-            // When segments are far (extended spring), laser is shorter
-            const springLength = this.jumpSprings[type].length;
-            const compressionRatio = Math.max(0, Math.min(1, (springLength - distance) / springLength));
-            // Laser length ranges from 1.1x to 1.5x the spring length
-            const laserLength = springLength * (compressionRatio * 1.3);
-            
-            // Draw laser beam
-            laser.lineStyle(this.config.jump.laser.lineWidth, color, 1);
-            laser.beginPath();
-            laser.moveTo(fromSegment.position.x, fromSegment.position.y);
-            laser.lineTo(
-                fromSegment.position.x + dirX * laserLength,
-                fromSegment.position.y + dirY * laserLength
-            );
-            laser.strokePath();
-            
-            // Add glow effect
-            laser.lineStyle(this.config.jump.laser.glowWidth, color, this.config.jump.laser.glowAlpha);
-            laser.beginPath();
-            laser.moveTo(fromSegment.position.x, fromSegment.position.y);
-            laser.lineTo(
-                fromSegment.position.x + dirX * laserLength,
-                fromSegment.position.y + dirY * laserLength
-            );
-            laser.strokePath();
-            
-            // Add arrow head at the end pointing in the direction of force
-            const arrowSize = this.config.jump.laser.arrowSize;
-            const arrowX = fromSegment.position.x + dirX * (laserLength - this.config.jump.laser.arrowOffset);
-            const arrowY = fromSegment.position.y + dirY * (laserLength - this.config.jump.laser.arrowOffset);
-            
-            laser.fillStyle(color, 1);
-            laser.beginPath();
-            laser.moveTo(arrowX + dirX * arrowSize, arrowY + dirY * arrowSize);
-            laser.lineTo(arrowX - dirY * arrowSize/2, arrowY + dirX * arrowSize/2);
-            laser.lineTo(arrowX + dirY * arrowSize/2, arrowY - dirX * arrowSize/2);
-            laser.closePath();
-            laser.fillPath();
-            
-            // Fade out the laser
-            laser.alpha = 1;
-            this.scene.tweens.add({
-                targets: laser,
-                alpha: 0,
-                duration: this.config.jump.laser.fadeDuration,
-                ease: 'Linear',
-                onComplete: () => {
-                    laser.clear();
-                }
-            });
-        }
-    }
-    
-    handleJumpSpring(type, triggerValue) {
-        const threshold = this.config.jump.triggerThreshold;
-        const isActive = triggerValue > threshold;
-        
-        const springData = this.jumpSprings[type];
-        if (!springData) return;
-        
-        // Only allow spring attachment when in jump mode or none mode
-        const canAttachSpring = (this.modeState.currentMode === 'jump' || this.modeState.currentMode === 'none');
-        
-        if (isActive) {
-            // Trigger is pressed
-            if (!springData.attached && canAttachSpring) {
-                // Need to attach
-                this.attachSpring(type, triggerValue);
-            } else if (springData.attached && springData.spring) {
-                // Already attached, update stiffness
-                this.updateSpringStiffness(type, triggerValue);
-            }
-        } else {
-            // Trigger is not pressed
-            if (springData.attached) {
-                // Need to detach
-                this.detachSpring(type);
-            }
-        }
-    }
-    
-    attachSpring(type, triggerValue) {
-        const springData = this.jumpSprings[type];
-        const segments = springData.getSegments();
-        const stiffness = this.calculateStiffness(triggerValue);
-        
-        // Check for ground contact on opposite end for smarter anchoring using section config
-        const section = this.sections[type];
-        const groundedSegments = this.getGroundedSegmentsInRange(
-            section.oppositeRangeForGrounding.start,
-            section.oppositeRangeForGrounding.end
-        );
-        
-        // Check if any segments in the grounding range are on ice (prevents anchoring)
-        const hasIceInGrip = this.hasIceInRange(
-            section.oppositeRangeForGrounding.start,
-            section.oppositeRangeForGrounding.end
-        );
-        
-        if (this.config.jump.useGroundAnchor && groundedSegments.length > 0 && !hasIceInGrip) {
-            // Use ground-anchored spring for better physics
-            const jumpingSegment = segments.from;
-            const bestGroundContact = groundedSegments[0]; // Already sorted by distance
-            
-            const springResult = this.createGroundAnchoredSpring(
-                jumpingSegment, 
-                bestGroundContact, 
-                springData.length, 
-                stiffness
-            );
-
-            
-            springData.spring = springResult.constraint;
-            springData.isGroundAnchored = true;
-            springData.groundBody = springResult.groundBody;
-            springData.groundedSegment = springResult.groundedSegment;
-            
-            // Show trajectory to ground contact point instead of segment
-            this.showJumpTrajectory(type, bestGroundContact.segment, jumpingSegment);
-        } else {
-            // Fallback to traditional segment-to-segment spring
-            springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
-            springData.isGroundAnchored = false;
-            
-            // Show traditional trajectory
-            this.showJumpTrajectory(type, segments.to, segments.from);
-        }
-        
-        this.Matter.World.add(this.matter.world.localWorld, springData.spring);
-        springData.attached = true;
-    }
-    
-    detachSpring(type) {
-        const springData = this.jumpSprings[type];
-        
-        if (springData.spring) {
-            this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
-            springData.spring = null;
-            springData.attached = false;
-            
-            // Clean up ground-anchored spring properties
-            if (springData.isGroundAnchored) {
-                springData.isGroundAnchored = false;
-                springData.groundBody = null;
-                springData.groundedSegment = null;
-            }
-        }
-    }
-    
-    updateSpringStiffness(type, triggerValue) {
-        const springData = this.jumpSprings[type];
-        if (springData.spring) {
-            // Check if we need to convert ground-anchored spring back to segment spring
-            if (springData.isGroundAnchored && springData.groundedSegment) {
-                const segmentIndex = this.segments.indexOf(springData.groundedSegment);
-                const collision = this.segmentCollisions[segmentIndex];
-                
-                // If the grounded segment is no longer touching the ground, convert to segment spring
-                if (!collision || !collision.isColliding || collision.surfaceBody !== springData.groundBody) {
-                    this.convertToSegmentSpring(type, triggerValue);
-                    return;
-                }
-            }
-            
-            springData.spring.stiffness = this.calculateStiffness(triggerValue);
-        }
-    }
-    
-    calculateStiffness(triggerValue) {
-        return triggerValue * this.config.jump.stiffness;
-    }
-    
-    convertToSegmentSpring(type, triggerValue) {
-        const springData = this.jumpSprings[type];
-        
-        // Remove the current ground-anchored spring
-        if (springData.spring) {
-            this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
-        }
-        
-        // Create new segment-to-segment spring
-        const segments = springData.getSegments();
-        const stiffness = this.calculateStiffness(triggerValue);
-
-        springData.spring = this.createJumpSegment(segments.from, segments.to, springData.length, stiffness);
-        this.Matter.World.add(this.matter.world.localWorld, springData.spring);
-        
-        // Clear ground-anchored properties
-        springData.isGroundAnchored = false;
-        springData.groundBody = null;
-        springData.groundedSegment = null;
-        
-        // Update trajectory visualization
-        this.showJumpTrajectory(type, segments.to, segments.from);
-    }
-    
-    
-    updateStickinessSystemSections(sectionStickPairs) {
-        // Process each section systematically
-        sectionStickPairs.forEach(({ section, stick, active }) => {
-            // const isActive = this.checkDirectionalStickinessSection(section, stick);
-            
-            if (active) {
-                this.activateStickiness(section.name);
-            } else {
-                this.deactivateStickiness(section.name);
-            }
-        });
-    }
-    
-    checkDirectionalStickinessSection(section, stick) {
-        if (!this.segments || !this.segmentCollisions) return false;
-        
-        // Get stick magnitude using base utility
-        const stickMagnitude = this.calculateStickMagnitude(stick);
-        if (stickMagnitude < this.config.grab.activationThreshold) {
-            return false;
-        }
-        
-        // Normalize stick direction using base utility
-        const stickDirection = this.normalizeStickDirection(stick);
-        
-        // Get segment range using section configuration
-        const { startIndex, endIndex } = this.getSegmentRange(
-            section.segmentRange.start, 
-            section.segmentRange.end
-        );
-        
-        // Check if any segment in range has collision where stick points toward surface
-        for (let i = startIndex; i < endIndex && i < this.segments.length; i++) {
-            const collision = this.segmentCollisions[i];
-            if (collision && collision.isColliding && collision.surfaceBody && collision.surfaceBody.isStatic) {
-                // Calculate if stick direction aligns with pushing into the surface
-                const surfaceInwardDirection = {
-                    x: -collision.surfaceNormal.x,
-                    y: -collision.surfaceNormal.y
-                };
-                
-                // Dot product tells us how aligned the stick is with pushing into surface
-                const alignment = stickDirection.x * surfaceInwardDirection.x + 
-                                stickDirection.y * surfaceInwardDirection.y;
-                
-                // If stick is pointing toward surface (positive dot product above threshold)
-                if (alignment > 0.5) { // 0.5 means ~60 degree cone toward surface
-                    return true;
-                }
-            }
-        }
-        
-        return false;
-    }
-    
-    activateStickiness(sectionName) {
-        if (!this.segments || !this.segmentCollisions) return;
-        
-        // Skip if grab system is temporarily disabled (during reset)
-        if (this.grabDisabled) return;
-        
-        // Get section configuration and touching segments using base utilities
-        const section = this.sections[sectionName];
-        
-        // Check if any segments in this section are on ice (prevents stickiness)
-        const hasIceInSection = this.hasIceInRange(
-            section.segmentRange.start, 
-            section.segmentRange.end
-        );
-        
-        // Can't stick to ice - deactivate and return early
-        if (hasIceInSection) {
-            this.deactivateStickiness(sectionName);
-            return;
-        }
-        
-        const touchingSegments = this.getTouchingSegments(
-            section.segmentRange.start, 
-            section.segmentRange.end
-        );
-        
-        // Create sticky constraints for new touching segments
-        const existingConstraints = this.stickyConstraints[sectionName];
-        const existingSegmentIndices = existingConstraints.map(c => c.segmentIndex);
-        
-        touchingSegments.forEach(touchingData => {
-            const { index, segment, collision } = touchingData;
-            
-            // Skip if already has constraint
-            if (existingSegmentIndices.includes(index)) return;
-            
-            // Create pin constraint at contact point
-            // Calculate relative positions on both bodies
-            const segmentRelativePoint = {
-                x: collision.contactPoint.x - segment.position.x,
-                y: collision.contactPoint.y - segment.position.y
-            };
-            const surfaceRelativePoint = {
-                x: collision.contactPoint.x - collision.surfaceBody.position.x,
-                y: collision.contactPoint.y - collision.surfaceBody.position.y
-            };
-            
-            const constraint = this.Matter.Constraint.create({
-                bodyA: segment,
-                bodyB: collision.surfaceBody,
-                pointA: segmentRelativePoint,
-                pointB: surfaceRelativePoint,
-                length: 0,
-                stiffness: this.config.grab.constraintStiffness,
-                damping: this.config.grab.constraintDamping,
-                render: {
-                    visible: this.config.showDebug,
-                    strokeStyle: section.name === 'head' ? '#ff6b6b' : '#74b9ff',
-                    lineWidth: 3
-                }
-            });
-            
-            // Add to world and track
-            this.Matter.World.add(this.matter.world.localWorld, constraint);
-            existingConstraints.push({
-                constraint: constraint,
-                segmentIndex: index,
-                surfaceBody: collision.surfaceBody
-            });
-            
-            // Create pulsating circle at contact point
-            this.createStickinessCircle(constraint, collision.contactPoint);
-        });
-    }
-    
-    deactivateStickiness(sectionName) {
-        const constraints = this.stickyConstraints[sectionName];
-        
-        // Remove all constraints and circles for this section
-        constraints.forEach(constraintData => {
-            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-            this.removeStickinessCircle(constraintData.constraint);
-        });
-        
-        // Clear the array
-        this.stickyConstraints[sectionName] = [];
-    }
-    
-    cleanupInvalidStickyConstraints() {
-        // Only clean up constraints when buttons are released
-        // Constraints should persist even if contact is lost while button is held
-        
-        ['head', 'tail'].forEach(section => {
-            const constraints = this.stickyConstraints[section];
-            const validConstraints = [];
-            
-            // Check if the grab button for this section is still pressed (respect swapControls)
-            const isGrabActive = section === 'head' ? 
-                (this.config.swapControls ? this.rightGrab > 0 : this.leftGrab > 0) :
-                (this.config.swapControls ? this.leftGrab > 0 : this.rightGrab > 0);
-            
-            constraints.forEach(constraintData => {
-                const { constraint } = constraintData;
-                
-                // Keep constraint if grab button is still pressed
-                if (isGrabActive) {
-                    validConstraints.push(constraintData);
-                } else {
-                    // Only remove constraint when button is released
-                    this.Matter.World.remove(this.matter.world.localWorld, constraint);
-                    this.removeStickinessCircle(constraint);
-                }
-            });
-            
-            this.stickyConstraints[section] = validConstraints;
-        });
-    }
-    
-    createStickinessCircle(constraint, contactPoint) {
-        const config = this.config.grab.visual;
-        
-        // Create a graphics object for the pulsating circle
-        const circle = this.scene.add.graphics();
-        circle.setPosition(contactPoint.x, contactPoint.y);
-        circle.setDepth(100); // Above segments and constraints
-        
-        // Create the pulsating animation
-        const pulseAnimation = this.scene.tweens.add({
-            targets: circle,
-            scaleX: config.pulseScale,
-            scaleY: config.pulseScale,
-            duration: config.pulseDuration / 2,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-        
-        // Store both the circle and its animation
-        this.stickinessCircles.set(constraint, {
-            graphics: circle,
-            animation: pulseAnimation
-        });
-        
-        // Draw the initial circle
-        this.drawStickinessCircle(circle, config);
-        
-        return circle;
-    }
-    
-    drawStickinessCircle(graphics, config) {
-        graphics.clear();
-        graphics.fillStyle(config.circleColor, config.circleAlpha);
-        graphics.lineStyle(config.strokeWidth, config.strokeColor, 1.0);
-        graphics.fillCircle(0, 0, config.circleRadius);
-        graphics.strokeCircle(0, 0, config.circleRadius);
-    }
-    
-    removeStickinessCircle(constraint) {
-        const circleData = this.stickinessCircles.get(constraint);
-        if (circleData) {
-            const { graphics, animation } = circleData;
-            
-            // Stop the animation
-            if (animation) {
-                animation.destroy();
-            }
-            
-            // Destroy the graphics object
-            if (graphics && graphics.scene) {
-                graphics.destroy();
-            }
-            
-            // Remove from tracking
-            this.stickinessCircles.delete(constraint);
-        }
-    }
-    
-    updateStickinessCirclePosition(constraint, newContactPoint) {
-        const circleData = this.stickinessCircles.get(constraint);
-        if (circleData && circleData.graphics) {
-            circleData.graphics.setPosition(newContactPoint.x, newContactPoint.y);
-        }
-    }
-    
-    
-    createGroundAnchoredSpring(jumpingSegment, groundedSegmentData, springLength, stiffness) {
-        const { segment: groundedSegment, collision } = groundedSegmentData;
-        
-        // Calculate relative position on ground body for the anchor point
-        const groundRelativePoint = {
-            x: collision.contactPoint.x - collision.surfaceBody.position.x,
-            y: collision.contactPoint.y - collision.surfaceBody.position.y
-        };
-        
-        // Create constraint from jumping segment to ground contact point
-        const spring = this.Matter.Constraint.create({
-            bodyA: jumpingSegment,
-            bodyB: collision.surfaceBody, // Anchor to static ground body
-            pointA: { x: 0, y: 0 }, // Center of jumping segment
-            pointB: groundRelativePoint, // Contact point on ground
-            length: springLength,
-            stiffness: stiffness,
-            render: {
-                visible: this.config.showDebug,
-                strokeStyle: '#00FF00', // Green for ground-anchored springs
-                lineWidth: 3
-            }
-        });
-        
-        return {
-            constraint: spring,
-            isGroundAnchored: true,
-            groundBody: collision.surfaceBody,
-            groundedSegment: groundedSegment
-        };
-    }
-    
-    // Roll mode methods
-    calculateWheelRadius() {
-        // Calculate ideal radius based on total segment perimeter
-        let totalPerimeter = 0;
-        this.segments.forEach((segment, i) => {
-            totalPerimeter += this.segmentRadii[i] * 2;
-        });
-        return totalPerimeter / (2 * Math.PI);
-    }
-    
-    calculateChordLength(fromIndex, toIndex, wheelRadius) {
-        const totalSegments = this.segments.length;
-        const skipCount = Math.abs(toIndex - fromIndex);
-        const angleRadians = (skipCount / totalSegments) * 2 * Math.PI;
-        // Chord length = 2 * radius * sin(angle/2)
-        const geometricLength = 2 * wheelRadius * Math.sin(angleRadians / 2);
-        return geometricLength * this.config.roll.chordLengthMultiplier;
-    }
-    
-    createChordConstraint(fromSegment, toSegment, length, stiffness = 0) {
-        return this.Matter.Constraint.create({
-            bodyA: fromSegment,
-            bodyB: toSegment,
-            length: length,
-            stiffness: stiffness, // Start at 0 for smooth transition
-            damping: this.config.roll.chordDamping,
-            render: {
-                visible: this.config.showDebug,
-            }
-        });
-    }
-    
-    createWheelConstraints() {
-        const wheelRadius = this.calculateWheelRadius();
-        const constraints = [];
-        
-        // Process each chord pattern
-        this.config.roll.chordPatterns.forEach(pattern => {
-            const { skip, count } = pattern;
-            
-            for (let i = 0; i < count; i++) {
-                const fromIndex = (i * skip) % this.segments.length;
-                const toIndex = ((i + 1) * skip) % this.segments.length;
-                
-                if (fromIndex !== toIndex) {
-                    const fromSegment = this.segments[fromIndex];
-                    const toSegment = this.segments[toIndex];
-                    const chordLength = this.calculateChordLength(fromIndex, toIndex, wheelRadius);
-                    
-                    const constraint = this.createChordConstraint(
-                        fromSegment,
-                        toSegment,
-                        chordLength,
-                        this.config.roll.startStiffness
-                    );
-                    
-                    constraints.push({
-                        constraint: constraint,
-                        fromIndex: fromIndex,
-                        toIndex: toIndex,
-                        targetStiffness: this.config.roll.endStiffness
-                    });
-                }
-            }
-        });
-        
-        // Add head-to-tail constraint to ensure closed wheel
-        const headSegment = this.segments[0];
-        const tailSegment = this.segments[this.segments.length - 1];
-        const headRadius = this.segmentRadii[0];
-        const tailRadius = this.segmentRadii[this.segments.length - 1];
-        
-        // Create constraint matching the normal segment connection pattern
-        const headTailConstraint = this.Matter.Constraint.create({
-            bodyA: tailSegment,
-            bodyB: headSegment,
-            pointA: { x: 0, y: tailRadius + 1 },  // Bottom of tail
-            pointB: { x: 0, y: -headRadius - 1 }, // Top of head
-            length: this.config.linkConstraint.length,
-            stiffness: this.config.roll.startStiffness,
-            damping: this.config.roll.chordDamping,
-        });
-        
-        constraints.push({
-            constraint: headTailConstraint,
-            fromIndex: 0,
-            toIndex: this.segments.length - 1,
-            targetStiffness: this.config.roll.endStiffness,
-            isHeadTail: true // Mark this as the special head-tail constraint
-        });
-        
-        return constraints;
-    }
-    
-    enterRollMode() {
-        if (this.rollMode.active || this.rollMode.transitioning) return;
-        
-        this.rollMode.transitioning = true;
-        
-        // Cancel any active jumps before entering roll mode
-        if (this.jumpSprings.head.attached) {
-            this.detachSpring('head');
-        }
-        if (this.jumpSprings.tail.attached) {
-            this.detachSpring('tail');
-        }
-        
-        // Create chord constraints
-        this.rollMode.chordConstraints = this.createWheelConstraints();
-        
-        // Add constraints to world
-        this.rollMode.chordConstraints.forEach(constraintData => {
-            this.Matter.World.add(this.matter.world.localWorld, constraintData.constraint);
-        });
-
-        // Disable normal movement systems
-        this.disableNormalMovement();
-        
-        // Animate constraint stiffening
-        this.rollMode.transitionTween = this.scene.tweens.add({
-            targets: this.rollMode,
-            duration: this.config.roll.formationTime,
-            ease: this.config.roll.stiffnessEaseType,
-            onUpdate: (tween) => {
-                const progress = tween.progress;
-                // Update all chord constraint stiffnesses
-                this.rollMode.chordConstraints.forEach(constraintData => {
-                    constraintData.constraint.stiffness = progress * constraintData.targetStiffness;
-                });
-            },
-            onComplete: () => {
-                this.rollMode.active = true;
-                this.rollMode.transitioning = false;
-                this.rollMode.transitionTween = null;
-            }
-        });
-    }
-    
-    exitRollMode(withJump = false) {
-        if (!this.rollMode.active && !this.rollMode.transitioning) return;
-        if (!this.matter.world) return;
-        
-        // Stop any ongoing transition
-        if (this.rollMode.transitionTween) {
-            this.rollMode.transitionTween.stop();
-            this.rollMode.transitionTween = null;
-        }
-        
-        // Calculate exit velocity boost if jumping
-        if (withJump && this.rollMode.active) {
-            this.applyRollExitBoost();
-        }
-        
-        // Remove all chord constraints
-        this.rollMode.chordConstraints.forEach(constraintData => {
-            this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-        });
-        this.rollMode.chordConstraints = [];
-        
-        // Re-enable normal movement
-        this.enableNormalMovement();
-        
-        // Reset state
-        this.rollMode.active = false;
-        this.rollMode.transitioning = false;
-        this.rollMode.angularVelocity = 0;
-    }
-    
-    disableNormalMovement() {
-        // Hide tail anchor visuals
-        if (this.anchors.tail.rangeGraphics) {
-            this.anchors.tail.rangeGraphics.visible = false;
-        }
-        if (this.anchors.tail.stickIndicator) {
-            this.anchors.tail.stickIndicator.visible = false;
-        }
-        
-        // Disable anchor constraints to allow free movement
-        if (this.anchors.tail.constraint) {
-            this.anchors.tail.constraint.stiffness = 0.000001;
-        }
-        if (this.anchors.head.constraint) {
-            this.anchors.head.constraint.stiffness = 0.000001;
-        }
-    }
-    
-    enableNormalMovement() {
-        // First, reposition anchors to their correct attached segments
-        Object.values(this.anchors).forEach(anchorData => {
-            if (anchorData.body && anchorData.attachIndex < this.segments.length) {
-                const attachSegment = this.segments[anchorData.attachIndex];
-                // Set position to attached segment
-                this.Matter.Body.setPosition(anchorData.body, {
-                    x: attachSegment.position.x,
-                    y: attachSegment.position.y
-                });
-                // Update rest position
-                anchorData.restPos.x = attachSegment.position.x;
-                anchorData.restPos.y = attachSegment.position.y;
-            }
-        });
-        
-        // Then restore tail anchor visuals (after positioning)
-        if (this.anchors.tail.rangeGraphics) {
-            this.anchors.tail.rangeGraphics.visible = true;
-        }
-        if (this.anchors.tail.stickIndicator) {
-            this.anchors.tail.stickIndicator.visible = true;
-        }
-        
-        // Finally restore anchor constraint stiffness
-        Object.values(this.anchors).forEach(anchorData => {
-            if (anchorData.constraint) {
-                anchorData.constraint.stiffness = this.anchorStiffness;
-            }
-        });
-    }
-    
-    applyRollExitBoost() {
-        // Convert angular velocity to linear velocity boost
-        const boost = this.config.roll.exitVelocityBoost;
-        const angularVel = this.rollMode.angularVelocity;
-        
-        // Apply tangential forces to maintain momentum
-        this.segments.forEach(segment => {
-            const dx = segment.position.x - this.rollMode.wheelCenter.x;
-            const dy = segment.position.y - this.rollMode.wheelCenter.y;
-            
-            // Tangential force components
-            const forceMagnitude = angularVel * boost * segment.mass * 0.1;
-            const fx = -dy * forceMagnitude;
-            const fy = dx * forceMagnitude;
-            
-            this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
-        });
-    }
-    
-    updateRollPhysics(delta) {
-        if (!this.rollMode.active) return;
-        
-        // Update wheel center
-        let centerX = 0, centerY = 0;
-        this.segments.forEach(segment => {
-            centerX += segment.position.x;
-            centerY += segment.position.y;
-        });
-        this.rollMode.wheelCenter.x = centerX / this.segments.length;
-        this.rollMode.wheelCenter.y = centerY / this.segments.length;
-        
-        // Move the head anchor to the wheel center
-        const headAnchor = this.anchors.head;
-        if (headAnchor.body) {
-            // Update anchor rest position to wheel center
-            headAnchor.restPos.x = this.rollMode.wheelCenter.x;
-            headAnchor.restPos.y = this.rollMode.wheelCenter.y;
-            
-            // Position the anchor body at the wheel center
-            this.Matter.Body.setPosition(headAnchor.body, {
-                x: this.rollMode.wheelCenter.x,
-                y: this.rollMode.wheelCenter.y
-            });
-        }
-        
-        // Keep tail anchor with its segment during roll mode
-        const tailAnchor = this.anchors.tail;
-        if (tailAnchor.body && tailAnchor.attachIndex < this.segments.length) {
-            const tailSegment = this.segments[tailAnchor.attachIndex];
-            this.Matter.Body.setPosition(tailAnchor.body, {
-                x: tailSegment.position.x,
-                y: tailSegment.position.y
-            });
-            // Update rest position too
-            tailAnchor.restPos.x = tailSegment.position.x;
-            tailAnchor.restPos.y = tailSegment.position.y;
-        }
-        
-        // Calculate and limit angular velocity
-        let totalAngularMomentum = 0;
-        let totalInertia = 0;
-        
-        this.segments.forEach(segment => {
-            const dx = segment.position.x - this.rollMode.wheelCenter.x;
-            const dy = segment.position.y - this.rollMode.wheelCenter.y;
-            const r = Math.sqrt(dx * dx + dy * dy);
-            
-            // Cross product of position and velocity gives angular momentum contribution
-            const angularMomentum = (dx * segment.velocity.y - dy * segment.velocity.x);
-            totalAngularMomentum += angularMomentum;
-            totalInertia += segment.mass * r * r;
-        });
-        
-        if (totalInertia > 0) {
-            this.rollMode.angularVelocity = totalAngularMomentum / totalInertia;
-            // Limit angular velocity using forces instead of setVelocity
-            // Tick.push('ang vel', this.rollMode.angularVelocity, 0x33ffff);
-            
-            if (Math.abs(this.rollMode.angularVelocity) > this.config.roll.maxAngularVelocity) {
-                this.rollMode.angularVelocity = Math.sign(this.rollMode.angularVelocity) * this.config.roll.maxAngularVelocity;
-                
-                // Apply opposing forces to slow down rotation naturally
-                this.segments.forEach(segment => {
-                    const dampingFactor = 0.98;
-                    const fx = -segment.velocity.x * (1 - dampingFactor);
-                    const fy = -segment.velocity.y * (1 - dampingFactor);
-                    this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
-                });
-            }
-            
-            // Anti-slip system: Check if we're slipping on the ground
-            let groundedSegments = [];
-            let avgRadius = 0;
-            let radiusCount = 0;
-            
-            this.segments.forEach((segment, index) => {
-                // Calculate radius for this segment
-                const dx = segment.position.x - this.rollMode.wheelCenter.x;
-                const dy = segment.position.y - this.rollMode.wheelCenter.y;
-                const r = Math.sqrt(dx * dx + dy * dy);
-                if (r > 0.1) {
-                    avgRadius += r;
-                    radiusCount++;
-                }
-                
-                // Check if grounded
-                if (this.segmentCollisions[index] && 
-                    this.segmentCollisions[index].isColliding && 
-                    this.segmentCollisions[index].surfaceBody &&
-                    this.segmentCollisions[index].surfaceBody.isStatic) {
-                    groundedSegments.push({
-                        segment: segment,
-                        collision: this.segmentCollisions[index]
-                    });
-                }
-            });
-            
-            if (radiusCount > 0 && groundedSegments.length > 0) {
-                avgRadius = avgRadius / radiusCount;
-                
-                // Calculate wheel's linear velocity
-                let totalVelX = 0;
-                this.segments.forEach(seg => {
-                    totalVelX += seg.velocity.x;
-                });
-                const wheelLinearVel = totalVelX / this.segments.length;
-                
-                // For perfect rolling: linear velocity = angular velocity × radius
-                const expectedLinearVel = this.rollMode.angularVelocity * avgRadius;
-                
-                // Calculate slip ratio
-                const velocityDiff = Math.abs(expectedLinearVel - wheelLinearVel);
-                const avgVel = Math.abs(expectedLinearVel) + Math.abs(wheelLinearVel);
-                const slipRatio = avgVel > 0.1 ? velocityDiff / avgVel : 0;
-                
-                // If we're slipping, gently adjust velocities to match expected rolling
-                if (slipRatio > this.config.roll.slipDetectionThreshold && Math.abs(this.rollMode.angularVelocity) > 0.1) {
-                    // Calculate velocity adjustment needed
-                    const targetVelX = expectedLinearVel;
-                    const currentAvgVelX = wheelLinearVel;
-                    const velError = targetVelX - currentAvgVelX;
-                    
-                    // Apply gentle correction proportional to the error
-                    const correctionStrength = 0.05; // 5% correction per frame
-                    const maxCorrection = 2.0; // Maximum velocity adjustment per frame
-                    let velAdjustment = velError * correctionStrength;
-                    
-                    // Clamp the adjustment to prevent instability
-                    velAdjustment = Math.max(-maxCorrection, Math.min(maxCorrection, velAdjustment));
-                    
-                    // Only adjust grounded segments to maintain stability
-                    groundedSegments.forEach(({ segment }) => {
-                        const newVelX = segment.velocity.x + velAdjustment;
-                        const newVelY = segment.velocity.y;
-                        
-                        this.Matter.Body.setVelocity(segment, { x: newVelX, y: newVelY });
-                    });
-                }
-            }
-        }
-    }
-    
-    handleModeTransitions(rollButtonPressed, jumpButtonPressed) {
-        const prevRollDown = this.modeState.rollButtonDown;
-        const prevJumpDown = this.modeState.jumpButtonDown;
-        
-        // Update current button states
-        this.modeState.rollButtonDown = rollButtonPressed;
-        this.modeState.jumpButtonDown = jumpButtonPressed;
-        
-        // Detect button press edges
+        // Track previous button states
+        const prevRollDown = this.rollButtonDown || false;
+        const prevJumpDown = this.jumpButtonDown || false;
+        this.rollButtonDown = rollButtonPressed;
+        this.jumpButtonDown = jumpButtonPressed;
+        
+        // Calculate button edges
         const rollJustPressed = rollButtonPressed && !prevRollDown;
-        const rollJustReleased = !rollButtonPressed && prevRollDown;
         const jumpJustPressed = jumpButtonPressed && !prevJumpDown;
-        const jumpJustReleased = !jumpButtonPressed && prevJumpDown;
         
-        // Handle transitions based on current mode and button events
-        switch (this.modeState.currentMode) {
-            case 'none':
-                if (rollJustPressed && this.abilities.roll) {
-                    this.modeState.currentMode = 'roll';
-                    this.modeState.lastButtonPressed = 'roll';
-                    this.enterRollMode();
-                } else if (jumpJustPressed && this.abilities.jump) {
-                    this.modeState.currentMode = 'jump';
-                    this.modeState.lastButtonPressed = 'jump';
-                    // Jump springs will be handled in the main update
-                }
-                break;
-                
-            case 'roll':
-                if (jumpJustPressed && this.abilities.jump) {
-                    // Jump pressed while in roll - exit roll, enter jump
-                    this.modeState.currentMode = 'jump';
-                    this.modeState.lastButtonPressed = 'jump';
-                    this.exitRollMode(true); // Exit with jump boost
-                } else if (rollJustReleased && jumpButtonPressed && this.abilities.jump) {
-                    // Roll released while jump is held - switch to jump
-                    this.modeState.currentMode = 'jump';
-                    this.modeState.lastButtonPressed = 'jump';
-                    this.exitRollMode(false);
-                } else if (rollJustReleased && !jumpButtonPressed) {
-                    // Roll released and jump not held - exit to none
-                    this.modeState.currentMode = 'none';
-                    this.exitRollMode(false);
-                }
-                break;
-                
-            case 'jump':
-                if (rollJustPressed && this.abilities.roll) {
-                    // Roll pressed while jumping - cancel jump, enter roll
-                    this.modeState.currentMode = 'roll';
-                    this.modeState.lastButtonPressed = 'roll';
-                    // Detach any active jump springs
-                    if (this.jumpSprings.head.attached) {
-                        this.detachSpring('head');
-                    }
-                    if (this.jumpSprings.tail.attached) {
-                        this.detachSpring('tail');
-                    }
-                    this.enterRollMode();
-                } else if (jumpJustReleased && rollButtonPressed && this.abilities.roll) {
-                    // Jump released while roll is held - switch to roll
-                    this.modeState.currentMode = 'roll';
-                    this.enterRollMode();
-                } else if (jumpJustReleased && !rollButtonPressed) {
-                    // Jump released and roll not held - exit to none
-                    this.modeState.currentMode = 'none';
-                    // Jump springs will detach naturally
-                }
-                break;
-        }
-    }
-    
-    processCrankingInput(stick, delta) {
-        // Only process if stick is outside deadzone
-        if (Math.abs(stick.x) <= this.config.stickDeadzone && Math.abs(stick.y) <= this.config.stickDeadzone) {
-            // Reset tracking when stick returns to center
-            this.rollMode.lastStickAngle = null;
-            this.rollMode.accumulatedRotation = 0;
-            return;
-        }
+        // Update state machine
+        this.stateMachine.handleModeInputs(
+            rollButtonPressed && this.abilities.roll,
+            jumpButtonPressed && this.abilities.jump,
+            rollJustPressed,
+            jumpJustPressed
+        );
         
-        // Calculate stick angle
-        const stickAngle = Math.atan2(stick.y, stick.x);
-        const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
-        
-        if (this.rollMode.lastStickAngle !== null) {
-            // Calculate angle difference
-            let angleDiff = stickAngle - this.rollMode.lastStickAngle;
-            
-            // Normalize to [-PI, PI]
-            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            
-            // Only count as rotation if the change is significant but not a jump
-            if (Math.abs(angleDiff) < Math.PI / 2 && Math.abs(angleDiff) > 0.01) {
-                // Accumulate rotation scaled by delta time
-                // This ensures consistent rotation speed regardless of frame rate
-                const rotationRate = angleDiff * (1000 / delta); // radians per second
-                const scaledRotation = rotationRate * (delta / 1000) * stickMagnitude * this.config.roll.torqueMultiplier;
-                
-                // Apply pure torque to the wheel (original approach)
-                this.segments.forEach(seg => {
-                    const dx = seg.position.x - this.rollMode.wheelCenter.x;
-                    const dy = seg.position.y - this.rollMode.wheelCenter.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (dist > 0.1) {
-                        // Tangential force for rotation
-                        const fx = -dy / dist * scaledRotation;
-                        const fy = dx / dist * scaledRotation;
-                        
-                        this.matter.body.applyForce(seg, seg.position, { x: fx, y: fy });
-                    }
-                });
-            }
-        }
-        
-        this.rollMode.lastStickAngle = stickAngle;
-    }
-    
-    /**
-     * Toggle abilities at runtime
-     */
-    setAbility(abilityName, enabled) {
-        if (this.abilities.hasOwnProperty(abilityName)) {
-            this.abilities[abilityName] = enabled;
-            
-            // Clean up any active states when disabling abilities
-            if (!enabled) {
-                switch(abilityName) {
-                    case 'jump':
-                        // Detach any active jump springs
-                        if (this.jumpSprings.head.attached) {
-                            this.detachSpring('head');
-                        }
-                        if (this.jumpSprings.tail.attached) {
-                            this.detachSpring('tail');
-                        }
-                        break;
-                    case 'roll':
-                        // Exit roll mode if active
-                        if (this.rollMode.active || this.rollMode.transitioning) {
-                            this.exitRollMode(false);
-                        }
-                        break;
-                    case 'grab':
-                        // Deactivate all sticky constraints
-                        this.deactivateStickiness('head');
-                        this.deactivateStickiness('tail');
-                        break;
-                }
-            }
-        }
-    }
-    
-    getAbility(abilityName) {
-        return this.abilities[abilityName] || false;
-    }
-    
-    /**
-     * Reset all dynamic constraints and states when worm is reset
-     * Called by BaseLevelScene.resetWorm()
-     */
-    resetState() {
-        // Temporarily disable grab system to prevent immediate re-creation of constraints
-        this.grabDisabled = true;
-        setTimeout(() => {
-            this.grabDisabled = false;
-        }, 100); // 100ms disable period
-        
-        // Force clear all sticky constraints immediately (ignore button state)
-        if (this.stickyConstraints) {
-            Object.keys(this.stickyConstraints).forEach(sectionName => {
-                const constraints = this.stickyConstraints[sectionName];
-                // Force remove all constraints regardless of button state
-                constraints.forEach(constraintData => {
-                    this.Matter.World.remove(this.matter.world.localWorld, constraintData.constraint);
-                    this.removeStickinessCircle(constraintData.constraint);
-                });
-                // Clear the array
-                this.stickyConstraints[sectionName] = [];
-            });
-        }
-        
-        // Clear any currently active jump springs (but keep the jump system intact)
-        if (this.jumpSprings) {
-            Object.values(this.jumpSprings).forEach(springData => {
-                if (springData.spring) {
-                    // Only remove currently active springs, preserve the system
-                    this.Matter.World.remove(this.matter.world.localWorld, springData.spring);
-                    springData.spring = null;
-                    springData.attached = false; // Critical: reset attached state
-                    // Reset ground anchoring state but keep the capability
-                    springData.isGroundAnchored = false;
-                    springData.groundBody = null;
-                    springData.groundedSegment = null;
-                    // Note: We keep springData itself and other properties for future jumping
-                }
-            });
-        }
-        
-        // Reset anchor positions to segment positions to prevent pulling
-        if (this.anchors) {
-            Object.values(this.anchors).forEach(anchorData => {
-                if (anchorData.body && anchorData.attachIndex < this.segments.length) {
-                    const attachSegment = this.segments[anchorData.attachIndex];
-                    this.Matter.Body.setPosition(anchorData.body, {
-                        x: attachSegment.position.x,
-                        y: attachSegment.position.y
-                    });
-                    
-                    // Reset rest position
-                    anchorData.restPos.x = attachSegment.position.x;
-                    anchorData.restPos.y = attachSegment.position.y;
-                    
-                    // Reset stick state
-                    anchorData.stickState = { x: 0, y: 0 };
-                }
-            });
-        }
-        
-        // Reset input processing state (only stick positions, not triggers)
-        this.processedInputs = {
-            leftStick: { x: 0, y: 0 },
-            rightStick: { x: 0, y: 0 },
-            leftTrigger: false,
-            rightTrigger: false
+        // Prepare input object for abilities
+        const inputs = {
+            leftStick,
+            rightStick,
+            leftGrab,
+            rightGrab,
+            leftTrigger: headTriggerValue,
+            rightTrigger: tailTriggerValue,
+            swapControls: this.config.swapControls,
+            delta,
+            deltaSeconds
         };
         
-        // Reset segment friction to default values (in case segments were on ice)
-        if (this.segments) {
-            this.segments.forEach(segment => {
-                segment.friction = this.config.segmentFriction;
-                segment.frictionStatic = this.config.segmentFrictionStatic;
-            });
+        // Update active abilities based on current state
+        const currentState = this.stateMachine.getCurrentState();
+        
+        // Movement is always active (it handles roll mode internally)
+        this.movementAbility.handleInput(inputs);
+        this.movementAbility.update(delta);
+        
+        // Grab is active in all states
+        if (this.abilities.grab) {
+            this.grabAbility.handleInput(inputs);
         }
         
-        // Exit roll mode if active
-        if (this.rollMode && (this.rollMode.active || this.rollMode.transitioning)) {
-            this.exitRollMode(false);
+        // State-specific abilities
+        switch (currentState) {
+            case this.stateMachine.states.JUMPING:
+                this.jumpAbility.handleInput(inputs);
+                break;
+                
+            case this.stateMachine.states.ROLLING:
+                this.rollAbility.handleInput(inputs);
+                this.rollAbility.update(delta);
+                break;
+                
+            case this.stateMachine.states.DEFAULT:
+                // In default state, jump ability can still be used without entering jump mode
+                if (this.abilities.jump) {
+                    this.jumpAbility.handleInput(inputs);
+                }
+                break;
+        }
+    }
+    
+    // Keyboard simulation methods (kept for compatibility)
+    simulateStickFromKeyboard(stick, delta) {
+        const keyMap = stick === 'left' ? 
+            { up: 'w', left: 'a', down: 's', right: 'd' } :
+            { up: 'up', left: 'left', down: 'down', right: 'right' };
+            
+        const keyboard = this.scene.input.keyboard;
+        if (!keyboard) return { x: 0, y: 0 };
+        
+        const state = this.keyboardState[stick];
+        
+        // Update key press durations
+        Object.entries(keyMap).forEach(([dir, key]) => {
+            const keyCode = key === 'up' ? 38 : key === 'left' ? 37 : key === 'down' ? 40 : key === 'right' ? 39 :
+                           key === 'w' ? 87 : key === 'a' ? 65 : key === 's' ? 83 : key === 'd' ? 68 : 0;
+            
+            const isPressed = keyboard.keys[keyCode]?.isDown || false;
+            
+            if (isPressed) {
+                state[dir] = Math.min(state[dir] + delta, this.keyboardConfig.maxDuration);
+            } else {
+                state[dir] = Math.max(state[dir] - delta * 2, 0);
+            }
+        });
+        
+        // Calculate stick position with response curve
+        const curve = (t) => Math.pow(t / this.keyboardConfig.maxDuration, this.keyboardConfig.curve);
+        
+        const x = curve(state.right) - curve(state.left);
+        const y = curve(state.down) - curve(state.up);
+        
+        return { x, y };
+    }
+    
+    destroy() {
+        console.log('DoubleWorm.destroy() - Starting cleanup');
+        
+        // Deactivate all abilities
+        if (this.movementAbility) {
+            this.movementAbility.deactivate();
+        }
+        if (this.jumpAbility) {
+            this.jumpAbility.deactivate();
+        }
+        if (this.rollAbility) {
+            this.rollAbility.deactivate();
+        }
+        if (this.grabAbility) {
+            this.grabAbility.deactivate();
         }
         
-        // Reset mode state
-        if (this.modeState) {
-            this.modeState.rollButtonDown = false;
-            this.modeState.jumpButtonDown = false;
-            this.modeState.currentMode = 'none';
-            this.modeState.lastButtonPressed = null;
+        // Reset state machine
+        if (this.stateMachine) {
+            this.stateMachine.reset();
         }
+        
+        console.log('DoubleWorm.destroy() - Calling parent destroy');
+        super.destroy();
+        console.log('DoubleWorm.destroy() completed');
     }
 }
