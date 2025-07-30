@@ -11,6 +11,7 @@ import TowerData from './data/Tower.json';
 import TryAnglesData from './data/Try-angles.json';
 import Electric from './data/Electric-Slide.json';
 import Morgan from './data/Morgan.json';
+import PendulumTest from './data/Pendulum-Test.json';
 
 
 // Static registry for production
@@ -23,7 +24,8 @@ const STATIC_MAP_REGISTRY = {
     'Tower': TowerData,
     'Try-angles': TryAnglesData,
     'Electric-Slide': Electric,
-    'Morgan': Morgan
+    'Morgan': Morgan,
+    'Pendulum-Test': PendulumTest
 };
 
 import { hasAPISupport } from '../../utils/buildMode';

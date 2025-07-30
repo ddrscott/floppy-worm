@@ -47,6 +47,7 @@ export default class JsonMapBase extends Phaser.Scene {
         
         this.platforms = [];
         this.stickers = [];
+        this.constraints = [];
         this.platformColors = config.platformColors || [0xff6b6b, 0x4ecdc4, 0x95e1d3, 0xfeca57, 0xa29bfe];
         
         // Mini-map configuration
@@ -111,6 +112,90 @@ export default class JsonMapBase extends Phaser.Scene {
         };
     }
     
+    renderConstraints() {
+        // Clear previous constraint graphics if any
+        if (!this.constraintGraphics) {
+            this.constraintGraphics = this.add.graphics();
+            this.constraintGraphics.setDepth(10); // Render above platforms but below UI
+        }
+        this.constraintGraphics.clear();
+        
+        this.constraints.forEach(({ constraint, data }) => {
+            if (!constraint || !data.render || !data.render.visible) return;
+            
+            const bodyA = constraint.bodyA;
+            const bodyB = constraint.bodyB;
+            
+            // Calculate attachment points
+            let pointA = { x: 0, y: 0 };
+            let pointB = { x: 0, y: 0 };
+            
+            if (bodyA) {
+                pointA.x = bodyA.position.x + (constraint.pointA ? constraint.pointA.x : 0);
+                pointA.y = bodyA.position.y + (constraint.pointA ? constraint.pointA.y : 0);
+            } else if (constraint.pointA) {
+                pointA = constraint.pointA;
+            }
+            
+            if (bodyB) {
+                pointB.x = bodyB.position.x + (constraint.pointB ? constraint.pointB.x : 0);
+                pointB.y = bodyB.position.y + (constraint.pointB ? constraint.pointB.y : 0);
+            } else if (constraint.pointB) {
+                pointB = constraint.pointB;
+            }
+            
+            // Set line style
+            const strokeColor = data.render.strokeStyle ? 
+                parseInt(data.render.strokeStyle.replace('#', '0x')) : 0x90A4AE;
+            const lineWidth = data.render.lineWidth || 2;
+            
+            this.constraintGraphics.lineStyle(lineWidth, strokeColor);
+            
+            // Matter.js automatically picks constraint rendering based on stiffness
+            // High stiffness (close to 1) = rigid line
+            // Low stiffness = spring
+            const stiffness = constraint.stiffness || 1;
+            
+            if (stiffness > 0.5) {
+                // Rigid constraint - draw as line
+                this.constraintGraphics.moveTo(pointA.x, pointA.y);
+                this.constraintGraphics.lineTo(pointB.x, pointB.y);
+            } else {
+                // Spring constraint - draw as zigzag
+                const dx = pointB.x - pointA.x;
+                const dy = pointB.y - pointA.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const segments = Math.max(8, Math.floor(distance / 20));
+                const amplitude = 8;
+                
+                this.constraintGraphics.beginPath();
+                this.constraintGraphics.moveTo(pointA.x, pointA.y);
+                
+                for (let i = 1; i <= segments; i++) {
+                    const t = i / segments;
+                    const x = pointA.x + dx * t;
+                    const y = pointA.y + dy * t;
+                    
+                    // Add perpendicular offset for zigzag
+                    const perpX = -dy / distance * amplitude * (i % 2 === 0 ? 1 : -1);
+                    const perpY = dx / distance * amplitude * (i % 2 === 0 ? 1 : -1);
+                    
+                    this.constraintGraphics.lineTo(x + perpX, y + perpY);
+                }
+                
+                this.constraintGraphics.lineTo(pointB.x, pointB.y);
+                this.constraintGraphics.strokePath();
+            }
+            
+            // Draw anchor points if enabled
+            if (data.render.anchors) {
+                this.constraintGraphics.fillStyle(strokeColor);
+                this.constraintGraphics.fillCircle(pointA.x, pointA.y, 3);
+                this.constraintGraphics.fillCircle(pointB.x, pointB.y, 3);
+            }
+        });
+    }
+    
     cleanup() {
         // Remove event listeners
         this.events.off('resume');
@@ -139,6 +224,22 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Clear platforms array
         this.platforms = [];
+        
+        // Cleanup constraints
+        if (this.constraints) {
+            this.constraints.forEach(({ constraint }) => {
+                if (constraint && this.matter.world) {
+                    this.matter.world.removeConstraint(constraint);
+                }
+            });
+            this.constraints = [];
+        }
+        
+        // Cleanup constraint graphics
+        if (this.constraintGraphics) {
+            this.constraintGraphics.destroy();
+            this.constraintGraphics = null;
+        }
         
         // Clear mini-map ignore list
         this.minimapIgnoreList = [];
@@ -180,6 +281,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.worm = null;
         this.platforms = [];
         this.stickers = [];
+        this.constraints = [];
         this.minimapIgnoreList = [];
         this.buttonMWasPressed = false;
         this.button0WasPressed = false;
@@ -195,6 +297,10 @@ export default class JsonMapBase extends Phaser.Scene {
         if (data) {
             this.returnScene = data.returnScene || this.returnScene;
         }
+    }
+    
+    preload() {
+        // Audio is now handled by synthesizers, no need to load wav files
     }
     
     async create() {
@@ -254,7 +360,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     loadMapFromJSON() {
-        const { platforms, entities, stickers = [] } = this.mapData;
+        const { platforms, entities, stickers = [], constraints = [] } = this.mapData;
         
         // Create platforms
         platforms.forEach(platformData => {
@@ -268,6 +374,9 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Create entities
         this.createEntitiesFromJSON(entities);
+        
+        // Create constraints (after platforms and entities are created)
+        this.createConstraintsFromJSON(constraints);
     }
     
     createPlatformFromJSON(platformData) {
@@ -316,26 +425,30 @@ export default class JsonMapBase extends Phaser.Scene {
                 return;
         }
         
-        // Apply physics properties
-        const defaultPhysics = {
-            isStatic: true,
-            friction: 0.8,
-            frictionStatic: 1.0,
-            restitution: 0
-        };
+        // Apply physics properties from JSON
+        if (physics) {
+            Object.keys(physics).forEach(key => {
+                this.matter.body.set(body, key, physics[key]);
+            });
+        }
         
-        const appliedPhysics = { ...defaultPhysics, ...physics };
-        Object.keys(appliedPhysics).forEach(key => {
-            if (key === 'isStatic') {
-                // isStatic is set during body creation
-                return;
-            }
-            this.matter.body.set(body, key, appliedPhysics[key]);
-        });
-        
+        const platformId = id || platformData.id || `platform_${this.platforms.length}`;
         this.platforms.push({ 
-            body, visual, data: platformData, id: id || `platform_${this.platforms.length}`
+            body, visual, data: platformData, id: platformId
         });
+        
+        // Additional debug for pendulum platform
+        if (platformId === 'pendulum_platform') {
+            console.log('Pendulum platform created:', {
+                id: platformId,
+                body: body,
+                isStatic: body.isStatic,
+                isSensor: body.isSensor,
+                position: body.position,
+                bounds: body.bounds,
+                matter: platformData.matter
+            });
+        }
     }
     
     createStickerFromJSON(stickerData) {
@@ -410,15 +523,154 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
+    createConstraintsFromJSON(constraints) {
+        if (!constraints || constraints.length === 0) return;
+        
+        // Initialize constraints array if not exists
+        this.constraints = this.constraints || [];
+        
+        console.log(`Creating ${constraints.length} constraints from JSON`);
+        
+        constraints.forEach(constraintData => {
+            try {
+                // Copy constraint data to avoid modifying original
+                const options = { ...constraintData };
+                
+                // Resolve body references
+                if (options.bodyA && typeof options.bodyA === 'string') {
+                    console.log(`Looking for bodyA: ${options.bodyA}`);
+                    const bodyA = this.findBodyById(options.bodyA);
+                    if (!bodyA) {
+                        console.warn(`Constraint bodyA not found: ${options.bodyA}`);
+                        console.log('Available platforms at constraint creation:', this.platforms.map(p => ({
+                            id: p.id,
+                            dataId: p.data?.id,
+                            hasBody: !!p.body
+                        })));
+                        return;
+                    }
+                    console.log(`Found bodyA:`, bodyA);
+                    options.bodyA = bodyA;
+                }
+                
+                if (options.bodyB && typeof options.bodyB === 'string') {
+                    const bodyB = this.findBodyById(options.bodyB);
+                    if (!bodyB) {
+                        console.warn(`Constraint bodyB not found: ${options.bodyB}`);
+                        return;
+                    }
+                    options.bodyB = bodyB;
+                }
+                
+                // Remove non-Matter.js properties from options
+                const constraintId = options.id;
+                delete options.id;
+                delete options.render;  // render is for our custom rendering, not Matter.js
+                
+                console.log('Creating constraint with options:', options);
+                
+                // Create the constraint - use Matter.Constraint.create directly like the worm does
+                let constraint;
+                
+                // For world constraints, ensure bodyB is undefined
+                if (!options.bodyB) {
+                    delete options.bodyB;
+                }
+                
+                console.log('Final constraint options:', options);
+                
+                try {
+                    // Use Matter.Constraint.create directly
+                    constraint = Phaser.Physics.Matter.Matter.Constraint.create(options);
+                    
+                    // Add to world
+                    this.matter.world.add(constraint);
+                    console.log('Constraint created and added to world');
+                } catch (innerError) {
+                    console.error('Direct constraint creation failed:', innerError);
+                    throw innerError;
+                }
+                
+                // Check if constraint was actually added to the world
+                if (this.matter.world.constraints) {
+                    console.log('Constraint in world?', this.matter.world.constraints.includes(constraint));
+                    console.log('Total constraints in world:', this.matter.world.constraints.length);
+                } else {
+                    console.log('World constraints array not accessible');
+                }
+                
+                // Store reference with original id
+                this.constraints.push({
+                    id: constraintId,
+                    constraint: constraint,
+                    data: constraintData
+                });
+                
+                console.log(`Created constraint: ${constraintId}`, {
+                    constraint: constraint,
+                    bodyA: constraint.bodyA,
+                    bodyB: constraint.bodyB,
+                    pointA: constraint.pointA,
+                    pointB: constraint.pointB,
+                    length: constraint.length,
+                    constraintData: constraintData
+                });
+            } catch (error) {
+                console.error('Failed to create constraint:', error, constraintData);
+            }
+        });
+    }
+    
+    findBodyById(id) {
+        console.log(`findBodyById called with id: ${id}`);
+        console.log('Available platforms:', this.platforms.map(p => ({ id: p.id, dataId: p.data?.id, hasBody: !!p.body })));
+        
+        // Check platforms
+        for (const platform of this.platforms) {
+            if (platform.id === id || platform.data?.id === id) {
+                console.log(`Found platform match for ${id}:`, platform);
+                // Return the physics body
+                if (platform.instance && platform.instance.body) {
+                    return platform.instance.body;
+                } else if (platform.body) {
+                    return platform.body;
+                }
+            }
+        }
+        
+        // Check worm segments if id starts with 'worm'
+        if (id.startsWith('worm') && this.worm) {
+            const segmentIndex = parseInt(id.replace('worm_segment_', ''));
+            if (!isNaN(segmentIndex) && this.worm.segments && this.worm.segments[segmentIndex]) {
+                return this.worm.segments[segmentIndex];
+            }
+        }
+        
+        console.log(`Body not found for id: ${id}`);
+        return null;
+    }
+    
     setupSpecialPlatformCollisions() {
         // Set up Matter.js collision events for special platforms
         this.matter.world.on('collisionstart', (event) => {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
+
+                if (bodyA.isWorm && bodyB.isWorm) {
+                    return
+                }
                 
                 // Check if one body is a worm segment and the other is a special platform
                 const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
                 const platformBody = wormSegment === bodyA ? bodyB : bodyA;
+                
+                // Debug collision for dynamic platforms
+                if (wormSegment && !platformBody.isStatic) {
+                    console.log('Collision with dynamic platform detected!', {
+                        platform: platformBody,
+                        wormSeg: wormSegment,
+                    });
+                }
                 
                 if (wormSegment && platformBody.platformInstance) {
                     const platform = platformBody.platformInstance;
@@ -433,6 +685,10 @@ export default class JsonMapBase extends Phaser.Scene {
             event.pairs.forEach(pair => {
                 const { bodyA, bodyB } = pair;
                 
+                if (bodyA.isWorm && bodyB.isWorm) {
+                    return
+                }
+
                 const wormSegment = this.isWormSegment(bodyA) ? bodyA : (this.isWormSegment(bodyB) ? bodyB : null);
                 const platformBody = wormSegment === bodyA ? bodyB : bodyA;
                 
@@ -447,12 +703,11 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     isWormSegment(body) {
-        // Check if this body belongs to the worm
         return this.worm && this.worm.segments && this.worm.segments.includes(body);
     }
     
     createRectanglePlatform(platformData) {
-        const { x, y, width, height, color = "#ff6b6b", angle = 0 } = platformData;
+        const { x, y, width, height, color = "#ff6b6b", angle = 0, matter = {} } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, width/height are in pixels
         const centerX = x;
@@ -460,9 +715,39 @@ export default class JsonMapBase extends Phaser.Scene {
         const pixelWidth = width;
         const pixelHeight = height;
         
+        // Merge matter properties with defaults
+        const bodyOptions = {
+            isStatic: true,
+            // Ensure dynamic bodies have proper collision detection
+            collisionFilter: {
+                category: 0x0002,  // Platform category
+                mask: 0xFFFF       // Collide with everything
+            },
+            ...matter  // This allows matter properties from JSON to override defaults
+        };
+        
         const body = this.matter.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, {
-            isStatic: true
+            label: platformData.id || 'platform',
+            ...bodyOptions
         });
+        
+        // Debug logging for dynamic platforms
+        if (!bodyOptions.isStatic) {
+            console.log('Created dynamic platform:', {
+                x: centerX,
+                y: centerY,
+                width: pixelWidth,
+                height: pixelHeight,
+                isStatic: body.isStatic,
+                isSensor: body.isSensor,
+                density: body.density,
+                mass: body.mass,
+                collisionFilter: body.collisionFilter
+            });
+            
+            // Ensure the body is definitely not a sensor
+            this.matter.body.set(body, 'isSensor', false);
+        }
         
         const visual = this.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, parseInt(color.replace('#', '0x')));
         
@@ -472,19 +757,28 @@ export default class JsonMapBase extends Phaser.Scene {
             visual.setRotation(angle);
         }
         
+        // Dynamic bodies will be synced manually in the update loop
+        
         return { body, visual };
     }
     
     createCirclePlatform(platformData) {
-        const { x, y, radius, color = "#4ecdc4", angle = 0 } = platformData;
+        const { x, y, radius, color = "#4ecdc4", angle = 0, matter = {} } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, radius in pixels
         const centerX = x;
         const centerY = y;
         const pixelRadius = radius;
         
+        // Merge matter properties with defaults
+        const bodyOptions = {
+            isStatic: true,
+            ...matter  // This allows matter properties from JSON to override defaults
+        };
+        
         const body = this.matter.add.circle(centerX, centerY, pixelRadius, {
-            isStatic: true
+            label: platformData.id || 'platform_circle',
+            ...bodyOptions
         });
         
         const visual = this.add.circle(centerX, centerY, pixelRadius, parseInt(color.replace('#', '0x')));
@@ -499,7 +793,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createPolygonPlatform(platformData) {
-        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3" } = platformData;
+        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3", matter = {} } = platformData;
         const actualRotation = rotation || angle; // Support both 'rotation' and 'angle' properties
         
         // Use pixel coordinates directly - x,y is center position, radius in pixels
@@ -517,8 +811,15 @@ export default class JsonMapBase extends Phaser.Scene {
             });
         }
         
+        // Merge matter properties with defaults
+        const bodyOptions = {
+            isStatic: true,
+            ...matter  // This allows matter properties from JSON to override defaults
+        };
+        
         const body = this.matter.add.fromVertices(centerX, centerY, vertices, {
-            isStatic: true
+            label: platformData.id || 'platform_polygon',
+            ...bodyOptions
         });
         
         // Create visual polygon
@@ -528,7 +829,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createTrapezoidPlatform(platformData) {
-        const { x, y, width, height, slope = 0, color = "#feca57", angle = 0 } = platformData;
+        const { x, y, width, height, slope = 0, color = "#feca57", angle = 0, matter = {} } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, width/height in pixels
         const centerX = x;
@@ -548,8 +849,15 @@ export default class JsonMapBase extends Phaser.Scene {
             { x: centerX - halfWidth, y: centerY + halfHeight }                 // bottom left
         ];
         
+        // Merge matter properties with defaults
+        const bodyOptions = {
+            isStatic: true,
+            ...matter  // This allows matter properties from JSON to override defaults
+        };
+        
         const body = this.matter.add.fromVertices(centerX, centerY, vertices, {
-            isStatic: true
+            label: platformData.id || 'platform_trapezoid',
+            ...bodyOptions
         });
         
         // Create visual trapezoid
@@ -565,7 +873,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createCustomPlatform(platformData) {
-        const { vertices, color = "#a29bfe", angle = 0 } = platformData;
+        const { vertices, color = "#a29bfe", angle = 0, matter = {} } = platformData;
         
         // Use pixel coordinates directly - vertices are already in world coordinates
         const pixelVertices = vertices;
@@ -574,8 +882,15 @@ export default class JsonMapBase extends Phaser.Scene {
         const centerX = pixelVertices.reduce((sum, v) => sum + v.x, 0) / pixelVertices.length;
         const centerY = pixelVertices.reduce((sum, v) => sum + v.y, 0) / pixelVertices.length;
         
+        // Merge matter properties with defaults
+        const bodyOptions = {
+            isStatic: true,
+            ...matter  // This allows matter properties from JSON to override defaults
+        };
+        
         const body = this.matter.add.fromVertices(centerX, centerY, pixelVertices, {
-            isStatic: true
+            label: platformData.id || 'platform_custom',
+            ...bodyOptions
         });
         
         // Create visual polygon
@@ -597,10 +912,14 @@ export default class JsonMapBase extends Phaser.Scene {
         const wormX = wormStart.x;
         const wormY = wormStart.y;
         
+        // Check URL for debug parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugEnabled = urlParams.get('debug') === '1';
+        
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            showDebug: false
+            showDebug: debugEnabled
         });
 
         // Set Matter.js debug rendering based on worm's showDebug config
@@ -746,13 +1065,25 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Create physics walls
         // Left and right walls use normal dimensions
-        this.matter.add.rectangle(-wallThickness/2, height/2, wallThickness, height, { isStatic: true });
-        this.matter.add.rectangle(this.levelWidth + wallThickness/2, height/2, wallThickness, height, { isStatic: true });
+        this.matter.add.rectangle(-wallThickness/2, height/2, wallThickness, height, { 
+            isStatic: true,
+            label: 'wall_left'
+        });
+        this.matter.add.rectangle(this.levelWidth + wallThickness/2, height/2, wallThickness, height, { 
+            isStatic: true,
+            label: 'wall_right'
+        });
         
         // Top and bottom walls extend 2x the stage width to prevent objects from falling through diagonal corners
         const extendedWidth = this.levelWidth * 2;
-        this.matter.add.rectangle(this.levelWidth/2, -wallThickness/2, extendedWidth, wallThickness, { isStatic: true });
-        this.matter.add.rectangle(this.levelWidth/2, height + wallThickness/2, extendedWidth, wallThickness, { isStatic: true });
+        this.matter.add.rectangle(this.levelWidth/2, -wallThickness/2, extendedWidth, wallThickness, { 
+            isStatic: true,
+            label: 'wall_top'
+        });
+        this.matter.add.rectangle(this.levelWidth/2, height + wallThickness/2, extendedWidth, wallThickness, { 
+            isStatic: true,
+            label: 'wall_bottom'
+        });
     }
     
     setupControls() {
@@ -788,6 +1119,7 @@ export default class JsonMapBase extends Phaser.Scene {
         }).setScrollFactor(0);
         
         this.minimapIgnoreList.push(title);
+        
         
         // Pause hint (small text in top right)
         const pauseHint = this.add.text(this.scale.width - 20, 20, 'ESC: Pause', {
@@ -1021,12 +1353,25 @@ export default class JsonMapBase extends Phaser.Scene {
             this.optionButtonWasPressed = false;
         }
         
-        // Update special platforms
+        // Update special platforms and dynamic platforms
         this.platforms.forEach(platform => {
             if (platform.isSpecial && platform.instance && platform.instance.update) {
                 platform.instance.update(delta);
             }
+            
+            // Sync visual with physics body for dynamic platforms
+            if (platform.body && !platform.body.isStatic && platform.visual) {
+                platform.visual.x = platform.body.position.x;
+                platform.visual.y = platform.body.position.y;
+                platform.visual.rotation = platform.body.angle;
+            }
         });
+        
+        // Render constraints (Matter.js doesn't render them by default in production)
+        if (this.constraints && this.constraints.length > 0) {
+            // console.log(`Rendering ${this.constraints.length} constraints`);
+            this.renderConstraints();
+        }
         
         // Check for M key to toggle mini-map
         if (Phaser.Input.Keyboard.JustDown(this.mKey)) {

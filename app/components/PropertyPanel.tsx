@@ -24,6 +24,11 @@ interface ToolSettings {
   stickerPreset: string;
   stickerFontSize: string;
   stickerColor: string;
+  // Constraint settings
+  constraintStiffness: number;
+  constraintDamping: number;
+  constraintLength: number | null;
+  constraintRender: boolean;
 }
 
 interface PropertyPanelProps {
@@ -38,6 +43,7 @@ interface PropertyPanelProps {
   
   // Selected platform properties
   selectedPlatform: any;
+  selectedConstraint: any;
   
   // Editor info
   filename?: string;
@@ -50,6 +56,7 @@ interface PropertyPanelProps {
   onToolSettingsChange: (settings: ToolSettings) => void;
   onGridSnapChange: (enabled: boolean) => void;
   onPlatformPropertyChange: (property: string, value: any) => void;
+  onConstraintPropertyChange: (property: string, value: any) => void;
   
   // Actions
   onLoadMap: (mapName: string) => void;
@@ -67,6 +74,7 @@ export default function PropertyPanel({
   toolSettings,
   gridSnapEnabled,
   selectedPlatform,
+  selectedConstraint,
   filename,
   saveStatus,
   onMapMetadataChange,
@@ -75,6 +83,7 @@ export default function PropertyPanel({
   onToolSettingsChange,
   onGridSnapChange,
   onPlatformPropertyChange,
+  onConstraintPropertyChange,
   onLoadMap,
   onNewMap,
   onSaveToLibrary,
@@ -115,7 +124,8 @@ export default function PropertyPanel({
     { value: 'polygon', label: 'Polygon' },
     { value: 'trapezoid', label: 'Trapezoid' },
     { value: 'custom', label: 'Custom' },
-    { value: 'sticker', label: 'Sticker' }
+    { value: 'sticker', label: 'Sticker' },
+    { value: 'constraint', label: 'Constraint (L)' }
   ];
 
   // Helper function to get preset background colors for preview
@@ -552,6 +562,110 @@ export default function PropertyPanel({
                 className="w-full h-4"
               />
             </div>
+            
+            {/* Constraint Settings */}
+            <div className="border-t border-gray-700 pt-2 mt-2">
+              <h4 className="text-xs font-semibold text-gray-300 mb-2">Constraint Settings</h4>
+              
+              <div>
+                <label className="block text-xs text-gray-400">Stiffness: {toolSettings.constraintStiffness?.toFixed(2) || 0.8}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={toolSettings.constraintStiffness || 0.8}
+                  onChange={(e) => onToolSettingsChange({ ...toolSettings, constraintStiffness: parseFloat(e.target.value) })}
+                  className="w-full h-4"
+                />
+                <div className="text-[10px] text-gray-500">≤0.5: Spring, &gt;0.5: Rigid</div>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-gray-400">Damping: {toolSettings.constraintDamping?.toFixed(2) || 0.2}</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={toolSettings.constraintDamping || 0.2}
+                  onChange={(e) => onToolSettingsChange({ ...toolSettings, constraintDamping: parseFloat(e.target.value) })}
+                  className="w-full h-4"
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="constraintRender"
+                  checked={toolSettings.constraintRender ?? true}
+                  onChange={(e) => onToolSettingsChange({ ...toolSettings, constraintRender: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="constraintRender" className="text-xs text-gray-400">
+                  Visible in game
+                </label>
+              </div>
+            </div>
+            
+            {/* Selected Constraint Properties */}
+            {selectedConstraint && (
+              <div className="border-t border-gray-700 pt-2 mt-2">
+                <h4 className="text-xs font-semibold text-gray-300 mb-2">Selected Constraint</h4>
+                
+                <div>
+                  <label className="block text-xs text-gray-400">Length: {selectedConstraint.data.length?.toFixed(0) || 'Auto'}</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="1000"
+                    step="10"
+                    value={selectedConstraint.data.length || 100}
+                    onChange={(e) => onConstraintPropertyChange('length', parseFloat(e.target.value))}
+                    className="w-full h-4"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs text-gray-400">Stiffness: {selectedConstraint.data.stiffness?.toFixed(2)}</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={selectedConstraint.data.stiffness || 0.8}
+                    onChange={(e) => onConstraintPropertyChange('stiffness', parseFloat(e.target.value))}
+                    className="w-full h-4"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs text-gray-400">Damping: {selectedConstraint.data.damping?.toFixed(2)}</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={selectedConstraint.data.damping || 0.2}
+                    onChange={(e) => onConstraintPropertyChange('damping', parseFloat(e.target.value))}
+                    className="w-full h-4"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="selectedConstraintRender"
+                    checked={selectedConstraint.data.render?.visible || false}
+                    onChange={(e) => onConstraintPropertyChange('visible', e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="selectedConstraintRender" className="text-xs text-gray-400">
+                    Visible in game
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
