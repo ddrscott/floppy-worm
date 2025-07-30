@@ -440,8 +440,9 @@ export default class WormBase {
             const segment = this.segments[segmentIndex];
             const otherBody = segment === bodyA ? bodyB : bodyA;
             
-            // Only track collisions with static bodies (platforms, ground)
-            if (!otherBody.isStatic) return;
+            // Track collisions with both static and dynamic platforms
+            // Skip other worm segments
+            if (otherBody.label === 'worm' || otherBody.label === 'worm_anchor') return;
             
             // Calculate contact point and surface normal
             const collision = pair.collision;
@@ -491,8 +492,8 @@ export default class WormBase {
             const segment = this.segments[segmentIndex];
             const otherBody = segment === bodyA ? bodyB : bodyA;
             
-            // Only track static body collisions
-            if (!otherBody.isStatic) return;
+            // Skip other worm segments and anchors
+            if (otherBody.label === 'worm' || otherBody.label === 'worm_anchor') return;
             
             // Call platform's collision end handler if it exists
             if (otherBody.platformInstance && typeof otherBody.platformInstance.onCollisionEnd === 'function') {
