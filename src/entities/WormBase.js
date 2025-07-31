@@ -19,8 +19,8 @@ export default class WormBase {
             segmentRestitution: 0.0001,
             linkConstraint: {
                 angularStiffness: 0.1,
-                stiffness: 0.8,
-                damping: 0.2,
+                stiffness: 1,
+                damping: 0,
                 length: 1,
                 render: {
                     visible: true,
@@ -28,8 +28,8 @@ export default class WormBase {
             },
             spacingConstraint: {
                 angularStiffness: 0.1,
-                stiffness: 0.005,
-                damping: 0.9,
+                stiffness: 1,
+                damping: 0,
                 render: {
                     visible: true,
                 }
