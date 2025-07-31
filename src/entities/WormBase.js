@@ -513,11 +513,6 @@ export default class WormBase {
                     // Apply scale to base stiffness
                     const adjustedStiffness = this.config.surfaceConstraint.stiffness * stiffnessScale;
                     
-                    // Log when applying scaled stiffness for moving platforms
-                    if (stiffnessScale > 1.0) {
-                        console.log(`Surface constraint with ${stiffnessScale.toFixed(2)}x stiffness (base: ${this.config.surfaceConstraint.stiffness}, adjusted: ${adjustedStiffness.toFixed(4)})`);
-                    }
-                    
                     const constraint = this.scene.matter.add.constraint(
                         otherBody,
                         segment,

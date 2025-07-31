@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+const MOVEMENT_CONSTRAINT_MULTIPLIER = 15;
+const MOVEMENT_SPEED_MAGIC = 40;
 
 export default class PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
@@ -202,10 +204,10 @@ export default class PlatformBase {
             // Higher speed = stronger constraint needed
             const { speed } = this.config.motion;
             
-            // Scale formula: 1.5 + (speed / 40)
+            // Scale formula: 1.5 + (speed / MOVEMENT_SPEED_MAGIC)
             // Speed 40 = 2.5x stiffness, Speed 80 = 3.5x stiffness, etc.
             // This gives better baseline grip for all moving platforms
-            this.config.surfaceStiffnessScale = 15 + (speed / 40);
+            this.config.surfaceStiffnessScale = MOVEMENT_CONSTRAINT_MULTIPLIER + (speed / MOVEMENT_SPEED_MAGIC);
             
             console.log(`Platform motion detected - Speed: ${speed}, Stiffness Scale: ${this.config.surfaceStiffnessScale.toFixed(2)}x`);
         }

@@ -373,11 +373,13 @@ export default class MovementAbility extends BaseAbility {
         Object.entries(this.anchors).forEach(([type, anchorData]) => {
             if (!anchorData.rangeGraphics || !anchorData.stickIndicator) return;
             
-            const segment = this.worm.segments[anchorData.attachIndex];
+            // Use restPos for position (which is updated to wheel center during roll mode for head anchor)
+            const centerX = anchorData.restPos.x;
+            const centerY = anchorData.restPos.y;
             
             anchorData.rangeGraphics.clear();
             anchorData.rangeGraphics.lineStyle(this.rangeIndicatorLineWidth, anchorData.color, this.rangeIndicatorAlpha);
-            anchorData.rangeGraphics.strokeCircle(segment.position.x, segment.position.y, this.anchorRadius);
+            anchorData.rangeGraphics.strokeCircle(centerX, centerY, this.anchorRadius);
             
             const stick = type === 'head' ? this.leftStickState : this.rightStickState;
             const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
@@ -387,13 +389,13 @@ export default class MovementAbility extends BaseAbility {
                 anchorData.stickIndicator.fillStyle(anchorData.color, 0.8);
                 anchorData.stickIndicator.lineStyle(2, anchorData.strokeColor, 1);
                 anchorData.stickIndicator.fillCircle(
-                    segment.position.x + stick.x * this.anchorRadius,
-                    segment.position.y + stick.y * this.anchorRadius,
+                    centerX + stick.x * this.anchorRadius,
+                    centerY + stick.y * this.anchorRadius,
                     this.stickIndicatorRadius
                 );
                 anchorData.stickIndicator.strokeCircle(
-                    segment.position.x + stick.x * this.anchorRadius,
-                    segment.position.y + stick.y * this.anchorRadius,
+                    centerX + stick.x * this.anchorRadius,
+                    centerY + stick.y * this.anchorRadius,
                     this.stickIndicatorRadius
                 );
             }
