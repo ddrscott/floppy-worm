@@ -278,6 +278,25 @@ export default class VictoryDialog extends Phaser.Scene {
         // Gamepad tracking
         this.gamepadInputTimer = 0;
         this.gamepadInputDelay = 200;
+        
+        // Setup gamepad event listeners
+        const pad = this.input.gamepad.getPad(0);
+        if (pad) {
+            this.gamepad = pad;
+            this.gamepadDownHandler = (index, value, button) => {
+                if (index === 0) { // A button
+                    this.selectButton();
+                }
+            };
+            pad.on('down', this.gamepadDownHandler);
+        }
+        
+        // Clean up on scene shutdown
+        this.events.once('shutdown', () => {
+            if (this.gamepad && this.gamepadDownHandler) {
+                this.gamepad.off('down', this.gamepadDownHandler);
+            }
+        });
     }
     
     update() {
@@ -336,11 +355,7 @@ export default class VictoryDialog extends Phaser.Scene {
             navigationOccurred = true;
         }
         
-        // A button to select
-        if (gamepad.A) {
-            this.selectButton();
-            navigationOccurred = true;
-        }
+        // Button presses are now handled by gamepad events in setupInput()
         
         if (navigationOccurred) {
             this.gamepadInputTimer = currentTime;

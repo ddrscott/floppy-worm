@@ -178,6 +178,18 @@ export default class DoubleWorm extends WormBase {
         // Set up state machine listeners
         this.setupStateMachineListeners();
         
+        // Initialize button states - we'll set these to actual states on first update
+        // to prevent buttons that are already held from triggering
+        this.rollButtonDown = undefined;
+        this.jumpButtonDown = undefined;
+        this.firstUpdate = true;
+        
+        // Input blocking - wait until all buttons are released before accepting input
+        this.inputBlocked = true;
+        this.inputBlockReason = 'waiting_for_release';
+        this.inputBlockFrameCount = 0;
+        this.inputBlockMinFrames = 10; // Wait at least 10 frames before checking
+        
         // Activate default abilities
         this.movementAbility.activate();
         this.grabAbility.activate();
@@ -218,6 +230,63 @@ export default class DoubleWorm extends WormBase {
         const oneKeyPressed = this.rollKey && this.rollKey.isDown;
         const gamepadButton0 = pad && pad.buttons[0] && pad.buttons[0].pressed;
         const rollButtonPressed = oneKeyPressed || gamepadButton0;
+        
+        // Input blocking logic - wait until all relevant buttons are released
+        if (this.inputBlocked) {
+            this.inputBlockFrameCount++;
+            
+            // Don't even check buttons until minimum frames have passed
+            if (this.inputBlockFrameCount < this.inputBlockMinFrames) {
+                // Still in initial wait period
+                const neutralInputs = {
+                    leftStick: { x: 0, y: 0 },
+                    rightStick: { x: 0, y: 0 },
+                    leftGrab: 0,
+                    rightGrab: 0,
+                    leftTrigger: 0,
+                    rightTrigger: 0,
+                    swapControls: this.config.swapControls,
+                    delta,
+                    deltaSeconds
+                };
+                
+                // Still update movement ability for visuals
+                this.movementAbility.handleInput(neutralInputs);
+                this.movementAbility.update(delta);
+                return;
+            }
+            
+            // Check if all mode buttons are released
+            const anyModeButtonPressed = rollButtonPressed || 
+                (pad && (pad.buttons[6]?.value > 0.1 || pad.buttons[7]?.value > 0.1)) ||
+                this.scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SPACE]?.isDown ||
+                this.scene.input.keyboard.keys[191]?.isDown;
+            
+            if (!anyModeButtonPressed) {
+                // All buttons released, unblock input
+                this.inputBlocked = false;
+                this.inputBlockReason = null;
+                console.log(`Input unblocked after ${this.inputBlockFrameCount} frames - all buttons released`);
+            } else {
+                // Still blocked, return early with neutral inputs
+                const neutralInputs = {
+                    leftStick: { x: 0, y: 0 },
+                    rightStick: { x: 0, y: 0 },
+                    leftGrab: 0,
+                    rightGrab: 0,
+                    leftTrigger: 0,
+                    rightTrigger: 0,
+                    swapControls: this.config.swapControls,
+                    delta,
+                    deltaSeconds
+                };
+                
+                // Still update movement ability for visuals
+                this.movementAbility.handleInput(neutralInputs);
+                this.movementAbility.update(delta);
+                return;
+            }
+        }
         
         // Get stick inputs
         let leftStick, rightStick;
@@ -268,8 +337,16 @@ export default class DoubleWorm extends WormBase {
         const jumpButtonPressed = (headTriggerValue > 0.1 || tailTriggerValue > 0.1);
         
         // Track previous button states
-        const prevRollDown = this.rollButtonDown || false;
-        const prevJumpDown = this.jumpButtonDown || false;
+        let prevRollDown = this.rollButtonDown;
+        let prevJumpDown = this.jumpButtonDown;
+        
+        // On first update, initialize button states to current state to prevent false edges
+        if (this.firstUpdate) {
+            prevRollDown = rollButtonPressed;
+            prevJumpDown = jumpButtonPressed;
+            this.firstUpdate = false;
+        }
+        
         this.rollButtonDown = rollButtonPressed;
         this.jumpButtonDown = jumpButtonPressed;
         
