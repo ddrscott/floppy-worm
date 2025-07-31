@@ -40,6 +40,9 @@ export default class MapSelectScene extends Phaser.Scene {
     }
 
     async create() {
+        // Reset transitioning flag
+        this.isTransitioning = false;
+        
         // Get build mode
         this.buildMode = await getCachedBuildMode();
         this.buildConfig = BuildConfig[this.buildMode];
@@ -296,12 +299,88 @@ export default class MapSelectScene extends Phaser.Scene {
         this.gamepadInputTimer = 0; // Track last gamepad input time
         this.gamepadInputDelay = 200; // Milliseconds between gamepad inputs
         
+        // Setup gamepad event listeners
+        this.setupGamepadEvents();
+        
+        // Listen for scene events to reset transitioning state
+        this.events.on('wake', () => {
+            this.isTransitioning = false;
+            this.setupGamepadEvents(); // Re-setup gamepad events when scene wakes
+        });
+        this.events.on('resume', () => {
+            this.isTransitioning = false;
+            this.setupGamepadEvents(); // Re-setup gamepad events when scene resumes
+        });
+        this.events.on('shutdown', () => {
+            this.removeGamepadEvents(); // Clean up gamepad events when scene shuts down
+        });
+        
         // Mouse/touch input is handled directly in createMapGrid
+    }
+    
+    setupGamepadEvents() {
+        // Remove any existing listeners first
+        this.removeGamepadEvents();
+        
+        // Get the first gamepad
+        const pad = this.input.gamepad.getPad(0);
+        if (!pad) {
+            // If no gamepad connected, listen for connection
+            if (!this.gamepadConnectedHandler) {
+                this.gamepadConnectedHandler = (pad) => {
+                    this.setupGamepadEvents();
+                };
+                this.input.gamepad.once('connected', this.gamepadConnectedHandler);
+            }
+            return;
+        }
+        
+        // Store reference for cleanup
+        this.gamepad = pad;
+        
+        // Listen for button down events
+        this.gamepadDownHandler = (index, value, button) => {
+            // Don't process if transitioning
+            if (this.isTransitioning) return;
+            
+            const currentTime = this.time.now;
+            if (currentTime - this.gamepadInputTimer < this.gamepadInputDelay) {
+                return;
+            }
+            
+            switch(index) {
+                case 0: // A button
+                    this.selectMap();
+                    this.gamepadInputTimer = currentTime;
+                    break;
+                case 1: // B button
+                    this.scene.restart();
+                    this.gamepadInputTimer = currentTime;
+                    break;
+            }
+        };
+        
+        pad.on('down', this.gamepadDownHandler);
+    }
+    
+    removeGamepadEvents() {
+        if (this.gamepad && this.gamepadDownHandler) {
+            this.gamepad.off('down', this.gamepadDownHandler);
+        }
+        if (this.gamepadConnectedHandler) {
+            this.input.gamepad.off('connected', this.gamepadConnectedHandler);
+            this.gamepadConnectedHandler = null;
+        }
     }
     
     update() {
         // Guard against incomplete initialization (async create)
         if (!this.cursors || !this.wasd || !this.maps || this.maps.length === 0) {
+            return;
+        }
+        
+        // Don't process input if we're transitioning
+        if (this.isTransitioning) {
             return;
         }
         
@@ -368,17 +447,7 @@ export default class MapSelectScene extends Phaser.Scene {
             navigationOccurred = true;
         }
 
-        // Selection buttons (A button for confirm)
-        if (gamepad.A) {
-            this.selectMap();
-            navigationOccurred = true;
-        }
-
-        // Back button (B button to refresh scene)
-        if (gamepad.B) {
-            this.scene.restart();
-            navigationOccurred = true;
-        }
+        // Button presses are now handled by gamepad events, not polling
 
         // Update timer if any navigation occurred
         if (navigationOccurred) {
@@ -447,10 +516,18 @@ export default class MapSelectScene extends Phaser.Scene {
             return;
         }
         
+        // Prevent selection if we're already transitioning
+        if (this.isTransitioning) {
+            return;
+        }
+        
         const selectedButton = this.mapButtons[this.selectedMapIndex];
         
         if (selectedButton) {
             const mapKey = selectedButton.mapKey;
+            
+            // Set transitioning flag to prevent multiple selections
+            this.isTransitioning = true;
             
             // All maps are unlocked, so just start the map
             // Clear focus state before transitioning
