@@ -28,7 +28,7 @@ export default class DoubleWorm extends WormBase {
             anchorDensity: 0.0001,
             
             // Air resistance
-            airFriction: 0.018,
+            airFriction: 0.012,
             
             // Movement Physics
             velocityDamping: 1,
