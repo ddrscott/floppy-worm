@@ -113,7 +113,9 @@ export default function PropertyPanel({
     'bouncy': 'Bouncy',
     'electric': 'Electric',
     'fire': 'Fire',
-    'blackhole': 'Black Hole'
+    'blackhole': 'Black Hole',
+    'water': 'Water',
+    'waterfall': 'Waterfall'
   };
   
   const stickerPresets = {
@@ -315,7 +317,9 @@ export default function PropertyPanel({
                         'bouncy': '#ff69b4', 
                         'electric': '#ffff00',
                         'fire': '#f44336',
-                        'blackhole': '#1a1a1a'
+                        'blackhole': '#1a1a1a',
+                        'water': '#2196f3',
+                        'waterfall': '#1e88e5'
                       };
                       onToolSettingsChange({ 
                         ...toolSettings, 
