@@ -8,13 +8,14 @@ import Map003Data from './data/Map003.json';
 import Map004Data from './data/Map004.json';
 import SwingMapData from './data/Swing.json';
 import TowerData from './data/Tower.json';
+import MiniTower from './data/Mini-Tower-005.json';
 import TryAnglesData from './data/Try-angles.json';
 import Electric from './data/Electric-Slide.json';
 import Morgan from './data/Morgan.json';
 import PendulumTest from './data/Pendulum-Test.json';
 import BlackholeTest from './data/blackhole-test.json';
 import SimpleMoves from './data/simple-moves.json';
-import WaterDemo from './data/WaterDemo.json';
+import SlopeRun from './data/Slope-Run.json';
 
 
 // Static registry for production
@@ -25,13 +26,14 @@ const STATIC_MAP_REGISTRY = {
     'Map004': Map004Data,
     'Swing': SwingMapData,
     'Tower': TowerData,
+    'Mini-Tower': MiniTower,
     'Try-angles': TryAnglesData,
     'Electric-Slide': Electric,
     'Morgan': Morgan,
     'Pendulum-Test': PendulumTest,
     'blackhole-test': BlackholeTest,
     'simple-moves': SimpleMoves,
-    'WaterDemo': WaterDemo
+    'Slope-Run': SlopeRun
 };
 
 import { hasAPISupport } from '../../utils/buildMode';
