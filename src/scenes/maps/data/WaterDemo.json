@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "name": "Water Flow Demo",
+    "difficulty": 2,
+    "description": "Experience water physics with flowing pools and waterfalls",
+    "modified": "2025-07-31T18:44:30.229Z"
+  },
+  "dimensions": {
+    "width": 1920,
+    "height": 1600
+  },
+  "entities": {
+    "wormStart": {
+      "x": 144,
+      "y": 840
+    },
+    "goal": {
+      "x": 1020,
+      "y": 600
+    }
+  },
+  "platforms": [
+    {
+      "id": "p2",
+      "type": "rectangle",
+      "x": 336,
+      "y": 1428,
+      "width": 684,
+      "height": 372,
+      "platformType": "water",
+      "flowDirection": "right"
+    },
+    {
+      "id": "p3",
+      "type": "rectangle",
+      "x": 708,
+      "y": 624,
+      "width": 108,
+      "height": 1272,
+      "platformType": "waterfall",
+      "fallSpeed": 0.01
+    },
+    {
+      "id": "p4",
+      "type": "rectangle",
+      "x": 972,
+      "y": 1428,
+      "width": 588,
+      "height": 372,
+      "platformType": "water",
+      "flowDirection": "left"
+    },
+    {
+      "id": "platform_1753986087369",
+      "type": "rectangle",
+      "x": 1596,
+      "y": 1428,
+      "width": 684,
+      "height": 396,
+      "color": "#ef4e4e",
+      "platformType": "standard"
+    },
+    {
+      "id": "platform_1753987329761",
+      "type": "rectangle",
+      "x": 1044,
+      "y": 780,
+      "width": 588,
+      "height": 120,
+      "color": "#ef4e4e",
+      "platformType": "standard"
+    }
+  ],
+  "stickers": [
+    {
+      "id": "sticker_1753986002334_4w21dpbhr",
+      "x": 276,
+      "y": 1152,
+      "text": "Water pushes you right →",
+      "config": {
+        "fontSize": "18px",
+        "fontFamily": "Arial, sans-serif",
+        "color": "#ffffff",
+        "backgroundColor": "rgba(0, 0, 0, 0.7)",
+        "padding": {
+          "x": 8,
+          "y": 4
+        },
+        "borderRadius": 4,
+        "strokeColor": "#333333",
+        "strokeWidth": 1,
+        "depth": 15,
+        "maxWidth": 300,
+        "wordWrap": true,
+        "align": "center",
+        "id": "sticker_1753986002334_4w21dpbhr"
+      }
+    },
+    {
+      "id": "sticker_1753986002334_o7yfalva5",
+      "x": 552,
+      "y": 552,
+      "text": "Waterfall pulls down!",
+      "config": {
+        "fontSize": "18px",
+        "fontFamily": "Arial, sans-serif",
+        "color": "#ffffff",
+        "backgroundColor": "rgba(0, 0, 0, 0.7)",
+        "padding": {
+          "x": 8,
+          "y": 4
+        },
+        "borderRadius": 4,
+        "strokeColor": "#333333",
+        "strokeWidth": 1,
+        "depth": 15,
+        "maxWidth": 300,
+        "wordWrap": true,
+        "align": "center",
+        "id": "sticker_1753986002334_o7yfalva5"
+      }
+    },
+    {
+      "id": "sticker_1753986002335_f6hldw39o",
+      "x": 948,
+      "y": 1152,
+      "text": "← This pool flows left",
+      "config": {
+        "fontSize": "18px",
+        "fontFamily": "Arial, sans-serif",
+        "color": "#ffffff",
+        "backgroundColor": "rgba(0, 0, 0, 0.7)",
+        "padding": {
+          "x": 8,
+          "y": 4
+        },
+        "borderRadius": 4,
+        "strokeColor": "#333333",
+        "strokeWidth": 1,
+        "depth": 15,
+        "maxWidth": 300,
+        "wordWrap": true,
+        "align": "center",
+        "id": "sticker_1753986002335_f6hldw39o"
+      }
+    }
+  ],
+  "constraints": []
+}

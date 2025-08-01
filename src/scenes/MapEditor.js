@@ -7,6 +7,8 @@ import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
 import BlackholePlatform from '../entities/BlackholePlatform';
+import WaterPlatform from '../entities/WaterPlatform';
+import WaterfallPlatform from '../entities/WaterfallPlatform';
 import Sticker from '../entities/Sticker';
 
 export default class MapEditor extends Phaser.Scene {
@@ -1455,6 +1457,10 @@ export default class MapEditor extends Phaser.Scene {
                 return new FirePlatform(this, x, y, platformWidth, platformHeight, config);
             case 'blackhole':
                 return new BlackholePlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'water':
+                return new WaterPlatform(this, x, y, platformWidth, platformHeight, config);
+            case 'waterfall':
+                return new WaterfallPlatform(this, x, y, platformWidth, platformHeight, config);
             default:
                 return new PlatformBase(this, x, y, platformWidth, platformHeight, config);
         }
@@ -2589,6 +2595,12 @@ export default class MapEditor extends Phaser.Scene {
                 
             case 'blackhole':
                 return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'water':
+                return new WaterPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'waterfall':
+                return new WaterfallPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
                 
             default:
                 console.warn(`Unknown special platform type: ${platformType}`);

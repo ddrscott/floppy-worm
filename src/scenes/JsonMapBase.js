@@ -9,6 +9,8 @@ import BouncyPlatform from '../entities/BouncyPlatform';
 import ElectricPlatform from '../entities/ElectricPlatform';
 import FirePlatform from '../entities/FirePlatform';
 import BlackholePlatform from '../entities/BlackholePlatform';
+import WaterPlatform from '../entities/WaterPlatform';
+import WaterfallPlatform from '../entities/WaterfallPlatform';
 import Sticker from '../entities/Sticker';
 import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
@@ -525,6 +527,12 @@ export default class JsonMapBase extends Phaser.Scene {
                 
             case 'blackhole':
                 return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'water':
+                return new WaterPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'waterfall':
+                return new WaterfallPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
                 
             case 'standard':
                 // Standard platform with motion needs to use PlatformBase
