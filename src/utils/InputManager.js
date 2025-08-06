@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import TouchControlsOverlay from './TouchControlsOverlay'; // Using v2 with global pointer tracking
 
 /**
  * InputManager - Centralized input handling with configurable key mappings
@@ -61,8 +62,18 @@ export default class InputManager {
             keyStates: {}
         };
         
+        // Touch state tracking
+        this.touchStates = {
+            leftStick: { x: 0, y: 0 },
+            rightStick: { x: 0, y: 0 },
+            buttons: {}
+        };
+        
         // Initialize keyboard input
         this.initializeKeyboard();
+        
+        // Initialize touch controls
+        this.initializeTouchControls();
         
         // Debug overlay
         if (this.config.debug) {
@@ -89,6 +100,19 @@ export default class InputManager {
         console.log(`InputManager: Registered ${allKeys.size} keys for input`);
     }
     
+    initializeTouchControls() {
+        // Create touch overlay if we're on a touch device
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            console.log('InputManager: Touch device detected, creating TouchControlsOverlay');
+            this.touchControls = new TouchControlsOverlay(this.scene, {
+                ...this.config.touchConfig
+            });
+            console.log('InputManager: Touch controls initialized');
+        } else {
+            console.log('InputManager: No touch device detected');
+        }
+    }
+    
     /**
      * Get current input state
      * @returns {Object} Complete input state for the frame
@@ -103,16 +127,24 @@ export default class InputManager {
         // Get button inputs
         const buttons = this.getButtonInputs(pad);
         
+        // Get touch button states
+        let touchButtons = {};
+        if (this.touchControls) {
+            touchButtons = this.touchControls.getState().buttons;
+        }
+        
         // Combine triggers
         const leftTrigger = Math.max(
             buttons.jump && !this.config.swapControls ? 1 : 0,
-            pad?.buttons[6]?.value || 0
+            pad?.buttons[6]?.value || 0,
+            touchButtons.leftTrigger ? 1 : 0
         );
         
         const rightTrigger = Math.max(
             buttons.jumpAlt && !this.config.swapControls ? 1 : 0,
             buttons.jump && this.config.swapControls ? 1 : 0,
-            pad?.buttons[7]?.value || 0
+            pad?.buttons[7]?.value || 0,
+            touchButtons.rightTrigger ? 1 : 0
         );
         
         const state = {
@@ -120,9 +152,15 @@ export default class InputManager {
             rightStick,
             leftTrigger,
             rightTrigger,
-            leftGrab: pad?.buttons[4]?.value || 0,
-            rightGrab: pad?.buttons[5]?.value || 0,
-            rollButton: buttons.roll || pad?.buttons[0]?.pressed || false,
+            leftGrab: Math.max(
+                pad?.buttons[4]?.value || 0,
+                touchButtons.leftShoulder ? 1 : 0
+            ),
+            rightGrab: Math.max(
+                pad?.buttons[5]?.value || 0,
+                touchButtons.rightShoulder ? 1 : 0
+            ),
+            rollButton: buttons.roll || pad?.buttons[0]?.pressed || touchButtons.roll || false,
             delta,
             deltaSeconds: delta / 1000,
             swapControls: this.config.swapControls || false
@@ -137,7 +175,7 @@ export default class InputManager {
     }
     
     /**
-     * Get stick input combining gamepad and keyboard
+     * Get stick input combining gamepad, keyboard, and touch
      */
     getStickInput(stick, pad, delta) {
         // Get gamepad input
@@ -149,11 +187,40 @@ export default class InputManager {
         // Get keyboard input
         const keyboardStick = this.simulateStickFromKeyboard(stick, delta);
         
-        // Use whichever has greater magnitude
+        // Get touch input
+        let touchStick = { x: 0, y: 0 };
+        if (this.touchControls) {
+            const touchState = this.touchControls.getState();
+            touchStick = stick === 'left' ? touchState.leftStick : touchState.rightStick;
+            
+            // Log touch input if active
+            if (touchStick.active) {
+                console.log(`InputManager: Touch ${stick} stick: (${touchStick.x?.toFixed(2)}, ${touchStick.y?.toFixed(2)})`);
+            }
+        }
+        
+        // Use whichever has greatest magnitude
         const padMag = Math.sqrt(gamepadStick.x ** 2 + gamepadStick.y ** 2);
         const keyMag = Math.sqrt(keyboardStick.x ** 2 + keyboardStick.y ** 2);
+        const touchMag = Math.sqrt(touchStick.x ** 2 + touchStick.y ** 2);
         
-        const result = keyMag > padMag ? keyboardStick : gamepadStick;
+        let result;
+        let source = '';
+        if (touchMag >= padMag && touchMag >= keyMag) {
+            result = touchStick;
+            source = 'touch';
+        } else if (keyMag >= padMag) {
+            result = keyboardStick;
+            source = 'keyboard';
+        } else {
+            result = gamepadStick;
+            source = 'gamepad';
+        }
+        
+        // Log which source is being used if there's input
+        if (result.x !== 0 || result.y !== 0) {
+            console.log(`InputManager: ${stick} stick using ${source} input: (${result.x.toFixed(2)}, ${result.y.toFixed(2)})`);
+        }
         
         // Store state
         this.stickStates[stick] = {
@@ -275,7 +342,27 @@ export default class InputManager {
             `Grab: L=${state.leftGrab.toFixed(2)} R=${state.rightGrab.toFixed(2)}`
         ];
         
+        // Add touch controls status
+        if (this.touchControls) {
+            lines.push('Touch: ENABLED');
+            
+            // Show which input source is active
+            const touchState = this.touchControls.getState();
+            if (touchState.leftStick.active || touchState.rightStick.active) {
+                lines.push('Touch Active: YES');
+            }
+        }
+        
         this.debugText.setText(lines.join('\n'));
+    }
+    
+    /**
+     * Show/hide touch controls
+     */
+    setTouchControlsVisible(visible) {
+        if (this.touchControls) {
+            this.touchControls.setVisible(visible);
+        }
     }
     
     /**
@@ -284,6 +371,9 @@ export default class InputManager {
     destroy() {
         if (this.debugText) {
             this.debugText.destroy();
+        }
+        if (this.touchControls) {
+            this.touchControls.destroy();
         }
     }
 }

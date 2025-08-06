@@ -220,6 +220,11 @@ export default class DoubleWorm extends WormBase {
         // Get input state from InputManager
         const inputState = this.inputManager.getInputState(delta);
         
+        // Log input state if there's any movement
+        if (inputState.leftStick.x !== 0 || inputState.leftStick.y !== 0 || 
+            inputState.rightStick.x !== 0 || inputState.rightStick.y !== 0) {
+        }
+        
         // Input blocking logic - wait until all relevant buttons are released
         if (this.inputBlocked) {
             this.inputBlockFrameCount++;
@@ -253,7 +258,6 @@ export default class DoubleWorm extends WormBase {
                 // All buttons released, unblock input
                 this.inputBlocked = false;
                 this.inputBlockReason = null;
-                console.log(`Input unblocked after ${this.inputBlockFrameCount} frames - all buttons released`);
             } else {
                 // Still blocked, return early with neutral inputs
                 const neutralInputs = {

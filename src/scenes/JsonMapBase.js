@@ -1,7 +1,5 @@
 import Phaser from 'phaser';
 import DoubleWorm from '../entities/DoubleWorm';
-import VirtualControls from '../components/VirtualControls';
-import ControlsDisplay from '../components/ControlsDisplay';
 import Stopwatch from '../components/Stopwatch';
 import PlatformBase from '../entities/PlatformBase';
 import IcePlatform from '../entities/IcePlatform';
@@ -12,7 +10,6 @@ import BlackholePlatform from '../entities/BlackholePlatform';
 import WaterPlatform from '../entities/WaterPlatform';
 import WaterfallPlatform from '../entities/WaterfallPlatform';
 import Sticker from '../entities/Sticker';
-import { getMapKeys } from './maps/MapDataRegistry';
 import GhostRecorder from '../components/ghost/GhostRecorder';
 import GhostPlayer from '../components/ghost/GhostPlayer';
 import GhostStorage from '../components/ghost/GhostStorage';
@@ -1194,8 +1191,8 @@ export default class JsonMapBase extends Phaser.Scene {
         // Ghost toggle
         this.gKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
         
-        // Virtual controls (joystick + buttons)
-        this.virtualControls = new VirtualControls(this);
+        // Virtual controls disabled - now handled by InputManager in DoubleWorm
+        // this.virtualControls = new VirtualControls(this);
         
         // Track gamepad button states
         this.button0WasPressed = false;
@@ -1237,22 +1234,6 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Ghost indicator (will be shown when ghost is loaded)
         this.ghostIndicator = null;
-        
-        // // Controls - only show on desktop
-        // const isTouchDevice = ('ontouchstart' in window) || 
-        //                     (navigator.maxTouchPoints > 0) || 
-        //                     (navigator.msMaxTouchPoints > 0);
-        //
-        // if (!isTouchDevice) {
-        //     // Position controls as a sign in the world near the start
-        //     const startX = this.mapData.entities.wormStart.x;
-        //     const startY = this.mapData.entities.wormStart.y;
-        //     this.controlsDisplay = new ControlsDisplay(this, startX - 200, startY - 50, {
-        //         worldSpace: true,
-        //         signStyle: true
-        //     });
-        //     // Don't add to minimap ignore list since it's now in world space
-        // }
     }
     
     createMiniMap(levelHeight) {
