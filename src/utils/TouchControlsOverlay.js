@@ -4,6 +4,7 @@ import Phaser from 'phaser';
  * TouchControlsOverlay2 - Simplified virtual touch controls using global pointer tracking
  * 
  * Based on Phaser's multitouch example for more reliable input handling
+ * Joysticks track touch input even when moved outside their visual bounds
  */
 export default class TouchControlsOverlay {
     constructor(scene, config = {}) {
@@ -248,18 +249,13 @@ export default class TouchControlsOverlay {
         if (state.pointerId >= 0) {
             const pointer = pointers[state.pointerId - 1];
             if (pointer && pointer.isDown) {
-                // Continue tracking this pointer
+                // Continue tracking this pointer regardless of distance
                 const dx = pointer.x - worldX;
                 const dy = pointer.y - worldY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance <= this.config.joystickRadius * 1.5) {
-                    // Still within range, update position
-                    this.setJoystickPosition(side, dx, dy);
-                    return;
-                }
+                this.setJoystickPosition(side, dx, dy);
+                return;
             }
-            // Pointer released or moved too far
+            // Pointer released
             this.resetJoystick(side);
         }
         

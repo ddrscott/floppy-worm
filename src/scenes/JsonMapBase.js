@@ -1265,6 +1265,11 @@ export default class JsonMapBase extends Phaser.Scene {
             this.minimap.ignore(this.controlsDisplay.elements);
         }
         
+        // Hide touch controls from minimap
+        if (this.worm && this.worm.inputManager && this.worm.inputManager.touchControls && this.worm.inputManager.touchControls.container) {
+            this.minimap.ignore(this.worm.inputManager.touchControls.container);
+        }
+        
         this.minimapIgnoreList = [];
         
         // Add visual border and viewport indicator
