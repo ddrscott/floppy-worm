@@ -32,7 +32,7 @@ export default class MapEditor extends Phaser.Scene {
             CAMERA: {
                 EDITOR_ZOOM: 0.8,
                 TEST_ZOOM: 1.0,
-                MIN_ZOOM: 0.5,
+                MIN_ZOOM: 0.15,
                 MAX_ZOOM: 2.0,
                 ZOOM_SPEED: 0.05,
                 PAN_SPEED: 10,
@@ -197,6 +197,9 @@ export default class MapEditor extends Phaser.Scene {
         // Set world bounds
         this.matter.world.setBounds(0, 0, levelWidth, levelHeight, 1000);
         
+        // Create background with margin
+        this.createBackgroundWithMargin(levelWidth, levelHeight);
+        
         // Create grid
         this.createGrid(levelWidth, levelHeight);
         
@@ -285,7 +288,23 @@ export default class MapEditor extends Phaser.Scene {
                         // Check if clicking on platform graphics
                         const clickedPlatform = this.platforms.find(p => {
                             if (!p.graphics) return false;
-                            return p.graphics.getBounds().contains(worldX, worldY);
+                            
+                            // Graphics objects don't have getBounds, check using data
+                            if (p.graphics.type === 'Graphics') {
+                                const { x, y, width, height, type, radius } = p.data;
+                                if (type === 'rectangle') {
+                                    return worldX >= x - width/2 && worldX <= x + width/2 &&
+                                           worldY >= y - height/2 && worldY <= y + height/2;
+                                } else if (type === 'circle') {
+                                    const dx = worldX - x;
+                                    const dy = worldY - y;
+                                    return (dx * dx + dy * dy) <= (radius * radius);
+                                }
+                                return false;
+                            } else {
+                                // Regular shapes have getBounds
+                                return p.graphics.getBounds().contains(worldX, worldY);
+                            }
                         });
                         
                         if (clickedPlatform) {
@@ -303,9 +322,23 @@ export default class MapEditor extends Phaser.Scene {
         
         // Setup camera - remove built-in bounds to use manual constraints
         this.cameras.main.removeBounds();
-        this.cameras.main.setZoom(0.8);
-        // Center camera on worm start position
-        this.cameras.main.centerOn(this.entities.wormStart.x, this.entities.wormStart.y);
+        
+        // Calculate initial zoom to show entire map with margins
+        const margin = this.CONFIG.CAMERA.MARGIN;
+        const viewportWidth = this.cameras.main.width;
+        const viewportHeight = this.cameras.main.height;
+        const mapWidthWithMargin = levelWidth + (2 * margin);
+        const mapHeightWithMargin = levelHeight + (2 * margin);
+        
+        // Calculate zoom level that fits entire map with margins
+        const zoomX = viewportWidth / mapWidthWithMargin;
+        const zoomY = viewportHeight / mapHeightWithMargin;
+        const initialZoom = Math.max(this.CONFIG.CAMERA.MIN_ZOOM, Math.min(zoomX, zoomY, 0.8));
+        
+        this.cameras.main.setZoom(initialZoom);
+        
+        // Center camera on the map (not on worm position)
+        this.cameras.main.centerOn(levelWidth / 2, levelHeight / 2);
         
         // Add camera info display
         this.createCameraInfoDisplay();
@@ -449,32 +482,87 @@ export default class MapEditor extends Phaser.Scene {
             graphics.lineTo(x, height);
         }
         
-        // Horizontal lines
-        for (let y = 0; y <= height; y += this.CONFIG.GRID.ROW_SPACING) {
+        // Horizontal lines - use CHAR_WIDTH for consistency with JsonMapBase
+        for (let gridLine = 0; gridLine * this.CONFIG.GRID.CHAR_WIDTH <= height; gridLine++) {
+            const y = height - (gridLine * this.CONFIG.GRID.CHAR_WIDTH);
             graphics.moveTo(0, y);
             graphics.lineTo(width, y);
         }
     }
     
     drawGridMarkers(width, height) {
-        const gridStyle = { fontSize: '12px', color: '#888888' };
-        const markerSpacing = 5;
+        // Add height markers every 5 grid lines (matching JsonMapBase.js style)
+        for (let y = 0; y <= height; y += this.CONFIG.GRID.CHAR_WIDTH) {
+            const gridLineNumber = Math.round(y / this.CONFIG.GRID.CHAR_WIDTH);
+            
+            if (gridLineNumber % 5 === 0 && gridLineNumber > 0) {
+                // Left marker
+                const leftText = this.add.text(10, height - y - 10, `${gridLineNumber}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                leftText.setDepth(-90);
+                
+                // Right marker
+                const rightText = this.add.text(width - 40, height - y - 10, `${gridLineNumber}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                rightText.setDepth(-90);
+                
+                // Horizontal marker line
+                const markerGraphics = this.add.graphics();
+                markerGraphics.lineStyle(2, 0x4ecdc4, 0.6);
+                markerGraphics.moveTo(0, height - y);
+                markerGraphics.lineTo(width, height - y);
+                markerGraphics.strokePath();
+                markerGraphics.setDepth(-95);
+            }
+        }
         
-        // Horizontal markers
-        for (let x = 0; x <= width; x += this.CONFIG.GRID.CHAR_WIDTH * markerSpacing) {
+        // Add horizontal markers every 5 grid columns
+        for (let x = 0; x <= width; x += this.CONFIG.GRID.CHAR_WIDTH * 5) {
             const gridX = x / this.CONFIG.GRID.CHAR_WIDTH;
             if (gridX > 0) {
-                this.add.text(x - 10, height + 10, `${gridX}`, gridStyle);
+                // Top marker
+                const topText = this.add.text(x - 10, 10, `${gridX}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                topText.setDepth(-90);
+                
+                // Bottom marker
+                const bottomText = this.add.text(x - 10, height - 30, `${gridX}`, {
+                    fontSize: '16px',
+                    color: '#4ecdc4',
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: { x: 5, y: 2 }
+                });
+                bottomText.setDepth(-90);
             }
         }
+    }
+    
+    createBackgroundWithMargin(width, height) {
+        const margin = this.CONFIG.CAMERA.MARGIN;
         
-        // Vertical markers
-        for (let y = 0; y <= height; y += this.CONFIG.GRID.ROW_SPACING * markerSpacing) {
-            const gridY = y / this.CONFIG.GRID.ROW_SPACING;
-            if (gridY > 0) {
-                this.add.text(-25, height - y - 6, `${gridY}`, gridStyle);
-            }
-        }
+        // Create a dark background that extends beyond the map
+        const bgGraphics = this.add.graphics();
+        bgGraphics.fillStyle(0x1a1a1a, 1);
+        bgGraphics.fillRect(-margin, -margin, width + 2 * margin, height + 2 * margin);
+        bgGraphics.setDepth(-200);
+        
+        // Create a lighter background for the actual map area
+        const mapBg = this.add.graphics();
+        mapBg.fillStyle(0x2a2a2a, 1);
+        mapBg.fillRect(0, 0, width, height);
+        mapBg.setDepth(-150);
     }
     
     createBoundaryWalls(width, height) {
@@ -736,7 +824,17 @@ export default class MapEditor extends Phaser.Scene {
             // Handle sticker movement
             if (gameObject.stickerInstance) {
                 const snappedPos = this.applyGridSnap(dragX, dragY);
-                gameObject.stickerInstance.setPosition(snappedPos.x, snappedPos.y);
+                // gameObject is the container, so just set its position
+                gameObject.x = snappedPos.x;
+                gameObject.y = snappedPos.y;
+                // Update the sticker's internal position tracking
+                const sticker = this.stickers.find(s => s.container === gameObject);
+                if (sticker) {
+                    sticker.x = snappedPos.x;
+                    sticker.y = snappedPos.y;
+                    sticker.data.x = snappedPos.x;
+                    sticker.data.y = snappedPos.y;
+                }
                 this.autoSave();
             }
         });
@@ -982,17 +1080,23 @@ export default class MapEditor extends Phaser.Scene {
         // But for rotation, we can just update the angle
         if (type === 'rectangle' || type === 'trapezoid') {
             // Check if size changed
-            const currentWidth = platform.graphics.width;
-            const currentHeight = platform.graphics.height;
+            // For Graphics objects (chamfered rectangles), we can't check width/height directly
+            const isGraphics = platform.graphics.type === 'Graphics';
+            const needsRecreate = isGraphics || 
+                                  platform.graphics.width !== width || 
+                                  platform.graphics.height !== height;
             
-            if (currentWidth !== width || currentHeight !== height) {
+            if (needsRecreate) {
                 // Size changed - need to recreate
                 const oldGraphics = platform.graphics;
                 platform.graphics = this.createSimplePlatformVisual(platform.data);
                 
                 // Make sure the new graphics is interactive and draggable
                 if (platform.graphics) {
-                    platform.graphics.setInteractive();
+                    // For containers, we already set interactive in createSimplePlatformVisual
+                    if (!platform.graphics.input) {
+                        platform.graphics.setInteractive();
+                    }
                     this.input.setDraggable(platform.graphics);
                     platform.graphics.platformData = { ...platform.data };
                 }
@@ -1028,7 +1132,28 @@ export default class MapEditor extends Phaser.Scene {
     highlightSelectedPlatform(platform) {
         // Add selection highlight to platform graphics
         if (platform.graphics) {
-            platform.graphics.setStrokeStyle(4, 0x00ff00, 1);
+            // For Graphics objects (chamfered rectangles), we need to redraw
+            if (platform.graphics.type === 'Graphics') {
+                const g = platform.graphics;
+                // Clear existing style and reapply with highlight
+                g.clear();
+                g.fillStyle(platform.data.color ? parseInt(platform.data.color.replace('#', '0x')) : 0x666666);
+                g.lineStyle(4, 0x00ff00); // Green highlight
+                
+                // Redraw the rounded rectangle
+                const { width, height, chamfer } = platform.data;
+                let cornerRadius = 0;
+                if (chamfer && chamfer.radius) {
+                    cornerRadius = Array.isArray(chamfer.radius) ? 
+                        Math.min(chamfer.radius[0], width / 2, height / 2) :
+                        Math.min(chamfer.radius, width / 2, height / 2);
+                }
+                g.fillRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+                g.strokeRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+            } else {
+                // Regular shapes (Rectangle, Circle, etc.)
+                platform.graphics.setStrokeStyle(4, 0x00ff00, 1);
+            }
         }
     }
     
@@ -1330,10 +1455,10 @@ export default class MapEditor extends Phaser.Scene {
     addStickerToScene(stickerData) {
         // Create sticker instance
         const sticker = Sticker.fromJSON(this, stickerData);
-        sticker.setInteractive(true);
+        // The sticker already sets up interactivity in createContainer
         
-        // Set up drag and selection
-        this.input.setDraggable(sticker.textObject);
+        sticker.container.setInteractive();
+        this.input.setDraggable(sticker.container);
         
         // Add to stickers array
         this.stickers.push(sticker);
@@ -1393,7 +1518,9 @@ export default class MapEditor extends Phaser.Scene {
         }
         
         // Make the graphics object interactive and draggable
-        graphics.setInteractive();
+        if (!graphics.input) {
+            graphics.setInteractive();
+        }
         this.input.setDraggable(graphics);
         
         // Store platform data on the graphics object
@@ -1467,10 +1594,10 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createSimplePlatformVisual(platformData) {
-        const { type, x, y, width, height, radius, color = '#666666', angle = 0, platformType = 'standard' } = platformData;
+        const { type, x, y, width, height, radius, color = '#666666', angle = 0, platformType = 'standard', chamfer } = platformData;
         
         console.log('createSimplePlatformVisual called with:', {
-            type, x, y, width, height, radius, color, angle, platformType
+            type, x, y, width, height, radius, color, angle, platformType, chamfer
         });
         
         // Get appropriate color for platform type
@@ -1484,7 +1611,9 @@ export default class MapEditor extends Phaser.Scene {
                 bouncy: 0xff69b4,
                 electric: 0xffff00,
                 fire: 0xf44336,
-                blackhole: 0x1a1a1a
+                blackhole: 0x1a1a1a,
+                water: 0x2980b9,
+                waterfall: 0x3498db
             };
             fillColor = specialColors[platformType] || parseInt(color.replace('#', '0x'));
         }
@@ -1493,9 +1622,38 @@ export default class MapEditor extends Phaser.Scene {
         
         switch (type) {
             case 'rectangle':
-                graphics = this.add.rectangle(x, y, width, height, fillColor);
-                graphics.setStrokeStyle(2, 0x333333);
-                graphics.setDepth(0);
+                // Check if we need rounded corners
+                if (chamfer && chamfer.radius) {
+                    // Use a graphics object to draw rounded rectangle
+                    const g = this.add.graphics();
+                    g.fillStyle(fillColor);
+                    g.lineStyle(2, 0x333333);
+                    
+                    // Determine corner radius
+                    let cornerRadius;
+                    if (Array.isArray(chamfer.radius)) {
+                        // Use the first value as a uniform radius for visual
+                        cornerRadius = Math.min(chamfer.radius[0], width / 2, height / 2);
+                    } else {
+                        cornerRadius = Math.min(chamfer.radius, width / 2, height / 2);
+                    }
+                    
+                    g.fillRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+                    g.strokeRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+                    
+                    // For now, just use the graphics object directly without a container
+                    // This ensures drag and drop works properly
+                    graphics = g;
+                    graphics.x = x;
+                    graphics.y = y;
+                    graphics.setDepth(0);
+                    // Graphics objects need a hit area to be interactive
+                    graphics.setInteractive(new Phaser.Geom.Rectangle(-width/2, -height/2, width, height), Phaser.Geom.Rectangle.Contains);
+                } else {
+                    graphics = this.add.rectangle(x, y, width, height, fillColor);
+                    graphics.setStrokeStyle(2, 0x333333);
+                    graphics.setDepth(0);
+                }
                 break;
                 
             case 'circle':
@@ -1531,8 +1689,10 @@ export default class MapEditor extends Phaser.Scene {
         // Set proper rendering properties to avoid artifacts
         if (graphics) {
             graphics.setDepth(0);
-            // Ensure origin is centered for proper rotation
-            graphics.setOrigin(0.5, 0.5);
+            // Ensure origin is centered for proper rotation (containers already have centered origin)
+            if (type !== 'rectangle' || !chamfer) {
+                graphics.setOrigin(0.5, 0.5);
+            }
         }
         
         console.log('createSimplePlatformVisual returning:', graphics ? `${type} graphics object` : 'null');
@@ -1807,29 +1967,54 @@ export default class MapEditor extends Phaser.Scene {
         
         // Handle color change
         else if (property === 'color') {
-            this.recreateEntirePlatform(platform);
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         // Handle size changes for rectangles and trapezoids
         else if ((property === 'width' || property === 'height') && (platform.data.type === 'rectangle' || platform.data.type === 'trapezoid')) {
-            this.recreateEntirePlatform(platform);
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         // Handle radius changes
         else if (property === 'radius' && (platform.data.type === 'circle' || platform.data.type === 'polygon')) {
-            this.recreateEntirePlatform(platform);
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         // Handle polygon sides change
         else if (property === 'polygonSides' && platform.data.type === 'polygon') {
             platform.data.sides = value;
-            this.recreateEntirePlatform(platform);
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         // Handle trapezoid slope change
         else if (property === 'trapezoidSlope' && platform.data.type === 'trapezoid') {
             platform.data.slope = value;
-            this.recreateEntirePlatform(platform);
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         // Handle motion property
@@ -1844,6 +2029,18 @@ export default class MapEditor extends Phaser.Scene {
             // Just update the data - physics will be applied in test mode
             platform.data.physics = platform.data.physics || {};
             platform.data.physics[property] = value;
+        }
+        
+        // Handle chamfer property
+        else if (property === 'chamfer') {
+            platform.data.chamfer = value;
+            // Recreate platform to apply chamfer visually
+            const newPlatform = this.recreateEntirePlatform(platform);
+            
+            // Update the React property panel
+            if (typeof window !== 'undefined' && window.editorCallbacks && window.editorCallbacks.onPlatformSelect) {
+                window.editorCallbacks.onPlatformSelect(newPlatform);
+            }
         }
         
         console.log(`Updated platform ${property}: ${oldValue} -> ${value}`);
@@ -1862,7 +2059,28 @@ export default class MapEditor extends Phaser.Scene {
     clearPlatformHighlight(platform) {
         // Reset platform graphics to default styling
         if (platform.graphics) {
-            platform.graphics.setStrokeStyle(2, 0x333333, 1);
+            // For Graphics objects (chamfered rectangles), we need to redraw
+            if (platform.graphics.type === 'Graphics') {
+                const g = platform.graphics;
+                // Clear existing style and reapply normal style
+                g.clear();
+                g.fillStyle(platform.data.color ? parseInt(platform.data.color.replace('#', '0x')) : 0x666666);
+                g.lineStyle(2, 0x333333); // Normal stroke
+                
+                // Redraw the rounded rectangle
+                const { width, height, chamfer } = platform.data;
+                let cornerRadius = 0;
+                if (chamfer && chamfer.radius) {
+                    cornerRadius = Array.isArray(chamfer.radius) ? 
+                        Math.min(chamfer.radius[0], width / 2, height / 2) :
+                        Math.min(chamfer.radius, width / 2, height / 2);
+                }
+                g.fillRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+                g.strokeRoundedRect(-width/2, -height/2, width, height, cornerRadius);
+            } else {
+                // Regular shapes
+                platform.graphics.setStrokeStyle(2, 0x333333, 1);
+            }
         }
     }
     
@@ -2381,7 +2599,7 @@ export default class MapEditor extends Phaser.Scene {
     }
     
     createPhysicsBodyForPlatform(platformData) {
-        const { type, physics = {}, angle = 0 } = platformData;
+        const { type, physics = {}, angle = 0, chamfer } = platformData;
         const defaultPhysics = {
             isStatic: true,
             friction: 0.8,
@@ -2389,6 +2607,11 @@ export default class MapEditor extends Phaser.Scene {
             restitution: 0
         };
         const appliedPhysics = { ...defaultPhysics, ...physics };
+        
+        // Add chamfer if specified
+        if (chamfer) {
+            appliedPhysics.chamfer = chamfer;
+        }
         
         let body;
         
@@ -3194,6 +3417,9 @@ TESTING TIPS:
         if (!this.isTestMode) {
             this.updateCameraControls(delta);
             
+            // Always apply camera constraints to ensure proper centering
+            this.constrainCameraToMapBounds(this.cameras.main);
+            
             // Update constraint preview line if in constraint creation mode
             if (this.constraintCreationMode && this.constraintPreviewLine && this.constraintFirstBody) {
                 const pointer = this.input.activePointer;
@@ -3399,18 +3625,27 @@ TESTING TIPS:
         const { ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM } = this.CONFIG.CAMERA;
         const oldZoom = camera.zoom;
         
-        if (deltaY < 0) {
-            camera.zoom = Phaser.Math.Clamp(camera.zoom + ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM);
-        } else {
-            camera.zoom = Phaser.Math.Clamp(camera.zoom - ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM);
-        }
+        // Calculate new zoom level
+        const newZoom = deltaY < 0 
+            ? Phaser.Math.Clamp(camera.zoom + ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM)
+            : Phaser.Math.Clamp(camera.zoom - ZOOM_SPEED, MIN_ZOOM, MAX_ZOOM);
         
-        if (camera.zoom !== oldZoom) {
-            const worldPoint = camera.getWorldPoint(pointer.x, pointer.y);
-            const zoomRatio = camera.zoom / oldZoom;
+        if (newZoom !== oldZoom) {
+            // Get the world position under the cursor before zoom
+            const worldX = pointer.worldX;
+            const worldY = pointer.worldY;
             
-            camera.scrollX += (worldPoint.x - camera.scrollX) * (1 - 1/zoomRatio);
-            camera.scrollY += (worldPoint.y - camera.scrollY) * (1 - 1/zoomRatio);
+            // Apply the new zoom
+            camera.zoom = newZoom;
+            
+            // Calculate the new world position under the cursor after zoom
+            // This would be different if we don't adjust the scroll
+            const newWorldX = camera.scrollX + pointer.x / newZoom;
+            const newWorldY = camera.scrollY + pointer.y / newZoom;
+            
+            // Adjust the camera scroll so the world position under the cursor remains the same
+            camera.scrollX += worldX - newWorldX;
+            camera.scrollY += worldY - newWorldY;
         }
     }
     
@@ -3445,22 +3680,44 @@ TESTING TIPS:
     constrainCameraToMapBounds(camera) {
         const { width: mapWidth, height: mapHeight } = this.mapData.dimensions;
         
-        // Use 25% of viewport dimensions as margin
-        const marginX = camera.width * 0.25 / camera.zoom;
-        const marginY = camera.height * 0.25 / camera.zoom;
+        // Always use fixed margin for consistent spacing
+        const margin = this.CONFIG.CAMERA.MARGIN;
         
         // Calculate camera view dimensions
         const cameraViewWidth = camera.width / camera.zoom;
         const cameraViewHeight = camera.height / camera.zoom;
         
-        // Allow camera to move beyond map bounds by the margin amount
-        const minX = -marginX;
-        const maxX = mapWidth - cameraViewWidth + marginX;
-        const minY = -marginY;
-        const maxY = mapHeight - cameraViewHeight + marginY;
+        // Allow panning with larger bounds when zoomed out
+        // This ensures you can always see the margin area
+        const allowedPanMargin = margin * 2; // Double margin for panning freedom
         
-        camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, Math.max(minX, maxX));
-        camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, Math.max(minY, maxY));
+        // Horizontal constraints
+        const minX = -allowedPanMargin;
+        const maxX = mapWidth + allowedPanMargin - cameraViewWidth;
+        
+        // Only constrain if there's a valid range
+        if (minX < maxX) {
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, maxX);
+        } else {
+            // When map is smaller than viewport, allow limited panning
+            const centerX = (mapWidth - cameraViewWidth) / 2;
+            const panRange = margin; // Allow panning by margin amount
+            camera.scrollX = Phaser.Math.Clamp(camera.scrollX, centerX - panRange, centerX + panRange);
+        }
+        
+        // Vertical constraints
+        const minY = -allowedPanMargin;
+        const maxY = mapHeight + allowedPanMargin - cameraViewHeight;
+        
+        // Only constrain if there's a valid range
+        if (minY < maxY) {
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, maxY);
+        } else {
+            // When map is smaller than viewport, allow limited panning
+            const centerY = (mapHeight - cameraViewHeight) / 2;
+            const panRange = margin; // Allow panning by margin amount
+            camera.scrollY = Phaser.Math.Clamp(camera.scrollY, centerY - panRange, centerY + panRange);
+        }
     }
     
     

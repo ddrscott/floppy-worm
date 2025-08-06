@@ -1,0 +1,571 @@
+{
+  "metadata": {
+    "name": "Journey 201",
+    "difficulty": 1,
+    "description": "Learn the basics of worm movement",
+    "modified": "2025-08-04T21:10:32.617Z"
+  },
+  "dimensions": {
+    "width": 4800,
+    "height": 4800
+  },
+  "entities": {
+    "wormStart": {
+      "x": 432,
+      "y": 3624
+    },
+    "goal": {
+      "x": 432,
+      "y": 3564
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1754316638162",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 960,
+      "y": 3492,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "chamfer": {
+        "radius": 90
+      },
+      "width": 180,
+      "height": 1212
+    },
+    {
+      "id": "platform_1754316681917",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": -60,
+      "y": 2400,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 144,
+      "height": 4824,
+      "chamfer": {
+        "radius": 10
+      }
+    },
+    {
+      "id": "platform_1754320907825",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 192,
+      "y": 3564,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 288,
+      "height": 84,
+      "chamfer": {
+        "radius": 42
+      }
+    },
+    {
+      "id": "platform_1754321115449",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 1344,
+      "y": 4716,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 420,
+      "height": 204,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321178415",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 1968,
+      "y": 4608,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 480,
+      "height": 408,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321188474",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 2736,
+      "y": 4404,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 468,
+      "height": 816,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321215014",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 3180,
+      "y": 4788,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 3252,
+      "height": 48
+    },
+    {
+      "id": "platform_1754321570744",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 3576,
+      "y": 3840,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 420,
+      "height": 384,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321686724",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 3588,
+      "y": 2940,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 408,
+      "height": 132,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321713707",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 2964,
+      "y": 2952,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 408,
+      "height": 132,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321726699",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 2292,
+      "y": 2760,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 408,
+      "height": 132,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321734444",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 2928,
+      "y": 2592,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 408,
+      "height": 132,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754321740632",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 3528,
+      "y": 2388,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 408,
+      "height": 132,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754322369972",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 2856,
+      "y": 2040,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754322377948",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 2292,
+      "y": 1812,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754322381015",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1776,
+      "y": 1608,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754322391532",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1272,
+      "y": 1452,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754322396800",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 564,
+      "y": 1392,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754340088722",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 672,
+      "y": 3564,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 288,
+      "height": 84,
+      "chamfer": {
+        "radius": 42
+      }
+    },
+    {
+      "id": "platform_1754340240688",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 3600,
+      "y": 4416,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 876,
+      "height": 192,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754340315563",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 4632,
+      "y": 4164,
+      "angle": -0.7853981633974483,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 672,
+      "height": 204,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754340382714",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 4524,
+      "y": 3168,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 564,
+      "height": 384,
+      "chamfer": {
+        "radius": 15
+      }
+    },
+    {
+      "id": "platform_1754340510867",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 3372,
+      "y": 3048,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 120
+    },
+    {
+      "id": "platform_1754341701200",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 1740,
+      "y": 4452,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341732522",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 2196,
+      "y": 4452,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341742695",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 2508,
+      "y": 4044,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341745737",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 2964,
+      "y": 4044,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341759478",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 3372,
+      "y": 3696,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341762754",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 3780,
+      "y": 3696,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341767972",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 4356,
+      "y": 4296,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341779954",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 4020,
+      "y": 4344,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    },
+    {
+      "id": "platform_1754341805161",
+      "type": "circle",
+      "platformType": "ice",
+      "x": 3180,
+      "y": 4344,
+      "angle": 0,
+      "color": "#b3e5fc",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 48
+    }
+  ],
+  "stickers": [],
+  "constraints": []
+}

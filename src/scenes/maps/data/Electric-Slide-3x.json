@@ -1,0 +1,127 @@
+{
+  "metadata": {
+    "name": "Electric Slide 3x",
+    "difficulty": 1,
+    "description": "",
+    "modified": "2025-08-05T21:23:20.106Z"
+  },
+  "dimensions": {
+    "width": 4416,
+    "height": 1200
+  },
+  "entities": {
+    "wormStart": {
+      "x": 4224,
+      "y": 396
+    },
+    "goal": {
+      "x": 96,
+      "y": 576
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1753400467415",
+      "type": "rectangle",
+      "platformType": "electric",
+      "x": 2160,
+      "y": 1308,
+      "rotation": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 4584,
+      "height": 252,
+      "angle": 0
+    },
+    {
+      "id": "platform_1753400469182",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 3360,
+      "y": 1056,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 384,
+      "height": 180
+    },
+    {
+      "id": 1753722484209,
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 4284,
+      "y": 1140,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 768,
+      "height": 324,
+      "angle": -0.6108652381980153
+    },
+    {
+      "id": "platform_1754100282686",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 2208,
+      "y": 1056,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 384,
+      "height": 180
+    },
+    {
+      "id": "platform_1754100301305",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 1056,
+      "y": 1056,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 384,
+      "height": 180
+    }
+  ],
+  "stickers": [
+    {
+      "id": "sticker_1",
+      "x": 1068,
+      "y": 336,
+      "text": "Last Platform"
+    },
+    {
+      "id": "sticker_1754343279633",
+      "x": 2208,
+      "y": 336,
+      "text": "Again?!"
+    },
+    {
+      "id": "sticker_1754343294220",
+      "x": 3360,
+      "y": 336,
+      "text": "A bit too high."
+    }
+  ],
+  "constraints": []
+}

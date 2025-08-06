@@ -11,6 +11,7 @@ import TowerData from './data/Tower.json';
 import MiniTower from './data/Mini-Tower-005.json';
 import TryAnglesData from './data/Try-angles.json';
 import Electric from './data/Electric-Slide.json';
+import ElectricEz from './data/Electric-Slide-EZ.json';
 import Morgan from './data/Morgan.json';
 import PendulumTest from './data/Pendulum-Test.json';
 import BlackholeTest from './data/blackhole-test.json';
@@ -29,6 +30,7 @@ const STATIC_MAP_REGISTRY = {
     'Mini-Tower': MiniTower,
     'Try-angles': TryAnglesData,
     'Electric-Slide': Electric,
+    'Electric-Slide-EZ': ElectricEz,
     'Morgan': Morgan,
     'Pendulum-Test': PendulumTest,
     'blackhole-test': BlackholeTest,
