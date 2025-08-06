@@ -3,7 +3,7 @@
     "name": "Left",
     "difficulty": 1,
     "description": "Learn the basics of worm movement",
-    "modified": "2025-07-28T22:00:00.207Z"
+    "modified": "2025-08-06T18:55:35.375Z"
   },
   "dimensions": {
     "width": 1024,
@@ -20,5 +20,13 @@
     }
   },
   "platforms": [],
-  "stickers": []
+  "stickers": [
+    {
+      "id": "sticker_1",
+      "x": 516,
+      "y": 612,
+      "text": "Move the sticks slowly in circles and notice what happens."
+    }
+  ],
+  "constraints": []
 }

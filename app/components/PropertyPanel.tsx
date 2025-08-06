@@ -678,6 +678,55 @@ export default function PropertyPanel({
               />
             </div>
             
+            {/* Chamfer Controls - only for selected rectangles */}
+            {selectedPlatform && selectedPlatform.data?.type === 'rectangle' && (
+              <div className="border-t border-gray-700 pt-2 mt-2">
+                <h4 className="text-xs font-semibold text-blue-300 mb-1">Rounded Corners (Chamfer)</h4>
+                
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedPlatform.data?.chamfer}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          onPlatformPropertyChange('chamfer', { radius: 10 });
+                        } else {
+                          onPlatformPropertyChange('chamfer', null);
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    <span className="text-xs text-gray-400">Enable Rounded Corners</span>
+                  </label>
+                </div>
+                
+                {selectedPlatform.data?.chamfer && (
+                  <div>
+                    <label className="block text-xs text-gray-400">
+                      Radius: {selectedPlatform.data.chamfer.radius || 10}px
+                    </label>
+                    <input
+                      type="range"
+                      min="2"
+                      max={Math.min(
+                        (selectedPlatform.data.width || 100) / 2,
+                        (selectedPlatform.data.height || 50) / 2,
+                        50
+                      )}
+                      step="1"
+                      value={selectedPlatform.data.chamfer.radius || 10}
+                      onChange={(e) => {
+                        const radius = parseInt(e.target.value);
+                        onPlatformPropertyChange('chamfer', { radius });
+                      }}
+                      className="w-full h-4"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
             {/* Constraint Settings */}
             <div className="border-t border-gray-700 pt-2 mt-2">
               <h4 className="text-xs font-semibold text-gray-300 mb-2">Constraint Settings</h4>

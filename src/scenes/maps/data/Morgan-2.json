@@ -1,0 +1,275 @@
+{
+  "metadata": {
+    "name": "You Will Rage! (by Morgan)",
+    "difficulty": 1,
+    "description": "",
+    "modified": "2025-08-02T01:54:58.075Z"
+  },
+  "dimensions": {
+    "width": 2880,
+    "height": 1920
+  },
+  "entities": {
+    "wormStart": {
+      "x": 192,
+      "y": 1200
+    },
+    "goal": {
+      "x": 2496,
+      "y": 480
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_1754099420055",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 468,
+      "y": 2196,
+      "angle": 0.4363323129985824,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "shape": "rectangle",
+      "width": 1932,
+      "height": 756
+    },
+    {
+      "id": "platform_1754099501190",
+      "type": "circle",
+      "platformType": "electric",
+      "x": 1644,
+      "y": 1356,
+      "angle": 0,
+      "color": "#ffff00",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 180
+    },
+    {
+      "id": "platform_1754099553750",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1164,
+      "y": 1632,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099555098",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1308,
+      "y": 1356,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099556415",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1536,
+      "y": 1164,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099557273",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1824,
+      "y": 1116,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099558032",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1944,
+      "y": 1332,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099558915",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1896,
+      "y": 1452,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099559799",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1752,
+      "y": 1560,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099560541",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1584,
+      "y": 1596,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099561299",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1380,
+      "y": 1620,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099562698",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1428,
+      "y": 1248,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099563583",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1692,
+      "y": 1116,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099564573",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1920,
+      "y": 1212,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099565816",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 1236,
+      "y": 1476,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 40
+    },
+    {
+      "id": "platform_1754099625446",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 864,
+      "y": 624,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "shape": "rectangle",
+      "width": 684,
+      "height": 300,
+      "motion": {
+        "type": "horizontal",
+        "distance": 500,
+        "speed": 60
+      }
+    }
+  ],
+  "stickers": [],
+  "constraints": []
+}

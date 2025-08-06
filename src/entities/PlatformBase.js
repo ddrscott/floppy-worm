@@ -61,6 +61,11 @@ export default class PlatformBase {
             density: this.config.density
         };
         
+        // Add chamfer if specified
+        if (this.config.chamfer) {
+            bodyOptions.chamfer = this.config.chamfer;
+        }
+        
         // If matter config is provided, merge it with defaults
         if (this.config.matter) {
             Object.assign(bodyOptions, this.config.matter);
@@ -106,20 +111,49 @@ export default class PlatformBase {
                 this.radius, 
                 this.config.color
             );
+            // Add stroke if specified
+            if (this.config.strokeColor !== null) {
+                this.graphics.setStrokeStyle(this.config.strokeWidth, this.config.strokeColor);
+            }
         } else {
-            // Default to rectangle - using default origin (0.5, 0.5 for rectangles)
-            this.graphics = this.scene.add.rectangle(
-                0, 
-                0, 
-                this.width, 
-                this.height, 
-                this.config.color
-            );
-        }
-        
-        // Add stroke if specified
-        if (this.config.strokeColor !== null) {
-            this.graphics.setStrokeStyle(this.config.strokeWidth, this.config.strokeColor);
+            // Check if we need rounded corners for rectangles
+            if (this.config.chamfer && this.config.chamfer.radius) {
+                // Create a graphics object for rounded rectangle
+                const g = this.scene.add.graphics();
+                g.fillStyle(this.config.color);
+                
+                // Determine corner radius
+                let cornerRadius;
+                if (Array.isArray(this.config.chamfer.radius)) {
+                    // Use the first value as a uniform radius for visual
+                    cornerRadius = Math.min(this.config.chamfer.radius[0], this.width / 2, this.height / 2);
+                } else {
+                    cornerRadius = Math.min(this.config.chamfer.radius, this.width / 2, this.height / 2);
+                }
+                
+                g.fillRoundedRect(-this.width/2, -this.height/2, this.width, this.height, cornerRadius);
+                
+                // Add stroke if specified
+                if (this.config.strokeColor !== null) {
+                    g.lineStyle(this.config.strokeWidth, this.config.strokeColor);
+                    g.strokeRoundedRect(-this.width/2, -this.height/2, this.width, this.height, cornerRadius);
+                }
+                
+                this.graphics = g;
+            } else {
+                // Regular rectangle without chamfer
+                this.graphics = this.scene.add.rectangle(
+                    0, 
+                    0, 
+                    this.width, 
+                    this.height, 
+                    this.config.color
+                );
+                // Add stroke if specified
+                if (this.config.strokeColor !== null) {
+                    this.graphics.setStrokeStyle(this.config.strokeWidth, this.config.strokeColor);
+                }
+            }
         }
         
         // Add main graphics to container

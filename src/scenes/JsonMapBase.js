@@ -362,6 +362,29 @@ export default class JsonMapBase extends Phaser.Scene {
             this.stopwatch.start();
         }
     }
+
+
+    createLabel({x, y, width, height, text, fontSize}) {
+        //  32px radius on the corners
+        const frame = this.add.graphics();
+        const container = this.add.container(400, 300);
+
+        frame.fillStyle(0x3333ff, 1);
+        frame.lineStyle(1, borderColor, 1);
+        frame.strokeRoundedRect(-width/2, 0, width, height, chamfer)
+        frame.fillRoundedRect(-width/2, 0, width, height, chamfer);
+        
+        const textObj = this.add.text(-width/2, 0, text, { 
+            fontFamily: 'Arial', 
+            align: 'center',
+            fixedWidth: width,
+            color: '#ff0000',
+            fontSize,
+        })
+
+        container.add([frame, textObj])
+    }
+
     
     loadMapFromJSON() {
         const { platforms, entities, stickers = [], constraints = [] } = this.mapData;
@@ -478,7 +501,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createSpecialPlatform(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color } = platformData;
+        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color, chamfer } = platformData;
         
         // Use the same coordinate transformations as regular platforms
         const centerX = x;
@@ -489,6 +512,7 @@ export default class JsonMapBase extends Phaser.Scene {
         const config = {
             shape: type, // Pass the shape type (rectangle, circle, etc.)
             motion: motion, // Pass motion config if present
+            chamfer: chamfer, // Pass chamfer config if present
             ...physics,
         };
         
@@ -731,7 +755,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createRectanglePlatform(platformData) {
-        const { x, y, width, height, color = "#ff6b6b", angle = 0, matter = {} } = platformData;
+        const { x, y, width, height, color = "#ff6b6b", angle = 0, matter = {}, chamfer } = platformData;
         
         // Use pixel coordinates directly - x,y is center position, width/height are in pixels
         const centerX = x;
@@ -750,6 +774,11 @@ export default class JsonMapBase extends Phaser.Scene {
             ...matter  // This allows matter properties from JSON to override defaults
         };
         
+        // Add chamfer if specified
+        if (chamfer) {
+            bodyOptions.chamfer = chamfer;
+        }
+        
         const body = this.matter.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, {
             label: platformData.id || 'platform',
             ...bodyOptions
@@ -766,14 +795,42 @@ export default class JsonMapBase extends Phaser.Scene {
                 isSensor: body.isSensor,
                 density: body.density,
                 mass: body.mass,
-                collisionFilter: body.collisionFilter
+                collisionFilter: body.collisionFilter,
+                chamfer: bodyOptions.chamfer
             });
             
             // Ensure the body is definitely not a sensor
             this.matter.body.set(body, 'isSensor', false);
         }
         
-        const visual = this.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, parseInt(color.replace('#', '0x')));
+        // Create visual with rounded corners if chamfer is specified
+        let visual;
+        if (chamfer && chamfer.radius) {
+            // Use a graphics object to draw rounded rectangle
+            const graphics = this.add.graphics();
+            const fillColor = parseInt(color.replace('#', '0x'));
+            graphics.fillStyle(fillColor);
+            graphics.strokeStyle(2, 0x000000, 0.8);
+            
+            // Determine corner radius
+            let cornerRadius;
+            if (Array.isArray(chamfer.radius)) {
+                // Use the first value as a uniform radius for visual (Phaser doesn't support individual corner radii)
+                cornerRadius = Math.min(chamfer.radius[0], pixelWidth / 2, pixelHeight / 2);
+            } else {
+                cornerRadius = Math.min(chamfer.radius, pixelWidth / 2, pixelHeight / 2);
+            }
+            
+            graphics.fillRoundedRect(-pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight, cornerRadius);
+            graphics.strokeRoundedRect(-pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight, cornerRadius);
+            
+            // Convert graphics to a container positioned at the platform center
+            visual = this.add.container(centerX, centerY, [graphics]);
+        } else {
+            // Regular rectangle without chamfer
+            visual = this.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, parseInt(color.replace('#', '0x')));
+            visual.setStrokeStyle(2, 0x000000, 0.8);
+        }
         
         // Apply rotation if specified
         if (angle !== 0) {
@@ -817,7 +874,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createPolygonPlatform(platformData) {
-        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3", matter = {} } = platformData;
+        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3", matter = {}, chamfer } = platformData;
         const actualRotation = rotation || angle; // Support both 'rotation' and 'angle' properties
         
         // Use pixel coordinates directly - x,y is center position, radius in pixels
@@ -841,13 +898,25 @@ export default class JsonMapBase extends Phaser.Scene {
             ...matter  // This allows matter properties from JSON to override defaults
         };
         
-        const body = this.matter.add.fromVertices(centerX, centerY, vertices, {
-            label: platformData.id || 'platform_polygon',
-            ...bodyOptions
-        });
+        // For polygons, we need to use the polygon method with chamfer
+        let body;
+        if (chamfer) {
+            body = this.matter.add.polygon(centerX, centerY, sides, pixelRadius, {
+                label: platformData.id || 'platform_polygon',
+                angle: actualRotation,
+                chamfer: chamfer,
+                ...bodyOptions
+            });
+        } else {
+            body = this.matter.add.fromVertices(centerX, centerY, vertices, {
+                label: platformData.id || 'platform_polygon',
+                ...bodyOptions
+            });
+        }
         
         // Create visual polygon
         const visual = this.add.polygon(centerX, centerY, vertices, parseInt(color.replace('#', '0x')));
+        visual.setStrokeStyle(2, 0x000000, 0.8);
         
         return { body, visual };
     }
@@ -1170,21 +1239,21 @@ export default class JsonMapBase extends Phaser.Scene {
         // Ghost indicator (will be shown when ghost is loaded)
         this.ghostIndicator = null;
         
-        // Controls - only show on desktop
-        const isTouchDevice = ('ontouchstart' in window) || 
-                            (navigator.maxTouchPoints > 0) || 
-                            (navigator.msMaxTouchPoints > 0);
-        
-        if (!isTouchDevice) {
-            // Position controls as a sign in the world near the start
-            const startX = this.mapData.entities.wormStart.x;
-            const startY = this.mapData.entities.wormStart.y;
-            this.controlsDisplay = new ControlsDisplay(this, startX - 200, startY - 50, {
-                worldSpace: true,
-                signStyle: true
-            });
-            // Don't add to minimap ignore list since it's now in world space
-        }
+        // // Controls - only show on desktop
+        // const isTouchDevice = ('ontouchstart' in window) || 
+        //                     (navigator.maxTouchPoints > 0) || 
+        //                     (navigator.msMaxTouchPoints > 0);
+        //
+        // if (!isTouchDevice) {
+        //     // Position controls as a sign in the world near the start
+        //     const startX = this.mapData.entities.wormStart.x;
+        //     const startY = this.mapData.entities.wormStart.y;
+        //     this.controlsDisplay = new ControlsDisplay(this, startX - 200, startY - 50, {
+        //         worldSpace: true,
+        //         signStyle: true
+        //     });
+        //     // Don't add to minimap ignore list since it's now in world space
+        // }
     }
     
     createMiniMap(levelHeight) {
