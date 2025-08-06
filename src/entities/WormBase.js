@@ -788,8 +788,8 @@ export default class WormBase {
                 const targetSegment = this.segments[middleIndex];
                 
                 if (targetSegment && targetSegment.position) {
-                    const randomForceX = (Math.random() - 0.5) * 0.004;
-                    const randomForceY = (Math.random() - 0.5) * 0.002;
+                    const randomForceX = (Math.random() - 0.5) * 0.00002;
+                    const randomForceY = (Math.random() - 0.5) * 0.00002;
                     
                     this.scene.matter.body.applyForce(targetSegment, targetSegment.position, {
                         x: randomForceX,
