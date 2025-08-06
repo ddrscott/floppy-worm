@@ -5,30 +5,32 @@ import Phaser from 'phaser';
  * 
  * Based on Phaser's multitouch example for more reliable input handling
  */
-export default class TouchControlsOverlay2 {
+export default class TouchControlsOverlay {
     constructor(scene, config = {}) {
         this.scene = scene;
         this.config = {
             // Layout config
             joystickRadius: 60,
-            joystickKnobRadius: 25,
-            buttonSize: 50,
-            opacity: 0.5,
-            activeOpacity: 0.8,
+            joystickKnobRadius: 15,
+            buttonSize: 48,
+            opacity: 0.4,
+            activeOpacity: 0.7,
             
-            // Colors
-            joystickColor: 0x4444ff,
-            joystickKnobColor: 0x6666ff,
+            // Colors - match worm head/tail colors
+            leftJoystickColor: 0xff6b6b,    // Head color (red)
+            leftJoystickKnobColor: 0xff9999, // Lighter red
+            rightJoystickColor: 0x74b9ff,   // Tail color (blue)
+            rightJoystickKnobColor: 0x99ccff, // Lighter blue
             buttonColor: 0x44ff44,
             buttonActiveColor: 0x66ff66,
             
             // Positioning (as percentage of screen)
-            leftJoystickPos: { x: 0.15, y: 0.75 },
-            rightJoystickPos: { x: 0.85, y: 0.75 },
+            leftJoystickPos: { x: 0.15, y: 0.9 },
+            rightJoystickPos: { x: 0.85, y: 0.9 },
             
             // Button positions (relative to screen edges)
-            leftTriggerPos: { x: 0.1, y: 0.1 },
-            rightTriggerPos: { x: 0.9, y: 0.1 },
+            leftTriggerPos: { x: 0.1, y: 0.7 },
+            rightTriggerPos: { x: 0.9, y: 0.7 },
             leftShoulderPos: { x: 0.1, y: 0.2 },
             rightShoulderPos: { x: 0.9, y: 0.2 },
             rollButtonPos: { x: 0.5, y: 0.1 },
@@ -82,8 +84,8 @@ export default class TouchControlsOverlay2 {
         this.createJoystick('right');
         
         // Create buttons
-        this.createButton('leftTrigger', 'LT');
-        this.createButton('rightTrigger', 'RT');
+        this.createButton('leftTrigger', 'Jmp');
+        this.createButton('rightTrigger', 'Jmp');
         this.createButton('leftShoulder', 'LB');
         this.createButton('rightShoulder', 'RB');
         this.createButton('roll', 'ROLL');
@@ -103,20 +105,28 @@ export default class TouchControlsOverlay2 {
             this.config.leftJoystickPos : 
             this.config.rightJoystickPos;
         
+        // Get colors based on side
+        const baseColor = side === 'left' ? 
+            this.config.leftJoystickColor : 
+            this.config.rightJoystickColor;
+        const knobColor = side === 'left' ? 
+            this.config.leftJoystickKnobColor : 
+            this.config.rightJoystickKnobColor;
+        
         // Create joystick base
         const base = this.scene.add.circle(
             0, 0,
             this.config.joystickRadius,
-            this.config.joystickColor,
+            baseColor,
             this.config.opacity
         );
-        base.setStrokeStyle(2, this.config.joystickColor);
+        base.setStrokeStyle(2, baseColor);
         
         // Create joystick knob
         const knob = this.scene.add.circle(
             0, 0,
             this.config.joystickKnobRadius,
-            this.config.joystickKnobColor,
+            knobColor,
             this.config.opacity
         );
         
@@ -156,7 +166,7 @@ export default class TouchControlsOverlay2 {
         
         // Add label
         const text = this.scene.add.text(0, 0, label, {
-            fontSize: '20px',
+            fontSize: '16px',
             color: '#ffffff',
             align: 'center'
         });

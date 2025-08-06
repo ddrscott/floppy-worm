@@ -155,7 +155,13 @@ export default class DoubleWorm extends WormBase {
         this.inputManager = new InputManager(scene, {
             debug: urlParams.get('debug') === '1' || urlParams.get('inputdebug') === '1',
             swapControls: swingConfig.swapControls,
-            keyboardConfig: this.keyboardConfig
+            keyboardConfig: this.keyboardConfig,
+            touchConfig: {
+                leftJoystickColor: swingConfig.headColor,
+                leftJoystickKnobColor: swingConfig.headColor,
+                rightJoystickColor: swingConfig.tailColor,
+                rightJoystickKnobColor: swingConfig.tailColor
+            }
         });
         
         // Initialize state machine
