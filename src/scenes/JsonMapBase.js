@@ -1189,8 +1189,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.tabKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TAB);
         this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         
-        // Camera controls
-        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        // Don't capture WASD keys - let the worm use them for movement
         
         // Ghost toggle
         this.gKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);

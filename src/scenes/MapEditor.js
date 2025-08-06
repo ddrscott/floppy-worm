@@ -1321,7 +1321,7 @@ export default class MapEditor extends Phaser.Scene {
         
         // Set up controls
         this.cursors = this.input.keyboard.createCursorKeys();
-        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        // Don't capture WASD keys - let the worm use them in test mode
         
         // Use different keys for camera to avoid worm control conflicts
         this.cameraKeys = this.input.keyboard.addKeys('I,J,K,L'); // IJKL for camera

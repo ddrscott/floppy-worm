@@ -4,6 +4,7 @@ import MovementAbility from './abilities/MovementAbility';
 import JumpAbility from './abilities/JumpAbility';
 import RollAbility from './abilities/RollAbility';
 import GrabAbility from './abilities/GrabAbility';
+import InputManager from '../utils/InputManager';
 
 export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
@@ -142,23 +143,20 @@ export default class DoubleWorm extends WormBase {
         // Frame-rate independence constants
         this.targetFrameTime = 1000 / swingConfig.targetFrameRate;
         
-        // Keyboard Simulation Physics
+        // Keyboard Simulation Physics (passed to InputManager)
         this.keyboardConfig = {
             maxDuration: 200,
             curve: 2,
             ...config.keyboardConfig
         };
         
-        // Keyboard state tracking
-        this.keyboardState = {
-            left: { w: 0, a: 0, s: 0, d: 0 },
-            right: { up: 0, left: 0, down: 0, right: 0 }
-        };
-        
-        // Register the '1' key for roll mode activation
-        if (this.scene.input.keyboard) {
-            this.rollKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
-        }
+        // Initialize input manager with debug enabled in dev mode
+        const urlParams = new URLSearchParams(window.location.search);
+        this.inputManager = new InputManager(scene, {
+            debug: urlParams.get('debug') === '1' || urlParams.get('inputdebug') === '1',
+            swapControls: swingConfig.swapControls,
+            keyboardConfig: this.keyboardConfig
+        });
         
         // Initialize state machine
         this.stateMachine = new AbilityStateMachine();
@@ -219,17 +217,8 @@ export default class DoubleWorm extends WormBase {
     }
     
     updateMovement(delta) {
-        const pad = this.scene?.input?.gamepad?.getPad(0);
-        const deltaSeconds = delta / 1000;
-        
-        // Get input states
-        const leftGrab = pad && pad.buttons[4] ? pad.buttons[4].value : 0;
-        const rightGrab = pad && pad.buttons[5] ? pad.buttons[5].value : 0;
-        
-        // Check for roll mode activation with '1' key or gamepad button 0
-        const oneKeyPressed = this.rollKey && this.rollKey.isDown;
-        const gamepadButton0 = pad && pad.buttons[0] && pad.buttons[0].pressed;
-        const rollButtonPressed = oneKeyPressed || gamepadButton0;
+        // Get input state from InputManager
+        const inputState = this.inputManager.getInputState(delta);
         
         // Input blocking logic - wait until all relevant buttons are released
         if (this.inputBlocked) {
@@ -247,7 +236,7 @@ export default class DoubleWorm extends WormBase {
                     rightTrigger: 0,
                     swapControls: this.config.swapControls,
                     delta,
-                    deltaSeconds
+                    deltaSeconds: inputState.deltaSeconds
                 };
                 
                 // Still update movement ability for visuals
@@ -257,10 +246,8 @@ export default class DoubleWorm extends WormBase {
             }
             
             // Check if all mode buttons are released
-            const anyModeButtonPressed = rollButtonPressed || 
-                (pad && (pad.buttons[6]?.value > 0.1 || pad.buttons[7]?.value > 0.1)) ||
-                this.scene.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SPACE]?.isDown ||
-                this.scene.input.keyboard.keys[191]?.isDown;
+            const anyModeButtonPressed = inputState.rollButton || 
+                (inputState.leftTrigger > 0.1 || inputState.rightTrigger > 0.1);
             
             if (!anyModeButtonPressed) {
                 // All buttons released, unblock input
@@ -278,7 +265,7 @@ export default class DoubleWorm extends WormBase {
                     rightTrigger: 0,
                     swapControls: this.config.swapControls,
                     delta,
-                    deltaSeconds
+                    deltaSeconds: inputState.deltaSeconds
                 };
                 
                 // Still update movement ability for visuals
@@ -288,53 +275,8 @@ export default class DoubleWorm extends WormBase {
             }
         }
         
-        // Get stick inputs
-        let leftStick, rightStick;
-        if (pad) {
-            leftStick = pad.leftStick;
-            rightStick = pad.rightStick;
-            
-            // Combine with keyboard inputs
-            const keyboardLeft = this.simulateStickFromKeyboard('left', delta);
-            const keyboardRight = this.simulateStickFromKeyboard('right', delta);
-            
-            const padLeftMag = Math.sqrt(leftStick.x * leftStick.x + leftStick.y * leftStick.y);
-            const keyLeftMag = Math.sqrt(keyboardLeft.x * keyboardLeft.x + keyboardLeft.y * keyboardLeft.y);
-            if (keyLeftMag > padLeftMag) {
-                leftStick = keyboardLeft;
-            }
-            
-            const padRightMag = Math.sqrt(rightStick.x * rightStick.x + rightStick.y * rightStick.y);
-            const keyRightMag = Math.sqrt(keyboardRight.x * keyboardRight.x + keyboardRight.y * keyboardRight.y);
-            if (keyRightMag > padRightMag) {
-                rightStick = keyboardRight;
-            }
-        } else {
-            leftStick = this.simulateStickFromKeyboard('left', delta);
-            rightStick = this.simulateStickFromKeyboard('right', delta);
-        }
-        
-        // Get trigger inputs
-        const leftTrigger = pad && pad.buttons[6] ? pad.buttons[6].value : 0;
-        const rightTrigger = pad && pad.buttons[7] ? pad.buttons[7].value : 0;
-        
-        // Check keyboard keys for jump
-        const keyboard = this.scene.input.keyboard;
-        const spacePressed = keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SPACE]?.isDown;
-        const slashPressed = keyboard.keys[191]?.isDown ||
-            keyboard.keys[Phaser.Input.Keyboard.KeyCodes.QUESTION_MARK]?.isDown || 
-            (keyboard.addKey && keyboard.addKey(191).isDown);
-        
-        // Combine trigger values with keyboard
-        const headTriggerValue = this.config.swapControls ? 
-            Math.max(rightTrigger, slashPressed ? 1.0 : 0) : 
-            Math.max(leftTrigger, spacePressed ? 1.0 : 0);
-        const tailTriggerValue = this.config.swapControls ? 
-            Math.max(leftTrigger, spacePressed ? 1.0 : 0) : 
-            Math.max(rightTrigger, slashPressed ? 1.0 : 0);
-        
         // Check if jump button is pressed
-        const jumpButtonPressed = (headTriggerValue > 0.1 || tailTriggerValue > 0.1);
+        const jumpButtonPressed = (inputState.leftTrigger > 0.1 || inputState.rightTrigger > 0.1);
         
         // Track previous button states
         let prevRollDown = this.rollButtonDown;
@@ -342,38 +284,28 @@ export default class DoubleWorm extends WormBase {
         
         // On first update, initialize button states to current state to prevent false edges
         if (this.firstUpdate) {
-            prevRollDown = rollButtonPressed;
+            prevRollDown = inputState.rollButton;
             prevJumpDown = jumpButtonPressed;
             this.firstUpdate = false;
         }
         
-        this.rollButtonDown = rollButtonPressed;
+        this.rollButtonDown = inputState.rollButton;
         this.jumpButtonDown = jumpButtonPressed;
         
         // Calculate button edges
-        const rollJustPressed = rollButtonPressed && !prevRollDown;
+        const rollJustPressed = inputState.rollButton && !prevRollDown;
         const jumpJustPressed = jumpButtonPressed && !prevJumpDown;
         
         // Update state machine
         this.stateMachine.handleModeInputs(
-            rollButtonPressed && this.abilities.roll,
+            inputState.rollButton && this.abilities.roll,
             jumpButtonPressed && this.abilities.jump,
             rollJustPressed,
             jumpJustPressed
         );
         
-        // Prepare input object for abilities
-        const inputs = {
-            leftStick,
-            rightStick,
-            leftGrab,
-            rightGrab,
-            leftTrigger: headTriggerValue,
-            rightTrigger: tailTriggerValue,
-            swapControls: this.config.swapControls,
-            delta,
-            deltaSeconds
-        };
+        // Use input state directly
+        const inputs = inputState;
         
         // Update active abilities based on current state
         const currentState = this.stateMachine.getCurrentState();
@@ -407,42 +339,15 @@ export default class DoubleWorm extends WormBase {
         }
     }
     
-    // Keyboard simulation methods (kept for compatibility)
-    simulateStickFromKeyboard(stick, delta) {
-        const keyMap = stick === 'left' ? 
-            { up: 'w', left: 'a', down: 's', right: 'd' } :
-            { up: 'up', left: 'left', down: 'down', right: 'right' };
-            
-        const keyboard = this.scene.input.keyboard;
-        if (!keyboard) return { x: 0, y: 0 };
-        
-        const state = this.keyboardState[stick];
-        
-        // Update key press durations
-        Object.entries(keyMap).forEach(([dir, key]) => {
-            const keyCode = key === 'up' ? 38 : key === 'left' ? 37 : key === 'down' ? 40 : key === 'right' ? 39 :
-                           key === 'w' ? 87 : key === 'a' ? 65 : key === 's' ? 83 : key === 'd' ? 68 : 0;
-            
-            const isPressed = keyboard.keys[keyCode]?.isDown || false;
-            
-            if (isPressed) {
-                state[dir] = Math.min(state[dir] + delta, this.keyboardConfig.maxDuration);
-            } else {
-                state[dir] = Math.max(state[dir] - delta * 2, 0);
-            }
-        });
-        
-        // Calculate stick position with response curve
-        const curve = (t) => Math.pow(t / this.keyboardConfig.maxDuration, this.keyboardConfig.curve);
-        
-        const x = curve(state.right) - curve(state.left);
-        const y = curve(state.down) - curve(state.up);
-        
-        return { x, y };
-    }
+    // Removed simulateStickFromKeyboard - now handled by InputManager
     
     destroy() {
         console.log('DoubleWorm.destroy() - Starting cleanup');
+        
+        // Clean up input manager
+        if (this.inputManager) {
+            this.inputManager.destroy();
+        }
         
         // Deactivate all abilities
         if (this.movementAbility) {
