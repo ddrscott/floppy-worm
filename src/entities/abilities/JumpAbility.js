@@ -249,11 +249,6 @@ export default class JumpAbility extends BaseAbility {
                 springData.groundBody = null;
                 springData.groundedSegment = null;
             }
-            
-            // Fade out laser
-            if (springData.laser) {
-                this.fadeLaser(springData.laser);
-            }
         }
     }
     
@@ -366,56 +361,62 @@ export default class JumpAbility extends BaseAbility {
         // Clear and redraw
         laser.clear();
         
-        // Draw glow effect
-        laser.lineStyle(config.glowWidth, springData.color, config.glowAlpha);
-        laser.lineBetween(
-            fromSegment.position.x,
-            fromSegment.position.y,
-            toSegment.position.x,
-            toSegment.position.y
-        );
-        
-        // Draw main line
-        laser.lineStyle(config.lineWidth, springData.color, 1);
-        laser.lineBetween(
-            fromSegment.position.x,
-            fromSegment.position.y,
-            toSegment.position.x,
-            toSegment.position.y
-        );
-        
-        // Calculate direction for arrow
+        // Calculate direction vector
         const dx = toSegment.position.x - fromSegment.position.x;
         const dy = toSegment.position.y - fromSegment.position.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
+        const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (length > 0) {
-            const dirX = dx / length;
-            const dirY = dy / length;
+        if (distance > 0) {
+            // Normalize direction
+            const dirX = dx / distance;
+            const dirY = dy / distance;
             
-            // Position arrow near the target
-            const arrowX = toSegment.position.x - dirX * config.arrowOffset;
-            const arrowY = toSegment.position.y - dirY * config.arrowOffset;
+            // Calculate laser length inversely proportional to distance
+            // When segments are close (compressed spring), laser is longer
+            // When segments are far (extended spring), laser is shorter
+            const springLength = springData.length;
+            const compressionRatio = Math.max(0, Math.min(1, (springLength - distance) / springLength));
+            // Laser length ranges based on compression (more compressed = longer arrow)
+            const laserLength = springLength * (compressionRatio * 1.3);
             
-            // Draw arrowhead (using the corrected math from the original implementation)
-            laser.fillStyle(springData.color, 1);
+            // Calculate the end point of the laser
+            const endX = fromSegment.position.x + dirX * laserLength;
+            const endY = fromSegment.position.y + dirY * laserLength;
             
-            // Calculate arrow tip position (pointing toward the target)
-            const arrowTipX = arrowX + dirX * config.arrowSize;
-            const arrowTipY = arrowY + dirY * config.arrowSize;
-            
-            // Calculate arrow base points (perpendicular to direction)
-            const arrowBase1X = arrowX - dirY * config.arrowSize * 0.5;
-            const arrowBase1Y = arrowY + dirX * config.arrowSize * 0.5;
-            const arrowBase2X = arrowX + dirY * config.arrowSize * 0.5;
-            const arrowBase2Y = arrowY - dirX * config.arrowSize * 0.5;
-            
-            laser.fillTriangle(
-                arrowTipX, arrowTipY,      // Tip of arrow
-                arrowBase1X, arrowBase1Y,  // Left base point
-                arrowBase2X, arrowBase2Y   // Right base point
+            // Draw glow effect
+            laser.lineStyle(config.glowWidth, springData.color, config.glowAlpha);
+            laser.lineBetween(
+                fromSegment.position.x,
+                fromSegment.position.y,
+                endX,
+                endY
             );
+            
+            // Draw main line
+            laser.lineStyle(config.lineWidth, springData.color, 1);
+            laser.lineBetween(
+                fromSegment.position.x,
+                fromSegment.position.y,
+                endX,
+                endY
+            );
+            
+            // Add arrow head at the end pointing in the direction of force
+            const arrowSize = config.arrowSize;
+            const arrowX = endX - dirX * config.arrowOffset;
+            const arrowY = endY - dirY * config.arrowOffset;
+            
+            laser.fillStyle(springData.color, 1);
+            laser.beginPath();
+            laser.moveTo(arrowX + dirX * arrowSize, arrowY + dirY * arrowSize);
+            laser.lineTo(arrowX - dirY * arrowSize/2, arrowY + dirX * arrowSize/2);
+            laser.lineTo(arrowX + dirY * arrowSize/2, arrowY - dirX * arrowSize/2);
+            laser.closePath();
+            laser.fillPath();
         }
+        
+        // Start fade timer immediately
+        this.fadeLaser(laser);
     }
     
     fadeLaser(laser) {
