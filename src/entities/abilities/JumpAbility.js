@@ -122,6 +122,22 @@ export default class JumpAbility extends BaseAbility {
     handleInput(inputs) {
         if (!this.isActive) return;
         
+        // Check if we're in roll mode
+        const isInRollMode = this.worm.stateMachine && 
+                           this.worm.stateMachine.isInState(this.worm.stateMachine.states.ROLLING);
+        
+        // Disable jump springs during roll mode to prevent trajectory manipulation
+        if (isInRollMode) {
+            // Detach any active springs when entering roll mode
+            if (this.jumpSprings.head.attached) {
+                this.detachSpring('head');
+            }
+            if (this.jumpSprings.tail.attached) {
+                this.detachSpring('tail');
+            }
+            return;
+        }
+        
         const { leftTrigger, rightTrigger, swapControls } = inputs;
         
         // Determine which triggers control which springs
