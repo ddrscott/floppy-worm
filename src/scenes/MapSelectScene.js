@@ -289,6 +289,16 @@ export default class MapSelectScene extends Phaser.Scene {
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
         
+        // Fullscreen toggle
+        this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
+        this.f11Key.on('down', function () {
+            if (this.scale.isFullscreen) {
+                this.scale.stopFullscreen();
+            } else {
+                this.scale.startFullscreen();
+            }
+        }, this);
+        
         // Gamepad setup
         this.gamepadInputTimer = 0; // Track last gamepad input time
         this.gamepadInputDelay = 200; // Milliseconds between gamepad inputs
