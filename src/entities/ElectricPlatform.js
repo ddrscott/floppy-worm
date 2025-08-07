@@ -189,13 +189,45 @@ export default class ElectricPlatform extends PlatformBase {
     }
     
     triggerShockEffect() {
-        // Platform flash
-        const originalColor = this.graphics.fillColor;
-        this.graphics.setFillStyle(0xffeb3b); // Bright yellow flash
+        // Platform flash - handle different graphic types
+        let originalColor;
+        
+        if (this.graphics.setFillStyle) {
+            // Graphics object (chamfered rectangles)
+            originalColor = this.config.color;
+            this.graphics.setFillStyle(0xffeb3b); // Bright yellow flash
+        } else if (this.graphics.setFillColor) {
+            // Rectangle or Circle object
+            originalColor = this.graphics.fillColor;
+            this.graphics.setFillColor(0xffeb3b); // Bright yellow flash
+        }
         
         this.scene.time.delayedCall(100, () => {
             if (this.graphics) {
-                this.graphics.setFillStyle(originalColor);
+                if (this.graphics.setFillStyle) {
+                    // Graphics object
+                    this.graphics.clear();
+                    this.graphics.fillStyle(originalColor);
+                    
+                    // Redraw the rounded rectangle
+                    if (this.config.chamfer && this.config.chamfer.radius) {
+                        let cornerRadius;
+                        if (Array.isArray(this.config.chamfer.radius)) {
+                            cornerRadius = Math.min(this.config.chamfer.radius[0], this.width / 2, this.height / 2);
+                        } else {
+                            cornerRadius = Math.min(this.config.chamfer.radius, this.width / 2, this.height / 2);
+                        }
+                        this.graphics.fillRoundedRect(-this.width/2, -this.height/2, this.width, this.height, cornerRadius);
+                        
+                        if (this.config.strokeColor !== null) {
+                            this.graphics.lineStyle(this.config.strokeWidth, this.config.strokeColor);
+                            this.graphics.strokeRoundedRect(-this.width/2, -this.height/2, this.width, this.height, cornerRadius);
+                        }
+                    }
+                } else if (this.graphics.setFillColor) {
+                    // Rectangle or Circle object
+                    this.graphics.setFillColor(originalColor);
+                }
             }
         });
         
