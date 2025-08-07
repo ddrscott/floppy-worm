@@ -1326,6 +1326,16 @@ export default class MapEditor extends Phaser.Scene {
         // Use different keys for camera to avoid worm control conflicts
         this.cameraKeys = this.input.keyboard.addKeys('I,J,K,L'); // IJKL for camera
         
+        // Fullscreen toggle
+        this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
+        this.f11Key.on('down', function () {
+            if (this.scale.isFullscreen) {
+                this.scale.stopFullscreen();
+            } else {
+                this.scale.startFullscreen();
+            }
+        }, this);
+        
         // Camera controls - mouse wheel scroll (with Ctrl+wheel for zoom)
         this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
             this.handleWheelInput(pointer, deltaX, deltaY);

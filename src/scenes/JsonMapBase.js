@@ -1191,6 +1191,18 @@ export default class JsonMapBase extends Phaser.Scene {
         // Ghost toggle
         this.gKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
         
+        // Fullscreen toggle
+        this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
+        
+        // Set up F11 fullscreen toggle
+        this.f11Key.on('down', function () {
+            if (this.scale.isFullscreen) {
+                this.scale.stopFullscreen();
+            } else {
+                this.scale.startFullscreen();
+            }
+        }, this);
+        
         // Virtual controls disabled - now handled by InputManager in DoubleWorm
         // this.virtualControls = new VirtualControls(this);
         
