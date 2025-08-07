@@ -65,12 +65,10 @@ export default class DoubleWorm extends WormBase {
                 useGroundAnchor: false,
                 laser: {
                     lineWidth: 4,
-                    glowWidth: 8,
-                    glowAlpha: 0.5,
                     length: 200,
                     arrowSize: 15,
                     arrowOffset: 10,
-                    fadeDuration: 1000
+                    fadeDuration: 500
                 }
             },
             
@@ -363,12 +361,13 @@ export default class DoubleWorm extends WormBase {
             this.inputManager.destroy();
         }
         
-        // Deactivate all abilities
+        // Deactivate and destroy all abilities
         if (this.movementAbility) {
             this.movementAbility.deactivate();
         }
         if (this.jumpAbility) {
             this.jumpAbility.deactivate();
+            this.jumpAbility.destroy(); // Clean up lasers
         }
         if (this.rollAbility) {
             this.rollAbility.deactivate();

@@ -19,13 +19,11 @@ export default class JumpAbility extends BaseAbility {
         
         // Laser guidance visuals
         this.laserConfig = config.laser || {
-            lineWidth: 4,
-            glowWidth: 8,
-            glowAlpha: 0.5,
+            lineWidth: 2,
             length: 200,
             arrowSize: 15,
             arrowOffset: 10,
-            fadeDuration: 1000
+            fadeDuration: 5000
         };
         
         // Colors for head/tail (passed from parent config)
@@ -38,7 +36,6 @@ export default class JumpAbility extends BaseAbility {
                 spring: null,
                 attached: false,
                 length: 0,
-                laser: null,
                 color: this.headColor,
                 getSegments: () => ({
                     from: this.worm.segments[0],
@@ -49,7 +46,6 @@ export default class JumpAbility extends BaseAbility {
                 spring: null,
                 attached: false,
                 length: 0,
-                laser: null,
                 color: this.tailColor,
                 getSegments: () => ({
                     from: this.worm.segments[this.worm.segments.length - 1],
@@ -57,6 +53,9 @@ export default class JumpAbility extends BaseAbility {
                 })
             }
         };
+        
+        // Track active laser effects (particle-like)
+        this.activeLasers = [];
         
         // Grounding ranges for smart anchoring
         this.groundingRanges = {
@@ -66,14 +65,7 @@ export default class JumpAbility extends BaseAbility {
     }
     
     onActivate() {
-        // Create laser graphics
-        this.jumpSprings.head.laser = this.scene.add.graphics();
-        this.jumpSprings.head.laser.setDepth(100);
-        this.addGraphics(this.jumpSprings.head.laser);
-        
-        this.jumpSprings.tail.laser = this.scene.add.graphics();
-        this.jumpSprings.tail.laser.setDepth(100);
-        this.addGraphics(this.jumpSprings.tail.laser);
+        // No longer create single laser instances - they're created on demand
     }
     
     onDeactivate() {
@@ -97,6 +89,9 @@ export default class JumpAbility extends BaseAbility {
                 springData.groundBody = null;
             }
         });
+        
+        // DON'T destroy active laser effects - let them fade naturally
+        // They will clean themselves up when their animations complete
     }
     
     calculateInitialLengths() {
@@ -349,17 +344,12 @@ export default class JumpAbility extends BaseAbility {
     
     showJumpTrajectory(type, fromSegment, toSegment) {
         const springData = this.jumpSprings[type];
-        const laser = springData.laser;
         const config = this.laserConfig;
         
-        if (!laser) return;
-        
-        // Stop any existing fade tween
-        this.scene.tweens.killTweensOf(laser);
+        // Create a new laser graphics object for this effect
+        const laser = this.scene.add.graphics();
+        laser.setDepth(100);
         laser.alpha = 1;
-        
-        // Clear and redraw
-        laser.clear();
         
         // Calculate direction vector
         const dx = toSegment.position.x - fromSegment.position.x;
@@ -383,15 +373,6 @@ export default class JumpAbility extends BaseAbility {
             const endX = fromSegment.position.x + dirX * laserLength;
             const endY = fromSegment.position.y + dirY * laserLength;
             
-            // Draw glow effect
-            laser.lineStyle(config.glowWidth, springData.color, config.glowAlpha);
-            laser.lineBetween(
-                fromSegment.position.x,
-                fromSegment.position.y,
-                endX,
-                endY
-            );
-            
             // Draw main line
             laser.lineStyle(config.lineWidth, springData.color, 1);
             laser.lineBetween(
@@ -413,28 +394,51 @@ export default class JumpAbility extends BaseAbility {
             laser.lineTo(arrowX + dirY * arrowSize/2, arrowY - dirX * arrowSize/2);
             laser.closePath();
             laser.fillPath();
+            
+            // Create and track the laser effect
+            const laserData = { laser, tween: null };
+            this.activeLasers.push(laserData);
+            
+            // Start fade animation immediately
+            laserData.tween = this.scene.tweens.add({
+                targets: laser,
+                alpha: 0,
+                duration: config.fadeDuration,
+                ease: 'Sine.easeOut',
+                onComplete: () => {
+                    // Clean up this specific laser
+                    laser.clear();
+                    laser.destroy();
+                    
+                    // Remove from active lasers array
+                    const index = this.activeLasers.indexOf(laserData);
+                    if (index > -1) {
+                        this.activeLasers.splice(index, 1);
+                    }
+                }
+            });
+        } else {
+            // If no distance, destroy the laser immediately
+            laser.destroy();
         }
-        
-        // Start fade timer immediately
-        this.fadeLaser(laser);
-    }
-    
-    fadeLaser(laser) {
-        if (!laser) return;
-        
-        this.scene.tweens.add({
-            targets: laser,
-            alpha: 0,
-            duration: this.laserConfig.fadeDuration,
-            ease: 'Linear',
-            onComplete: () => {
-                laser.clear();
-            }
-        });
     }
     
     // Initialize spring lengths - should be called from DoubleWorm constructor
     initializeSpringLengths() {
         this.calculateInitialLengths();
+    }
+    
+    // Clean up everything when the worm is destroyed
+    destroy() {
+        // Clean up all active laser effects
+        this.activeLasers.forEach(laserData => {
+            if (laserData.tween) {
+                laserData.tween.stop();
+            }
+            if (laserData.laser) {
+                laserData.laser.destroy();
+            }
+        });
+        this.activeLasers = [];
     }
 }
