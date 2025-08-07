@@ -471,7 +471,7 @@ export default class MovementAbility extends BaseAbility {
                     });
                     
                     // Decay accumulated rotation
-                    rollAbility.rollMode.accumulatedRotation *= 0.9;
+                    rollAbility.rollMode.accumulatedRotation *= 0.1;
                 }
             }
         }

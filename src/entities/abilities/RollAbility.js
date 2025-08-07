@@ -427,8 +427,13 @@ export default class RollAbility extends BaseAbility {
                 
                 this.rollMode.accumulatedRotation += scaledRotation;
                 
-                // Apply pure torque to the wheel (original approach)
-                this.worm.segments.forEach(segment => {
+                // Apply pure torque to the wheel with balanced forces
+                let totalForceX = 0;
+                let totalForceY = 0;
+                const forces = [];
+                
+                // Calculate forces for each segment
+                this.worm.segments.forEach((segment, index) => {
                     const dx = segment.position.x - this.rollMode.wheelCenter.x;
                     const dy = segment.position.y - this.rollMode.wheelCenter.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -437,13 +442,28 @@ export default class RollAbility extends BaseAbility {
                         // Tangential force for rotation
                         const fx = -dy / dist * scaledRotation;
                         const fy = dx / dist * scaledRotation;
-                        
-                        this.matter.body.applyForce(segment, segment.position, { x: fx, y: fy });
+                        forces.push({ segment, fx, fy });
+                        totalForceX += fx;
+                        totalForceY += fy;
+                    } else {
+                        forces.push({ segment, fx: 0, fy: 0 });
                     }
                 });
                 
+                // Apply forces with correction to ensure they sum to zero
+                const correction = forces.length > 0 ? forces.length : 1;
+                const correctionX = totalForceX / correction;
+                const correctionY = totalForceY / correction;
+                
+                forces.forEach(({ segment, fx, fy }) => {
+                    this.matter.body.applyForce(segment, segment.position, { 
+                        x: fx - correctionX, 
+                        y: fy - correctionY 
+                    });
+                });
+                
                 // Decay accumulated rotation
-                this.rollMode.accumulatedRotation *= 0.8;
+                this.rollMode.accumulatedRotation *= 0.1;
             }
         }
         
