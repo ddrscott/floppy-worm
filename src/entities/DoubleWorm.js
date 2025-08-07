@@ -160,7 +160,11 @@ export default class DoubleWorm extends WormBase {
                 leftJoystickColor: swingConfig.headColor,
                 leftJoystickKnobColor: swingConfig.headColor,
                 rightJoystickColor: swingConfig.tailColor,
-                rightJoystickKnobColor: swingConfig.tailColor
+                rightJoystickKnobColor: swingConfig.tailColor,
+                leftButtonColor: swingConfig.headColor,
+                leftButtonActiveColor: swingConfig.headStrokeColor,
+                rightButtonColor: swingConfig.tailColor,
+                rightButtonActiveColor: swingConfig.tailStrokeColor
             }
         });
         
