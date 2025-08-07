@@ -217,11 +217,6 @@ export default class InputManager {
             source = 'gamepad';
         }
         
-        // Log which source is being used if there's input
-        if (result.x !== 0 || result.y !== 0) {
-            console.log(`InputManager: ${stick} stick using ${source} input: (${result.x.toFixed(2)}, ${result.y.toFixed(2)})`);
-        }
-        
         // Store state
         this.stickStates[stick] = {
             x: result.x,
