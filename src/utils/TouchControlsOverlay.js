@@ -22,19 +22,23 @@ export default class TouchControlsOverlay {
             leftJoystickKnobColor: 0xff9999, // Lighter red
             rightJoystickColor: 0x74b9ff,   // Tail color (blue)
             rightJoystickKnobColor: 0x99ccff, // Lighter blue
-            buttonColor: 0x44ff44,
-            buttonActiveColor: 0x66ff66,
+            leftButtonColor: 0xff6b6b,      // Left buttons use head color
+            leftButtonActiveColor: 0xff9999,
+            rightButtonColor: 0x74b9ff,     // Right buttons use tail color
+            rightButtonActiveColor: 0x99ccff,
+            rollButtonColor: 0x44ff44,      // Roll button stays green
+            rollButtonActiveColor: 0x66ff66,
             
-            // Positioning (as percentage of screen)
-            leftJoystickPos: { x: 0.15, y: 0.9 },
-            rightJoystickPos: { x: 0.85, y: 0.9 },
+            // Positioning (pixels from edges)
+            padding: 30, // Default padding from screen edges
+            joystickBottomOffset: 100, // Distance from bottom for joysticks
             
-            // Button positions (relative to screen edges)
-            leftTriggerPos: { x: 0.1, y: 0.7 },
-            rightTriggerPos: { x: 0.9, y: 0.7 },
-            leftShoulderPos: { x: 0.1, y: 0.2 },
-            rightShoulderPos: { x: 0.9, y: 0.2 },
-            rollButtonPos: { x: 0.5, y: 0.1 },
+            // Button stacking above joysticks
+            buttonStackSpacing: 10, // Space between stacked buttons
+            buttonJoystickSpacing: 40, // Space between joystick and first button
+            
+            // Roll button position
+            rollButtonTopOffset: 40, // Distance from top for roll button
             
             // Override defaults
             ...config
@@ -89,7 +93,7 @@ export default class TouchControlsOverlay {
         this.createButton('rightTrigger', 'Jmp');
         this.createButton('leftShoulder', 'LB');
         this.createButton('rightShoulder', 'RB');
-        this.createButton('roll', 'ROLL');
+        // this.createButton('roll', 'ROLL');
         
         // Update positions on resize
         this.scene.scale.on('resize', this.updatePositions, this);
@@ -102,10 +106,6 @@ export default class TouchControlsOverlay {
     }
     
     createJoystick(side) {
-        const posConfig = side === 'left' ? 
-            this.config.leftJoystickPos : 
-            this.config.rightJoystickPos;
-        
         // Get colors based on side
         const baseColor = side === 'left' ? 
             this.config.leftJoystickColor : 
@@ -130,6 +130,8 @@ export default class TouchControlsOverlay {
             knobColor,
             this.config.opacity
         );
+        base.setAlpha(this.config.opacity);
+        knob.setAlpha(this.config.opacity);
         
         // Create container for this joystick
         const joystickContainer = this.scene.add.container(0, 0, [base, knob]);
@@ -140,30 +142,35 @@ export default class TouchControlsOverlay {
             container: joystickContainer,
             base: base,
             knob: knob,
-            posConfig: posConfig,
+            side: side,
             worldX: 0,
             worldY: 0
         };
     }
     
     createButton(id, label) {
-        // Handle special case for roll button
-        const posConfigKey = id === 'roll' ? 'rollButtonPos' : id + 'Pos';
-        const posConfig = this.config[posConfigKey];
-        
-        if (!posConfig) {
-            console.error(`No position config found for button: ${id}`);
-            return;
+        // Determine button colors based on side
+        let buttonColor, buttonActiveColor;
+        if (id.includes('left') || id === 'leftTrigger' || id === 'leftShoulder') {
+            buttonColor = this.config.leftButtonColor;
+            buttonActiveColor = this.config.leftButtonActiveColor;
+        } else if (id.includes('right') || id === 'rightTrigger' || id === 'rightShoulder') {
+            buttonColor = this.config.rightButtonColor;
+            buttonActiveColor = this.config.rightButtonActiveColor;
+        } else {
+            // Roll button or other
+            buttonColor = this.config.rollButtonColor;
+            buttonActiveColor = this.config.rollButtonActiveColor;
         }
         
         // Create button circle
         const button = this.scene.add.circle(
             0, 0,
             this.config.buttonSize,
-            this.config.buttonColor,
+            buttonColor,
             this.config.opacity
         );
-        button.setStrokeStyle(2, this.config.buttonColor);
+        button.setStrokeStyle(2, buttonColor);
         
         // Add label
         const text = this.scene.add.text(0, 0, label, {
@@ -176,41 +183,74 @@ export default class TouchControlsOverlay {
         // Create container
         const buttonContainer = this.scene.add.container(0, 0, [button, text]);
         this.container.add(buttonContainer);
-        
+        button.setAlpha(this.config.opacity);
         // Store reference
         this.buttons[id] = {
             container: buttonContainer,
             button: button,
             text: text,
-            posConfig: posConfig,
+            id: id,
             worldX: 0,
             worldY: 0,
             radius: this.config.buttonSize,
-            pointerId: -1
+            pointerId: -1,
+            buttonColor: buttonColor,
+            buttonActiveColor: buttonActiveColor
         };
     }
     
     updatePositions() {
         const { width, height } = this.scene.scale;
+        const padding = this.config.padding;
         
-        // Position joysticks and store world positions
+        // Position joysticks from bottom corners
+        const leftJoystickX = padding + this.config.joystickRadius * 1.5;
+        const rightJoystickX = width - padding - this.config.joystickRadius * 1.5;
+        const joystickY = height - padding - this.config.joystickRadius * 1.5;
+        
         Object.entries(this.joysticks).forEach(([side, joystick]) => {
-            const x = joystick.posConfig.x * width;
-            const y = joystick.posConfig.y * height;
+            const x = side === 'left' ? leftJoystickX : rightJoystickX;
+            const y = joystickY;
+            
             joystick.container.setPosition(x, y);
             joystick.worldX = x;
             joystick.worldY = y;
         });
         
-        // Position buttons and store world positions
+        // Position buttons stacked above joysticks
         Object.entries(this.buttons).forEach(([id, button]) => {
-            if (button.posConfig) {
-                const x = button.posConfig.x * width;
-                const y = button.posConfig.y * height;
-                button.container.setPosition(x, y);
-                button.worldX = x;
-                button.worldY = y;
+            let x, y;
+            
+            switch(id) {
+                case 'leftTrigger':
+                    x = leftJoystickX;
+                    // Stack above joystick: joystick top - spacing - button radius
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
+                    break;
+                case 'rightTrigger':
+                    x = rightJoystickX;
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
+                    break;
+                case 'leftShoulder':
+                    x = leftJoystickX;
+                    // Stack above trigger: trigger position - spacing - button radius
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize
+                        - this.config.buttonStackSpacing - this.config.buttonSize * 2;
+                    break;
+                case 'rightShoulder':
+                    x = rightJoystickX;
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize
+                        - this.config.buttonStackSpacing - this.config.buttonSize * 2;
+                    break;
+                case 'roll':
+                    x = width / 2;
+                    y = this.config.rollButtonTopOffset;
+                    break;
             }
+            
+            button.container.setPosition(x, y);
+            button.worldX = x;
+            button.worldY = y;
         });
     }
     
@@ -389,11 +429,11 @@ export default class TouchControlsOverlay {
             
             if (isPressed && !wasPressed) {
                 // Just pressed
-                button.button.setFillStyle(this.config.buttonActiveColor, this.config.activeOpacity);
+                button.button.setFillStyle(button.buttonActiveColor, this.config.activeOpacity);
                 button.button.setScale(0.9);
             } else if (!isPressed && wasPressed) {
                 // Just released
-                button.button.setFillStyle(this.config.buttonColor, this.config.opacity);
+                button.button.setFillStyle(button.buttonColor, this.config.opacity);
                 button.button.setScale(1);
             }
         });
