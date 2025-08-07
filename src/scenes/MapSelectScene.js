@@ -106,24 +106,18 @@ export default class MapSelectScene extends Phaser.Scene {
         // Clean up events on shutdown
         this.events.once('shutdown', this.cleanup, this);
         
-        // Instructions with responsive sizing
-        const instructionSize = isMobile ? '14px' : '16px';
-        const secondarySize = isMobile ? '12px' : '14px';
-        const instructionText = isMobile ? 
-            'Tap to select • ESC to refresh' :
-            'Use ARROW KEYS, WASD, or GAMEPAD to navigate • ENTER, SPACE, or A button to select';
-        
-        this.add.text(centerX, gameHeight - 60, instructionText, {
-            fontSize: instructionSize,
-            color: '#7f8c8d',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5);
-        
         if (!isMobile) {
-            this.add.text(centerX, gameHeight - 30, 'ESC or B button: Refresh • Shift+R: Reset Progress', {
-                fontSize: secondarySize,
-                color: '#7f8c8d'
+            this.add.text(centerX, gameHeight - 30, 'Use ARROW KEYS, WASD, or GAMEPAD to navigate • ENTER, SPACE, or A button to select', {
+                fontSize: '14px',
+                color: '#7f8c8d',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+            }).setOrigin(0.5);
+        } else {
+            this.add.text(centerX, gameHeight - 60, 'Tap to select • ESC to refresh', {
+                fontSize: '12px',
+                color: '#7f8c8d',
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                padding: { x: 15, y: 8 }
             }).setOrigin(0.5);
         }
     }
