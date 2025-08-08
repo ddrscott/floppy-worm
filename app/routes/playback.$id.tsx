@@ -68,10 +68,10 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                 });
                 
                 const Phaser = (await import('phaser')).default;
-                const { default: RecordingPlaybackScene } = await import('~/game/scenes/RecordingPlaybackScene');
+                const { default: PlaybackScene } = await import('~/game/scenes/PlaybackScene');
 
                 console.log('Phaser loaded:', !!Phaser);
-                console.log('RecordingPlaybackScene loaded:', !!RecordingPlaybackScene);
+                console.log('PlaybackScene loaded:', !!PlaybackScene);
                 setLoadingState('creating-game');
 
                 const config = {
@@ -87,7 +87,7 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                             debug: false
                         }
                     },
-                    scene: [RecordingPlaybackScene]
+                    scene: [PlaybackScene]
                 };
 
                 console.log('Creating Phaser game with config:', config);
@@ -96,7 +96,7 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
 
                 // Pass recording data to the scene
                 console.log('Starting playback scene with recording:', recording.id);
-                gameInstance.scene.start('RecordingPlaybackScene', {
+                gameInstance.scene.start('PlaybackScene', {
                     recording: recording,
                     onFrameUpdate: (frame: number) => setCurrentFrame(frame),
                     onPlayStateChange: (playing: boolean) => setIsPlaying(playing)
@@ -119,7 +119,7 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
 
     const handlePlayPause = () => {
         if (game) {
-            const scene = game.scene.getScene('RecordingPlaybackScene');
+            const scene = game.scene.getScene('PlaybackScene');
             if (scene) {
                 scene.togglePlayPause();
             }
@@ -128,7 +128,7 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
 
     const handleSeek = (frame: number) => {
         if (game) {
-            const scene = game.scene.getScene('RecordingPlaybackScene');
+            const scene = game.scene.getScene('PlaybackScene');
             if (scene) {
                 scene.seekToFrame(frame);
                 setCurrentFrame(frame);
@@ -139,7 +139,7 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
     const handleSpeedChange = (speed: number) => {
         setPlaybackSpeed(speed);
         if (game) {
-            const scene = game.scene.getScene('RecordingPlaybackScene');
+            const scene = game.scene.getScene('PlaybackScene');
             if (scene) {
                 scene.setPlaybackSpeed(speed);
             }
