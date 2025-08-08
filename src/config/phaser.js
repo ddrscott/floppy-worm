@@ -4,6 +4,9 @@ export const BaseGameConfig = {
     type: Phaser.AUTO,
     // parent: 'game-container',
     backgroundColor: '#232333',
+    render: {
+        preserveDrawingBuffer: true, // This allows screenshots to work properly
+    },
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,

@@ -195,7 +195,7 @@ export default function RecordingsIndex() {
                                     <img 
                                         src={recording.screenshot} 
                                         alt="Recording screenshot"
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-contain"
                                     />
                                     <div className={`absolute top-2 right-2 px-2 py-1 rounded text-sm font-bold ${
                                         recording.success ? 'bg-green-600' : 'bg-red-600'
