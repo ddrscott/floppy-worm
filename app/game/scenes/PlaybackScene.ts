@@ -12,9 +12,9 @@ export default class PlaybackScene extends JsonMapBase {
     private currentFrameIndex: number = 0;
     private isPlaying: boolean = false;
     private playbackSpeed: number = 1;
-    private lastUpdateTime: number = 0;
-    private frameTime: number = 16.67; // ~60fps
-    private accumulatedTime: number = 0;
+    private playbackStartTime: number = 0;
+    private playbackPausedTime: number = 0;
+    private elapsedTime: number = 0;
     
     // Use actual DoubleWorm component (physics disabled)
     private worm: any;
@@ -93,13 +93,7 @@ export default class PlaybackScene extends JsonMapBase {
         // Decode recording data
         await this.decodeRecordingData();
         
-        // Start playback timer
-        this.time.addEvent({
-            delay: 16, // ~60fps
-            callback: this.updatePlayback,
-            callbackScope: this,
-            loop: true
-        });
+        // No timer needed - we'll use update() method with time-based interpolation
         
         // Auto-play
         this.play();
@@ -266,7 +260,7 @@ export default class PlaybackScene extends JsonMapBase {
             
             // Start at first frame if we have frames
             if (this.frames.length > 0) {
-                this.renderFrame(0);
+                this.renderFrameInterpolated(0);
                 
                 // Position camera at start
                 if (this.frames[0]?.segments?.length > 0) {
@@ -328,16 +322,16 @@ export default class PlaybackScene extends JsonMapBase {
             }
         });
         
+        // Update playback with time-based interpolation
+        if (this.isPlaying && this.frames.length > 0) {
+            this.updatePlaybackInterpolated(delta);
+        }
+        
         // Update worm visual if it exists
         if (this.worm && typeof this.worm.update === 'function') {
             // Call update to refresh graphics, but physics won't run since bodies are static
             this.worm.update(delta);
         }
-        
-        // Render constraints
-        // if (this.constraints && this.constraints.length > 0) {
-        //     this.renderConstraints();
-        // }
         
         // Update minimap if visible
         if (this.minimap && this.miniMapConfig.visible && this.worm && this.worm.segments && this.worm.segments.length > 0) {
@@ -348,77 +342,131 @@ export default class PlaybackScene extends JsonMapBase {
         
         // Update frame counter display
         if (this.frameCounterText) {
-            const currentTime = this.currentFrameIndex > 0 && this.frames[this.currentFrameIndex] 
-                ? this.frames[this.currentFrameIndex].timestamp : 0;
+            const displayTime = this.elapsedTime;
             const totalTime = this.recording?.duration || 0;
             
             this.frameCounterText.setText(
-                `Frame: ${this.currentFrameIndex}/${this.frames.length} | ${this.formatTime(currentTime)}/${this.formatTime(totalTime)}`
+                `Frame: ${this.currentFrameIndex}/${this.frames.length} | ${this.formatTime(displayTime)}/${this.formatTime(totalTime)}`
             );
         }
     }
 
     /**
-     * Update playback based on timer
+     * Update playback with time-based interpolation (like GhostPlayer)
      */
-    private updatePlayback() {
+    private updatePlaybackInterpolated(delta: number) {
         if (!this.isPlaying || this.frames.length === 0) return;
         
-        const currentTime = this.time.now;
-        const deltaTime = currentTime - this.lastUpdateTime;
-        this.lastUpdateTime = currentTime;
+        // Update elapsed time based on playback speed
+        this.elapsedTime += delta * this.playbackSpeed;
         
-        // Accumulate time based on playback speed
-        this.accumulatedTime += deltaTime * this.playbackSpeed;
+        // Find the appropriate frame for current time
+        let targetFrameIndex = this.currentFrameIndex;
         
-        // Update frames based on accumulated time
-        while (this.accumulatedTime >= this.frameTime) {
-            this.accumulatedTime -= this.frameTime;
-            
-            if (this.currentFrameIndex < this.frames.length - 1) {
-                this.currentFrameIndex++;
-                this.renderFrame(this.currentFrameIndex);
-                
-                if (this.onFrameUpdate) {
-                    this.onFrameUpdate(this.currentFrameIndex);
-                }
-            } else {
-                // Reached end, stop and reset
-                this.pause();
-                this.currentFrameIndex = 0;
-                this.trailPoints = []; // Clear trail when restarting
-                this.trailGraphics.clear();
-                this.renderFrame(0);
+        // Search forward for the right frame
+        while (targetFrameIndex < this.frames.length - 1 &&
+               this.frames[targetFrameIndex + 1].timestamp <= this.elapsedTime) {
+            targetFrameIndex++;
+        }
+        
+        // Search backward if we've gone too far (e.g., after seek)
+        while (targetFrameIndex > 0 &&
+               this.frames[targetFrameIndex].timestamp > this.elapsedTime) {
+            targetFrameIndex--;
+        }
+        
+        // Update frame index if changed
+        if (targetFrameIndex !== this.currentFrameIndex) {
+            this.currentFrameIndex = targetFrameIndex;
+            if (this.onFrameUpdate) {
+                this.onFrameUpdate(this.currentFrameIndex);
             }
         }
+        
+        // Check if playback has finished
+        if (this.currentFrameIndex >= this.frames.length - 1) {
+            // Reached end, stop and reset
+            this.pause();
+            this.currentFrameIndex = 0;
+            this.elapsedTime = 0;
+            this.trailPoints = [];
+            this.trailGraphics.clear();
+            this.renderFrameInterpolated(0);
+            return;
+        }
+        
+        // Get current and next frame for interpolation
+        const currentFrame = this.frames[this.currentFrameIndex];
+        const nextFrame = this.frames[this.currentFrameIndex + 1];
+        
+        if (!nextFrame) {
+            // Last frame, just show current positions
+            this.renderFrameInterpolated(this.currentFrameIndex);
+            return;
+        }
+        
+        // Calculate interpolation factor
+        const frameDuration = nextFrame.timestamp - currentFrame.timestamp;
+        const frameProgress = this.elapsedTime - currentFrame.timestamp;
+        const t = Math.min(1, Math.max(0, frameProgress / frameDuration));
+        
+        // Render with interpolation
+        this.renderFrameWithInterpolation(currentFrame, nextFrame, t);
     }
 
     /**
-     * Render a specific frame
+     * Render a specific frame without interpolation
      */
-    private renderFrame(frameIndex: number) {
+    private renderFrameInterpolated(frameIndex: number) {
         if (frameIndex < 0 || frameIndex >= this.frames.length) return;
         
         const frame = this.frames[frameIndex];
+        this.updateWormPositions(frame.segments);
+    }
+    
+    /**
+     * Render with interpolation between two frames
+     */
+    private renderFrameWithInterpolation(currentFrame: any, nextFrame: any, t: number) {
+        // Interpolate segment positions
+        const interpolatedSegments = currentFrame.segments.map((segment: any, i: number) => {
+            const nextSegment = nextFrame.segments[i];
+            return {
+                x: segment.x + (nextSegment.x - segment.x) * t,
+                y: segment.y + (nextSegment.y - segment.y) * t
+            };
+        });
         
+        this.updateWormPositions(interpolatedSegments);
+    }
+    
+    /**
+     * Update worm positions from segment data
+     */
+    private updateWormPositions(segments: any[]) {
         // Update worm segment positions using Matter.js body positions
         if (this.worm && this.worm.segments) {
-            for (let i = 0; i < this.worm.segments.length && i < frame.segments.length; i++) {
+            for (let i = 0; i < this.worm.segments.length && i < segments.length; i++) {
                 const segment = this.worm.segments[i];
-                const position = frame.segments[i];
+                const position = segments[i];
                 
-                // Update trail for head segment
+                // Update trail for head segment (less frequently to avoid trail buildup)
                 if (i === 0) {
-                    // Add new point to trail
-                    this.trailPoints.push({ x: position.x, y: position.y });
-                    
-                    // Limit trail length
-                    if (this.trailPoints.length > this.maxTrailLength) {
-                        this.trailPoints.shift();
+                    const lastPoint = this.trailPoints[this.trailPoints.length - 1];
+                    // Only add point if it's far enough from the last one
+                    if (!lastPoint || 
+                        Math.abs(lastPoint.x - position.x) > 2 || 
+                        Math.abs(lastPoint.y - position.y) > 2) {
+                        this.trailPoints.push({ x: position.x, y: position.y });
+                        
+                        // Limit trail length
+                        if (this.trailPoints.length > this.maxTrailLength) {
+                            this.trailPoints.shift();
+                        }
+                        
+                        // Redraw entire trail
+                        this.renderTrail();
                     }
-                    
-                    // Redraw entire trail
-                    this.renderTrail();
                 }
                 
                 // Set the Matter.js body position directly
@@ -428,10 +476,10 @@ export default class PlaybackScene extends JsonMapBase {
         }
         
         // Update camera target to follow worm
-        if (this.cameraTarget && frame.segments.length > 0) {
+        if (this.cameraTarget && segments.length > 0) {
             // Position camera between head and tail for better view
-            const head = frame.segments[0];
-            const tail = frame.segments[frame.segments.length - 1];
+            const head = segments[0];
+            const tail = segments[segments.length - 1];
             this.cameraTarget.x = (head.x + tail.x) / 2;
             this.cameraTarget.y = (head.y + tail.y) / 2;
         }
@@ -460,7 +508,6 @@ export default class PlaybackScene extends JsonMapBase {
      */
     public play() {
         this.isPlaying = true;
-        this.lastUpdateTime = this.time.now;
         
         if (this.onPlayStateChange) {
             this.onPlayStateChange(true);
@@ -496,6 +543,9 @@ export default class PlaybackScene extends JsonMapBase {
         if (frameIndex >= 0 && frameIndex < this.frames.length) {
             this.currentFrameIndex = frameIndex;
             
+            // Set elapsed time to match the frame's timestamp
+            this.elapsedTime = this.frames[frameIndex].timestamp;
+            
             // Rebuild trail points up to current frame
             this.trailPoints = [];
             const startFrame = Math.max(0, frameIndex - this.maxTrailLength);
@@ -510,7 +560,7 @@ export default class PlaybackScene extends JsonMapBase {
             }
             
             // Render the current frame
-            this.renderFrame(frameIndex);
+            this.renderFrameInterpolated(frameIndex);
         }
     }
 
@@ -526,9 +576,10 @@ export default class PlaybackScene extends JsonMapBase {
      */
     public restart() {
         this.currentFrameIndex = 0;
+        this.elapsedTime = 0;
         this.trailPoints = []; // Clear trail points
         this.trailGraphics.clear();
-        this.renderFrame(0);
+        this.renderFrameInterpolated(0);
         this.play();
     }
 
