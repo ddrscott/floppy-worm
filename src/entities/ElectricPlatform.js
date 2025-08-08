@@ -155,18 +155,22 @@ export default class ElectricPlatform extends PlatformBase {
         const currentTime = this.scene.time.now;
         if (currentTime - this.lastShockTime < this.rechargeDuration) return;
         
-        // Visual feedback first
-        this.triggerShockEffect();
-        
-        // Add a slight delay before restarting to let the shock effect play
-        this.scene.time.delayedCall(200, () => {
-            // Restart the entire scene - this will reset everything cleanly
-            this.scene.scene.restart();
-        });
-        
-        // Mark as triggered to prevent multiple restarts
+        // Mark as triggered immediately to prevent multiple restarts
         this.isCharged = false;
         this.lastShockTime = currentTime;
+        
+        // Visual feedback
+        this.triggerShockEffect();
+        
+        // Simply call handleRestart which will capture screenshot and restart
+        if (this.scene.handleRestart && typeof this.scene.handleRestart === 'function') {
+            console.log('⚡ Calling handleRestart with reason: electric_shock');
+            this.scene.handleRestart('electric_shock');
+        } else {
+            // Fallback to direct restart if handleRestart isn't available
+            console.log('⚡ Falling back to direct restart');
+            this.scene.scene.restart();
+        }
     }
     
     applyElectricShock(segment) {
@@ -203,8 +207,8 @@ export default class ElectricPlatform extends PlatformBase {
         }
         
         this.scene.time.delayedCall(100, () => {
-            if (this.graphics) {
-                if (this.graphics.setFillStyle) {
+            if (this.graphics && this.graphics.active) {
+                if (this.graphics.clear && typeof this.graphics.clear === 'function') {
                     // Graphics object
                     this.graphics.clear();
                     this.graphics.fillStyle(originalColor);
@@ -224,7 +228,7 @@ export default class ElectricPlatform extends PlatformBase {
                             this.graphics.strokeRoundedRect(-this.width/2, -this.height/2, this.width, this.height, cornerRadius);
                         }
                     }
-                } else if (this.graphics.setFillColor) {
+                } else if (this.graphics.setFillColor && typeof this.graphics.setFillColor === 'function') {
                     // Rectangle or Circle object
                     this.graphics.setFillColor(originalColor);
                 }

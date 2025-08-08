@@ -211,15 +211,19 @@ export default class BlackholePlatform extends PlatformBase {
         if (this.isTriggered) return;
         this.isTriggered = true;
         
-        const drawDuration = 500; // Time to draw suck-in effect
         // Trigger suck-in visual effect
+        const drawDuration = 500;
         this.triggerSuckInEffect(segment, drawDuration);
         
-        // Add a slight delay before restarting to let the effect play
-        this.scene.time.delayedCall(drawDuration, () => {
-            // Restart the entire scene - this will reset everything cleanly
+        // Simply call handleRestart which will capture screenshot and restart
+        if (this.scene.handleRestart && typeof this.scene.handleRestart === 'function') {
+            console.log('🕳️ Calling handleRestart with reason: blackhole_consumed');
+            this.scene.handleRestart('blackhole_consumed');
+        } else {
+            // Fallback to direct restart if handleRestart isn't available
+            console.log('🕳️ Falling back to direct restart');
             this.scene.scene.restart();
-        });
+        }
     }
     
     triggerSuckInEffect(segment, duration) {

@@ -268,14 +268,26 @@ export default class PauseMenu extends Phaser.Scene {
         this.scene.resume(this.gameScene.scene.key);
     }
     
-    restartLevel() {
+    async restartLevel() {
+        // Save recording as incomplete before restarting
+        if (this.gameScene && this.gameScene.saveRecordingToIndexedDB) {
+            const elapsedTime = this.gameScene.stopwatch ? this.gameScene.stopwatch.elapsedTime : 0;
+            await this.gameScene.saveRecordingToIndexedDB(false, elapsedTime, 'restart_from_pause');
+        }
+        
         // Stop this scene and restart the game scene
         this.scene.stop();
         this.scene.resume(this.gameScene.scene.key);
         this.gameScene.scene.restart();
     }
     
-    returnToMainMenu() {
+    async returnToMainMenu() {
+        // Save recording as incomplete before leaving
+        if (this.gameScene && this.gameScene.saveRecordingToIndexedDB) {
+            const elapsedTime = this.gameScene.stopwatch ? this.gameScene.stopwatch.elapsedTime : 0;
+            await this.gameScene.saveRecordingToIndexedDB(false, elapsedTime, 'returned_to_menu');
+        }
+        
         // Stop both scenes and go to map select
         this.scene.stop();
         this.gameScene.scene.stop();
