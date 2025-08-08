@@ -1,4 +1,5 @@
 import JsonMapBase from '/src/scenes/JsonMapBase';
+import DoubleWorm from '/src/entities/DoubleWorm';
 
 /**
  * PlaybackScene extends JsonMapBase to provide recording playback functionality
@@ -15,10 +16,12 @@ export default class PlaybackScene extends JsonMapBase {
     private frameTime: number = 16.67; // ~60fps
     private accumulatedTime: number = 0;
     
-    // Visual worm segments (no physics)
-    private wormSegments: Phaser.GameObjects.Arc[] = [];
-    private segmentRadii: number[] = [];
+    // Use actual DoubleWorm component (physics disabled)
+    private worm: any;
+    private wormVisuals: Phaser.GameObjects.Arc[] = [];
     private trailGraphics: Phaser.GameObjects.Graphics;
+    private trailPoints: { x: number, y: number }[] = [];
+    private maxTrailLength: number = 200; // Limit trail length for performance
     
     // Callbacks for UI integration
     private onFrameUpdate?: (frame: number) => void;
@@ -103,13 +106,51 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     /**
-     * Override entity creation to create visual-only worm segments
+     * Override entity creation to create DoubleWorm with physics disabled
      */
     createEntitiesFromJSON(entitiesData: any) {
-        const { goal } = entitiesData;
+        const { wormStart, goal } = entitiesData;
         
-        // Create visual worm segments (no physics)
-        this.createVisualWorm();
+        // Create DoubleWorm instance at starting position
+        // We'll disable physics by setting bodies to kinematic and manually controlling positions
+        const wormX = wormStart?.x || 400;
+        const wormY = wormStart?.y || 300;
+        
+        // Create the worm with the same config as gameplay
+        this.worm = new DoubleWorm(this, wormX, wormY, {
+            baseRadius: 15,
+            segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+            showDebug: false
+        });
+        
+        // Disable physics on all segments by making them kinematic
+        // This prevents physics simulation while keeping the visual appearance
+        if (this.worm && this.worm.segments) {
+            this.worm.segments.forEach(segment => {
+                // Set to kinematic to disable physics simulation
+                this.matter.body.setStatic(segment, true);
+                // Store reference to visual components
+                if (segment.graphics) {
+                    this.wormVisuals.push(segment.graphics);
+                }
+            });
+            
+            // Disable all constraints to prevent physics interactions
+            if (this.worm.constraints) {
+                this.worm.constraints.forEach(constraint => {
+                    this.matter.world.remove(constraint);
+                });
+            }
+            
+            // Disable input handling and movement updates
+            if (this.worm.inputManager) {
+                this.worm.inputManager.destroy();
+                this.worm.inputManager = null;
+            }
+            
+            // Override updateMovement to prevent input errors
+            this.worm.updateMovement = () => {};
+        }
         
         // Create camera target that we'll update manually
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0);
@@ -137,26 +178,6 @@ export default class PlaybackScene extends JsonMapBase {
         this.cameras.main.startFollow(this.cameraTarget, true, 0.1, 0.1);
         this.cameras.main.setZoom(1);
         this.cameras.main.setDeadzone(100, 100);
-    }
-
-    /**
-     * Create visual-only worm segments
-     */
-    private createVisualWorm() {
-        const segmentCount = this.recording?.segmentCount || 12;
-        const baseRadius = 15;
-        
-        for (let i = 0; i < segmentCount; i++) {
-            const radius = i === 0 ? baseRadius * 1.5 : baseRadius * (1 - i * 0.03);
-            this.segmentRadii.push(radius);
-            
-            // Create segment visual
-            const segment = this.add.circle(0, 0, radius, i === 0 ? 0xffeb3b : 0x4ecdc4);
-            segment.setStrokeStyle(2, i === 0 ? 0xffd93d : 0x2e86ab);
-            segment.setDepth(segmentCount - i + 10); // Head on top
-            
-            this.wormSegments.push(segment);
-        }
     }
 
     /**
@@ -307,15 +328,21 @@ export default class PlaybackScene extends JsonMapBase {
             }
         });
         
-        // Render constraints
-        if (this.constraints && this.constraints.length > 0) {
-            this.renderConstraints();
+        // Update worm visual if it exists
+        if (this.worm && typeof this.worm.update === 'function') {
+            // Call update to refresh graphics, but physics won't run since bodies are static
+            this.worm.update(delta);
         }
         
+        // Render constraints
+        // if (this.constraints && this.constraints.length > 0) {
+        //     this.renderConstraints();
+        // }
+        
         // Update minimap if visible
-        if (this.minimap && this.miniMapConfig.visible && this.wormSegments.length > 0) {
-            const headSegment = this.wormSegments[0];
-            this.minimap.centerOn(headSegment.x, headSegment.y);
+        if (this.minimap && this.miniMapConfig.visible && this.worm && this.worm.segments && this.worm.segments.length > 0) {
+            const headSegment = this.worm.segments[0];
+            this.minimap.centerOn(headSegment.position.x, headSegment.position.y);
             this.updateViewportIndicator();
         }
         
@@ -356,9 +383,11 @@ export default class PlaybackScene extends JsonMapBase {
                     this.onFrameUpdate(this.currentFrameIndex);
                 }
             } else {
-                // Reached end, loop or stop
+                // Reached end, stop and reset
                 this.pause();
                 this.currentFrameIndex = 0;
+                this.trailPoints = []; // Clear trail when restarting
+                this.trailGraphics.clear();
                 this.renderFrame(0);
             }
         }
@@ -372,23 +401,30 @@ export default class PlaybackScene extends JsonMapBase {
         
         const frame = this.frames[frameIndex];
         
-        // Update worm segment positions
-        for (let i = 0; i < this.wormSegments.length && i < frame.segments.length; i++) {
-            const segment = this.wormSegments[i];
-            const position = frame.segments[i];
-            
-            // Add trail for head segment
-            if (i === 0 && frameIndex > 0) {
-                const prevFrame = this.frames[frameIndex - 1];
-                const prevPos = prevFrame.segments[0];
+        // Update worm segment positions using Matter.js body positions
+        if (this.worm && this.worm.segments) {
+            for (let i = 0; i < this.worm.segments.length && i < frame.segments.length; i++) {
+                const segment = this.worm.segments[i];
+                const position = frame.segments[i];
                 
-                this.trailGraphics.lineStyle(2, 0x4ecdc4, 0.3);
-                this.trailGraphics.moveTo(prevPos.x, prevPos.y);
-                this.trailGraphics.lineTo(position.x, position.y);
-                this.trailGraphics.strokePath();
+                // Update trail for head segment
+                if (i === 0) {
+                    // Add new point to trail
+                    this.trailPoints.push({ x: position.x, y: position.y });
+                    
+                    // Limit trail length
+                    if (this.trailPoints.length > this.maxTrailLength) {
+                        this.trailPoints.shift();
+                    }
+                    
+                    // Redraw entire trail
+                    this.renderTrail();
+                }
+                
+                // Set the Matter.js body position directly
+                // This works because we've made the bodies static
+                this.matter.body.setPosition(segment, position);
             }
-            
-            segment.setPosition(position.x, position.y);
         }
         
         // Update camera target to follow worm
@@ -398,6 +434,24 @@ export default class PlaybackScene extends JsonMapBase {
             const tail = frame.segments[frame.segments.length - 1];
             this.cameraTarget.x = (head.x + tail.x) / 2;
             this.cameraTarget.y = (head.y + tail.y) / 2;
+        }
+    }
+
+    /**
+     * Render the trail efficiently
+     */
+    private renderTrail() {
+        this.trailGraphics.clear();
+        
+        if (this.trailPoints.length < 2) return;
+        
+        // Draw the trail with gradient alpha
+        for (let i = 1; i < this.trailPoints.length; i++) {
+            const alpha = (i / this.trailPoints.length) * 0.3; // Fade from transparent to 0.3
+            this.trailGraphics.lineStyle(2, 0x4ecdc4, alpha);
+            this.trailGraphics.moveTo(this.trailPoints[i - 1].x, this.trailPoints[i - 1].y);
+            this.trailGraphics.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
+            this.trailGraphics.strokePath();
         }
     }
 
@@ -441,23 +495,22 @@ export default class PlaybackScene extends JsonMapBase {
     public seekToFrame(frameIndex: number) {
         if (frameIndex >= 0 && frameIndex < this.frames.length) {
             this.currentFrameIndex = frameIndex;
-            this.renderFrame(frameIndex);
             
-            // Clear trail when seeking
-            this.trailGraphics.clear();
+            // Rebuild trail points up to current frame
+            this.trailPoints = [];
+            const startFrame = Math.max(0, frameIndex - this.maxTrailLength);
             
-            // Redraw trail up to current frame
-            for (let i = 1; i <= frameIndex; i++) {
-                const frame = this.frames[i];
-                const prevFrame = this.frames[i - 1];
-                
-                if (frame.segments.length > 0 && prevFrame.segments.length > 0) {
-                    this.trailGraphics.lineStyle(2, 0x4ecdc4, 0.3);
-                    this.trailGraphics.moveTo(prevFrame.segments[0].x, prevFrame.segments[0].y);
-                    this.trailGraphics.lineTo(frame.segments[0].x, frame.segments[0].y);
-                    this.trailGraphics.strokePath();
+            for (let i = startFrame; i <= frameIndex; i++) {
+                if (this.frames[i] && this.frames[i].segments.length > 0) {
+                    this.trailPoints.push({
+                        x: this.frames[i].segments[0].x,
+                        y: this.frames[i].segments[0].y
+                    });
                 }
             }
+            
+            // Render the current frame
+            this.renderFrame(frameIndex);
         }
     }
 
@@ -473,8 +526,9 @@ export default class PlaybackScene extends JsonMapBase {
      */
     public restart() {
         this.currentFrameIndex = 0;
-        this.renderFrame(0);
+        this.trailPoints = []; // Clear trail points
         this.trailGraphics.clear();
+        this.renderFrame(0);
         this.play();
     }
 
@@ -500,9 +554,13 @@ export default class PlaybackScene extends JsonMapBase {
             this.trailGraphics.destroy();
         }
         
-        this.wormSegments.forEach(segment => segment.destroy());
-        this.wormSegments = [];
+        // Clean up the worm instance
+        if (this.worm) {
+            this.worm.destroy();
+            this.worm = null;
+        }
         
+        this.wormVisuals = [];
         this.frames = [];
         this.isPlaying = false;
     }
