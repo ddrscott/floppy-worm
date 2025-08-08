@@ -267,6 +267,27 @@ export default class MapSelectScene extends Phaser.Scene {
             color: '#4ecdc4'
         }).setOrigin(0.5);
         
+        // View Recordings button (top left)
+        const recordingsButton = this.add.text(20, 20, 'View Recordings', {
+            fontSize: '16px',
+            color: '#9b59b6',
+            backgroundColor: 'rgba(155, 89, 182, 0.2)',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0, 0).setInteractive();
+        
+        recordingsButton.on('pointerup', () => {
+            // Open recordings page in new tab
+            window.open('/recordings', '_blank');
+        });
+        
+        recordingsButton.on('pointerover', () => {
+            recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.4)');
+        });
+        
+        recordingsButton.on('pointerout', () => {
+            recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.2)');
+        });
+        
         // Reset progress button (top right)
         const resetButton = this.add.text(this.scale.width - 20, 20, 'Reset Progress', {
             fontSize: '16px',

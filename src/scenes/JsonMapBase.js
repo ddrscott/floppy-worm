@@ -13,6 +13,7 @@ import Sticker from '../entities/Sticker';
 import GhostRecorder from '../components/ghost/GhostRecorder';
 import GhostPlayer from '../components/ghost/GhostPlayer';
 import GhostStorage from '../components/ghost/GhostStorage';
+import RecordingDatabase from '../storage/RecordingDatabase';
 import VictoryDialog from './VictoryDialog';
 import PauseMenu from './PauseMenu';
 import { getCachedBuildMode } from '../utils/buildMode';
@@ -293,6 +294,9 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Initialize state manager
         this.stateManager = GameStateManager.getFromScene(this);
+        
+        // Initialize recording database
+        this.recordingDb = new RecordingDatabase();
         
         // Store data passed from scene transition
         if (data) {
@@ -1420,7 +1424,7 @@ export default class JsonMapBase extends Phaser.Scene {
             
             // R key to reset level (only in play mode)
             if (Phaser.Input.Keyboard.JustDown(this.rKey)) {
-                this.scene.restart();
+                this.handleRestart('manual_restart');
                 return;
             }
         }
@@ -1497,6 +1501,9 @@ export default class JsonMapBase extends Phaser.Scene {
             }
             this.updateViewportIndicator();
         }
+        
+        // Check if worm has fallen off the map
+        this.checkWormFallOff();
         
         // Check victory condition - any part of worm touching goal
         if (this.goal && this.worm && this.worm.segments) {
@@ -1580,19 +1587,23 @@ export default class JsonMapBase extends Phaser.Scene {
         // Stop the timer and save best time
         if (this.stopwatch) {
             const completionTime = this.stopwatch.stop();
+
+            const elapsedTime = this.stopwatch.elapsedTime;
+            this.saveRecordingToIndexedDB(true, elapsedTime);
+        
             this.saveBestTime(completionTime);
             
-            // Save ghost if it's the best time
+            // Save ghost BEFORE showing UI or destroying worm
             this.saveGhostIfBest(completionTime);
         }
         
-        // Immediately stop worm audio and clean up worm (from BaseLevelScene)
+        // NOW clean up worm after screenshot is taken
         if (this.worm) {
             this.worm.destroy();
             this.worm = null;
         }
         
-        // Set up victory UI
+        // Set up victory UI last
         this.setupVictoryUI();
     }
     
@@ -1652,12 +1663,124 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
+    captureScreenshot() {
+        // Simple synchronous capture that works for death events
+        try {
+            const canvas = this.game.canvas;
+            if (!canvas) {
+                console.warn('📸 No canvas found for screenshot');
+                return null;
+            }
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            console.log('📸 Screenshot captured, size:', dataUrl.length);
+            return dataUrl;
+        } catch (error) {
+            console.error('📸 Error capturing screenshot:', error);
+            return null;
+        }
+    }
+    
+    async saveRecordingToIndexedDB(success, completionTime = null, deathReason = null) {
+        console.log('🎬 saveRecordingToIndexedDB called:', {
+            success,
+            completionTime,
+            deathReason,
+            mapKey: this.mapKey,
+            hasRecorder: !!this.ghostRecorder,
+            hasDb: !!this.recordingDb
+        });
+        
+        if (!this.ghostRecorder || !this.recordingDb) {
+            console.warn('Missing recorder or database:', {
+                recorder: !!this.ghostRecorder,
+                db: !!this.recordingDb
+            });
+            return;
+        }
+        
+        // Capture screenshot BEFORE stopping recording or getting data
+        const screenshot = this.captureScreenshot();
+        console.log('📸 Screenshot captured:', screenshot ? `success (${screenshot.length} bytes)` : 'failed');
+        
+        // Now stop recording and get data
+        this.ghostRecorder.stopRecording();
+        const recordingData = await this.ghostRecorder.getRecordingData();
+        
+        if (!recordingData) {
+            console.warn('No recording data available');
+            return;
+        }
+        
+        console.log('📹 Recording data obtained:', {
+            frameCount: recordingData.frameCount,
+            duration: recordingData.duration,
+            dataLength: recordingData.data?.length
+        });
+        
+        // Prepare recording data for IndexedDB
+        const dbRecordingData = {
+            mapKey: this.mapKey,
+            mapTitle: this.sceneTitle || this.mapKey,
+            success: success,
+            completionTime: completionTime,
+            deathReason: deathReason,
+            timestamp: new Date().toISOString(),
+            duration: recordingData.duration,
+            frameCount: recordingData.frameCount,
+            segmentCount: recordingData.segmentCount,
+            compression: recordingData.compression,
+            encoding: recordingData.encoding,
+            screenshot: screenshot,
+            recordingData: recordingData.data, // The actual frame data
+            mapData: {
+                // Store minimal map data for validation
+                platforms: this.mapData.platforms?.length || 0,
+                entities: this.mapData.entities?.length || 0,
+                dimensions: this.mapData.dimensions
+            }
+        };
+        
+        console.log('💾 Attempting to save to IndexedDB:', {
+            mapKey: dbRecordingData.mapKey,
+            success: dbRecordingData.success,
+            deathReason: dbRecordingData.deathReason,
+            screenshotSize: screenshot?.length || 0
+        });
+        
+        try {
+            const recordingId = await this.recordingDb.saveRecording(dbRecordingData);
+            console.log(`✅ Recording saved to IndexedDB with ID: ${recordingId}`);
+            
+            // Show feedback to user
+            const message = success ? 'Victory recording saved!' : 'Recording saved!';
+            const color = success ? '#4ecdc4' : '#e74c3c';
+            
+            const text = this.add.text(this.scale.width / 2, 120, message, {
+                fontSize: '18px',
+                color: color,
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 15, y: 8 }
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 2000,
+                delay: 1000,
+                onComplete: () => text.destroy()
+            });
+        } catch (error) {
+            console.error('Failed to save recording to IndexedDB:', error);
+        }
+    }
+    
     async saveGhostIfBest(completionTime) {
         if (!this.ghostRecorder || !this.ghostStorage) {
             return;
         }
         
-        // Check if this is the best time using ghostStorage's own logic
+        // Check if this is the best time for localStorage ghost
         if (!this.ghostStorage.shouldSaveGhost(this.mapKey, completionTime)) {
             return;
         }
@@ -1673,6 +1796,37 @@ export default class JsonMapBase extends Phaser.Scene {
                 recordingData,
                 completionTime
             );
+        }
+    }
+    
+    async handleRestart(reason = 'unknown') {
+        console.log('🔄 handleRestart called with reason:', reason);
+        
+        // Save the recording as a failure before restarting
+        const elapsedTime = this.stopwatch ? this.stopwatch.elapsedTime : 0;
+        console.log('⏱️ Elapsed time before restart:', elapsedTime);
+        
+        await this.saveRecordingToIndexedDB(false, elapsedTime, reason);
+        
+        console.log('🔄 Restarting scene now...');
+        // Now restart the scene
+        this.scene.restart();
+    }
+    
+    checkWormFallOff() {
+        if (!this.worm || !this.worm.segments || this.victoryAchieved) {
+            return;
+        }
+        
+        // Check if any segment has fallen below the level
+        const fallThreshold = this.levelHeight + 100; // Some buffer below the level
+        
+        for (let segment of this.worm.segments) {
+            if (segment.position.y > fallThreshold) {
+                // Worm has fallen off the map
+                this.handleRestart('fell_off_map');
+                return;
+            }
         }
     }
     
