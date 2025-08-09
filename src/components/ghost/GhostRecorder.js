@@ -21,7 +21,7 @@ export default class GhostRecorder {
         return this.frames;
     }
     
-    recordFrame(wormSegments, currentTime) {
+    recordFrame(wormSegments, currentTime, inputState = null) {
         if (!this.isRecording || !wormSegments || wormSegments.length === 0) {
             return;
         }
@@ -40,10 +40,32 @@ export default class GhostRecorder {
             y: segment.position.y
         }));
         
-        this.frames.push({
+        // Create frame data
+        const frameData = {
             timestamp: Math.round(elapsedTime),
             segments: segmentPositions
-        });
+        };
+        
+        // Add input state if provided (for new recordings)
+        if (inputState) {
+            frameData.input = {
+                leftStick: { x: inputState.leftStick.x, y: inputState.leftStick.y },
+                rightStick: { x: inputState.rightStick.x, y: inputState.rightStick.y },
+                leftTrigger: inputState.leftTrigger,
+                rightTrigger: inputState.rightTrigger
+            };
+            
+            // Debug log to see if we're recording trigger values
+            if (inputState.leftTrigger > 0.01 || inputState.rightTrigger > 0.01) {
+                console.log('Recording triggers:', {
+                    leftTrigger: inputState.leftTrigger,
+                    rightTrigger: inputState.rightTrigger,
+                    timestamp: Math.round(elapsedTime)
+                });
+            }
+        }
+        
+        this.frames.push(frameData);
         
         this.lastFrameTime = elapsedTime;
     }
@@ -54,8 +76,14 @@ export default class GhostRecorder {
             return null;
         }
         
-        // Calculate buffer size: each frame has timestamp (4 bytes) + segments (8 bytes each)
-        const bytesPerFrame = 4 + (this.segmentCount * 8);
+        // Check if we have input data (new format)
+        const hasInputData = frames.length > 0 && frames[0].input !== undefined;
+        
+        // Calculate buffer size
+        // v1 format: timestamp (4 bytes) + segments (8 bytes each)
+        // v2 format: v1 + input data (16 bytes: 4 floats for sticks + 2 floats for triggers)
+        const inputBytesPerFrame = hasInputData ? 24 : 0; // 4*4 for sticks + 2*4 for triggers
+        const bytesPerFrame = 4 + (this.segmentCount * 8) + inputBytesPerFrame;
         const buffer = new ArrayBuffer(frames.length * bytesPerFrame);
         const view = new DataView(buffer);
         
@@ -72,6 +100,25 @@ export default class GhostRecorder {
                 view.setFloat32(offset, segment.y, true);
                 offset += 4;
             });
+            
+            // Write input data if present
+            if (hasInputData && frame.input) {
+                // Write stick positions (4 floats)
+                view.setFloat32(offset, frame.input.leftStick.x, true);
+                offset += 4;
+                view.setFloat32(offset, frame.input.leftStick.y, true);
+                offset += 4;
+                view.setFloat32(offset, frame.input.rightStick.x, true);
+                offset += 4;
+                view.setFloat32(offset, frame.input.rightStick.y, true);
+                offset += 4;
+                
+                // Write trigger values (2 floats)
+                view.setFloat32(offset, frame.input.leftTrigger, true);
+                offset += 4;
+                view.setFloat32(offset, frame.input.rightTrigger, true);
+                offset += 4;
+            }
         });
         
         return buffer;
@@ -122,13 +169,17 @@ export default class GhostRecorder {
         const binaryData = this.encodeFrames(this.frames);
         const compressedData = await this.compressData(binaryData);
         
+        // Check if we have input data to determine version
+        const hasInputData = this.frames.length > 0 && this.frames[0].input !== undefined;
+        
         return {
             frameCount: this.frames.length,
             duration: this.frames[this.frames.length - 1].timestamp,
             segmentCount: this.segmentCount,
             compression: (typeof window !== 'undefined' && window.CompressionStream) ? 'gzip' : 'none',
-            encoding: 'binary-v1',
-            data: compressedData
+            encoding: hasInputData ? 'binary-v2' : 'binary-v1', // v2 includes input data
+            data: compressedData,
+            hasInputData: hasInputData // Explicit flag for easier checking
         };
     }
     

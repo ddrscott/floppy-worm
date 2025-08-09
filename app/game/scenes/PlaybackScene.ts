@@ -26,6 +26,14 @@ export default class PlaybackScene extends JsonMapBase {
     // Callbacks for UI integration
     private onFrameUpdate?: (frame: number) => void;
     private onPlayStateChange?: (playing: boolean) => void;
+    
+    // Input visualization elements
+    private inputIndicators: {
+        leftStick: { range: Phaser.GameObjects.Graphics, indicator: Phaser.GameObjects.Graphics },
+        rightStick: { range: Phaser.GameObjects.Graphics, indicator: Phaser.GameObjects.Graphics },
+        jumpArrows: Phaser.GameObjects.Graphics[]
+    } | null = null;
+    private currentInputState: any = null;
 
     constructor(config: any = {}) {
         // Set the scene key for Phaser
@@ -93,12 +101,50 @@ export default class PlaybackScene extends JsonMapBase {
         // Decode recording data
         await this.decodeRecordingData();
         
+        // Create input indicators if we have input data
+        if (this.frames.length > 0 && this.frames[0].input) {
+            this.createInputIndicators();
+        }
+        
         // No timer needed - we'll use update() method with time-based interpolation
         
         // Auto-play
         this.play();
     }
 
+    /**
+     * Create input visualization indicators
+     */
+    private createInputIndicators() {
+        this.inputIndicators = {
+            leftStick: {
+                range: this.add.graphics(),
+                indicator: this.add.graphics()
+            },
+            rightStick: {
+                range: this.add.graphics(),
+                indicator: this.add.graphics()
+            },
+            jumpArrows: []
+        };
+        
+        // Set depth for all indicators
+        this.inputIndicators.leftStick.range.setDepth(10);
+        this.inputIndicators.leftStick.indicator.setDepth(11);
+        this.inputIndicators.rightStick.range.setDepth(10);
+        this.inputIndicators.rightStick.indicator.setDepth(11);
+        
+        // Add to minimap ignore list
+        if (this.minimapIgnoreList) {
+            this.minimapIgnoreList.push(
+                this.inputIndicators.leftStick.range,
+                this.inputIndicators.leftStick.indicator,
+                this.inputIndicators.rightStick.range,
+                this.inputIndicators.rightStick.indicator
+            );
+        }
+    }
+    
     /**
      * Override entity creation to create DoubleWorm with physics disabled
      */
@@ -120,6 +166,32 @@ export default class PlaybackScene extends JsonMapBase {
         // Disable physics on all segments by making them kinematic
         // This prevents physics simulation while keeping the visual appearance
         if (this.worm && this.worm.segments) {
+            // First, deactivate all abilities to remove their visual elements
+            if (this.worm.movementAbility) {
+                this.worm.movementAbility.deactivate();
+                this.worm.movementAbility = null;
+            }
+            if (this.worm.jumpAbility) {
+                this.worm.jumpAbility.deactivate();
+                this.worm.jumpAbility = null;
+            }
+            if (this.worm.rollAbility) {
+                this.worm.rollAbility.deactivate();
+                this.worm.rollAbility = null;
+            }
+            if (this.worm.grabAbility) {
+                this.worm.grabAbility.deactivate();
+                this.worm.grabAbility = null;
+            }
+            
+            // Disable the state machine
+            if (this.worm.stateMachine) {
+                if (typeof this.worm.stateMachine.destroy === 'function') {
+                    this.worm.stateMachine.destroy();
+                }
+                this.worm.stateMachine = null;
+            }
+            
             this.worm.segments.forEach(segment => {
                 // Set to kinematic to disable physics simulation
                 this.matter.body.setStatic(segment, true);
@@ -208,15 +280,7 @@ export default class PlaybackScene extends JsonMapBase {
         
         this.minimapIgnoreList.push(statusText);
         
-        // Frame counter
-        this.frameCounterText = this.add.text(this.scale.width / 2, 20, '', {
-            fontSize: '16px',
-            color: '#95a5a6',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            padding: { x: 5, y: 2 }
-        }).setOrigin(0.5, 0).setScrollFactor(0);
-        
-        this.minimapIgnoreList.push(this.frameCounterText);
+        // Frame counter removed - now displayed in HTML controls
     }
 
     /**
@@ -281,14 +345,20 @@ export default class PlaybackScene extends JsonMapBase {
         const view = new DataView(buffer);
         const frames = [];
         const segmentCount = this.recording.segmentCount || 12;
-        const bytesPerFrame = 4 + (segmentCount * 8);
+        
+        // Check encoding version to determine if input data is present
+        const hasInputData = this.recording.encoding === 'binary-v2' || this.recording.hasInputData;
+        const inputBytesPerFrame = hasInputData ? 24 : 0; // 6 floats * 4 bytes
+        const bytesPerFrame = 4 + (segmentCount * 8) + inputBytesPerFrame;
         const frameCount = buffer.byteLength / bytesPerFrame;
         
         console.log('Decoding binary frames:', {
             bufferSize: buffer.byteLength,
             segmentCount,
             bytesPerFrame,
-            expectedFrames: frameCount
+            expectedFrames: frameCount,
+            encoding: this.recording.encoding,
+            hasInputData
         });
         
         let offset = 0;
@@ -305,7 +375,40 @@ export default class PlaybackScene extends JsonMapBase {
                 segments.push({ x, y });
             }
             
-            frames.push({ timestamp, segments });
+            // Create frame data
+            const frameData: any = { timestamp, segments };
+            
+            // Decode input data if present
+            if (hasInputData) {
+                const leftTrigger = view.getFloat32(offset + 16, true);
+                const rightTrigger = view.getFloat32(offset + 20, true);
+                
+                frameData.input = {
+                    leftStick: {
+                        x: view.getFloat32(offset, true),
+                        y: view.getFloat32(offset + 4, true)
+                    },
+                    rightStick: {
+                        x: view.getFloat32(offset + 8, true),
+                        y: view.getFloat32(offset + 12, true)
+                    },
+                    leftTrigger: leftTrigger,
+                    rightTrigger: rightTrigger
+                };
+                
+                // Debug log decoded trigger values
+                if (leftTrigger > 0.01 || rightTrigger > 0.01) {
+                    console.log('Decoded triggers at frame', f, ':', {
+                        leftTrigger,
+                        rightTrigger,
+                        timestamp
+                    });
+                }
+                
+                offset += 24;
+            }
+            
+            frames.push(frameData);
         }
         
         return frames;
@@ -338,16 +441,6 @@ export default class PlaybackScene extends JsonMapBase {
             const headSegment = this.worm.segments[0];
             this.minimap.centerOn(headSegment.position.x, headSegment.position.y);
             this.updateViewportIndicator();
-        }
-        
-        // Update frame counter display
-        if (this.frameCounterText) {
-            const displayTime = this.elapsedTime;
-            const totalTime = this.recording?.duration || 0;
-            
-            this.frameCounterText.setText(
-                `Frame: ${this.currentFrameIndex}/${this.frames.length} | ${this.formatTime(displayTime)}/${this.formatTime(totalTime)}`
-            );
         }
     }
 
@@ -422,6 +515,14 @@ export default class PlaybackScene extends JsonMapBase {
         
         const frame = this.frames[frameIndex];
         this.updateWormPositions(frame.segments);
+        
+        // Update input indicators if available
+        if (frame.input && this.inputIndicators) {
+            this.updateInputIndicators(frame.input);
+        } else if (this.inputIndicators) {
+            // Clear indicators if no input data for this frame
+            this.updateInputIndicators(null);
+        }
     }
     
     /**
@@ -438,6 +539,241 @@ export default class PlaybackScene extends JsonMapBase {
         });
         
         this.updateWormPositions(interpolatedSegments);
+        
+        // Interpolate input state if available
+        if (this.inputIndicators) {
+            if (currentFrame.input && nextFrame.input) {
+                const interpolatedInput = {
+                    leftStick: {
+                        x: currentFrame.input.leftStick.x + (nextFrame.input.leftStick.x - currentFrame.input.leftStick.x) * t,
+                        y: currentFrame.input.leftStick.y + (nextFrame.input.leftStick.y - currentFrame.input.leftStick.y) * t
+                    },
+                    rightStick: {
+                        x: currentFrame.input.rightStick.x + (nextFrame.input.rightStick.x - currentFrame.input.rightStick.x) * t,
+                        y: currentFrame.input.rightStick.y + (nextFrame.input.rightStick.y - currentFrame.input.rightStick.y) * t
+                    },
+                    leftTrigger: currentFrame.input.leftTrigger + (nextFrame.input.leftTrigger - currentFrame.input.leftTrigger) * t,
+                    rightTrigger: currentFrame.input.rightTrigger + (nextFrame.input.rightTrigger - currentFrame.input.rightTrigger) * t
+                };
+                this.updateInputIndicators(interpolatedInput);
+            } else if (currentFrame.input) {
+                // Use current frame's input if next frame doesn't have it
+                this.updateInputIndicators(currentFrame.input);
+            } else {
+                // Clear indicators if no input data
+                this.updateInputIndicators(null);
+            }
+        }
+    }
+    
+    /**
+     * Update input indicators based on current input state
+     */
+    private updateInputIndicators(inputState: any) {
+        if (!this.inputIndicators || !this.worm || !this.worm.segments || this.worm.segments.length < 2) {
+            return;
+        }
+        
+        const headColor = 0xff6b6b;
+        const headStrokeColor = 0xe74c3c;
+        const tailColor = 0x74b9ff;
+        const tailStrokeColor = 0x3498db;
+        const anchorRadius = 60;
+        const indicatorRadius = 8;
+        const rangeAlpha = 0.4;
+        const deadzone = 0.06;
+        
+        // Get anchor positions (similar to MovementAbility)
+        const headSegment = this.worm.segments[1]; // Attach to second segment like MovementAbility
+        const tailSegment = this.worm.segments[this.worm.segments.length - 2]; // Second from last
+        
+        // Clear previous graphics
+        this.inputIndicators.leftStick.range.clear();
+        this.inputIndicators.leftStick.indicator.clear();
+        this.inputIndicators.rightStick.range.clear();
+        this.inputIndicators.rightStick.indicator.clear();
+        
+        // Always draw range circles (like in gameplay)
+        this.inputIndicators.leftStick.range.lineStyle(1, headColor, rangeAlpha);
+        this.inputIndicators.leftStick.range.strokeCircle(headSegment.position.x, headSegment.position.y, anchorRadius);
+        
+        this.inputIndicators.rightStick.range.lineStyle(1, tailColor, rangeAlpha);
+        this.inputIndicators.rightStick.range.strokeCircle(tailSegment.position.x, tailSegment.position.y, anchorRadius);
+        
+        // Draw stick position indicators only if there's input
+        if (inputState) {
+            // Update left stick (head) indicator
+            const leftStick = inputState.leftStick || { x: 0, y: 0 };
+            const leftMagnitude = Math.sqrt(leftStick.x * leftStick.x + leftStick.y * leftStick.y);
+            
+            if (leftMagnitude > deadzone) {
+                this.inputIndicators.leftStick.indicator.fillStyle(headColor, 0.8);
+                this.inputIndicators.leftStick.indicator.lineStyle(2, headStrokeColor, 1);
+                const indicatorX = headSegment.position.x + leftStick.x * anchorRadius;
+                const indicatorY = headSegment.position.y + leftStick.y * anchorRadius;
+                this.inputIndicators.leftStick.indicator.fillCircle(indicatorX, indicatorY, indicatorRadius);
+                this.inputIndicators.leftStick.indicator.strokeCircle(indicatorX, indicatorY, indicatorRadius);
+            }
+            
+            // Update right stick (tail) indicator
+            const rightStick = inputState.rightStick || { x: 0, y: 0 };
+            const rightMagnitude = Math.sqrt(rightStick.x * rightStick.x + rightStick.y * rightStick.y);
+            
+            if (rightMagnitude > deadzone) {
+                this.inputIndicators.rightStick.indicator.fillStyle(tailColor, 0.8);
+                this.inputIndicators.rightStick.indicator.lineStyle(2, tailStrokeColor, 1);
+                const indicatorX = tailSegment.position.x + rightStick.x * anchorRadius;
+                const indicatorY = tailSegment.position.y + rightStick.y * anchorRadius;
+                this.inputIndicators.rightStick.indicator.fillCircle(indicatorX, indicatorY, indicatorRadius);
+                this.inputIndicators.rightStick.indicator.strokeCircle(indicatorX, indicatorY, indicatorRadius);
+            }
+        }
+        
+        // Handle jump arrows (triggers)
+        if (inputState) {
+            const leftTrigger = inputState.leftTrigger || 0;
+            const rightTrigger = inputState.rightTrigger || 0;
+            const triggerThreshold = 0.01;
+            
+            // Check if triggers were just pressed (rising edge detection)
+            const prevLeftTrigger = this.currentInputState ? (this.currentInputState.leftTrigger || 0) : 0;
+            const prevRightTrigger = this.currentInputState ? (this.currentInputState.rightTrigger || 0) : 0;
+            
+            const leftJustPressed = leftTrigger > triggerThreshold && prevLeftTrigger <= triggerThreshold;
+            const rightJustPressed = rightTrigger > triggerThreshold && prevRightTrigger <= triggerThreshold;
+            
+            if (leftJustPressed || rightJustPressed) {
+                // Debug log to see when arrows should be created
+                console.log('Creating jump arrows:', { 
+                    leftJustPressed, 
+                    rightJustPressed,
+                    leftTrigger,
+                    rightTrigger,
+                    prevLeftTrigger,
+                    prevRightTrigger
+                });
+                this.createJumpArrows(leftJustPressed, rightJustPressed);
+            }
+        }
+        
+        // Store current input state
+        this.currentInputState = inputState;
+    }
+    
+    /**
+     * Create jump arrow effects similar to JumpAbility
+     */
+    private createJumpArrows(showHead: boolean, showTail: boolean) {
+        if (!this.worm || !this.worm.segments || this.worm.segments.length < 3) {
+            console.warn('Cannot create jump arrows - worm not ready');
+            return;
+        }
+        
+        const headColor = 0xff6b6b;
+        const tailColor = 0x74b9ff;
+        const laserLength = 200;
+        const arrowSize = 15;
+        const arrowOffset = 10;
+        const fadeDuration = 5000;
+        
+        // Head jump arrow
+        if (showHead) {
+            const fromSegment = this.worm.segments[0];
+            const toSegment = this.worm.segments[this.worm.segments.length - 2];
+            console.log('Creating head arrow from segment 0 to segment', this.worm.segments.length - 2);
+            this.createLaserArrow(fromSegment, toSegment, headColor, laserLength, arrowSize, arrowOffset, fadeDuration);
+        }
+        
+        // Tail jump arrow
+        if (showTail) {
+            const fromSegment = this.worm.segments[this.worm.segments.length - 1];
+            const toSegment = this.worm.segments[1];
+            console.log('Creating tail arrow from segment', this.worm.segments.length - 1, 'to segment 1');
+            this.createLaserArrow(fromSegment, toSegment, tailColor, laserLength, arrowSize, arrowOffset, fadeDuration);
+        }
+    }
+    
+    /**
+     * Create a single laser arrow effect
+     */
+    private createLaserArrow(fromSegment: any, toSegment: any, color: number, length: number, arrowSize: number, arrowOffset: number, fadeDuration: number) {
+        console.log('createLaserArrow called with:', {
+            from: fromSegment.position,
+            to: toSegment.position,
+            color: color.toString(16),
+            length
+        });
+        
+        const laser = this.add.graphics();
+        laser.setDepth(15);
+        
+        // Calculate direction
+        const dx = toSegment.position.x - fromSegment.position.x;
+        const dy = toSegment.position.y - fromSegment.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        console.log('Arrow direction:', { dx, dy, distance });
+        
+        if (distance > 0) {
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            
+            // Calculate laser end point
+            const endX = fromSegment.position.x + dirX * length;
+            const endY = fromSegment.position.y + dirY * length;
+            
+            console.log('Drawing arrow from', fromSegment.position, 'to', { x: endX, y: endY });
+            
+            // Draw laser line
+            laser.lineStyle(2, color, 0.8);
+            laser.beginPath();
+            laser.moveTo(fromSegment.position.x, fromSegment.position.y);
+            laser.lineTo(endX, endY);
+            laser.strokePath();
+            
+            // Draw arrowhead
+            const arrowX = endX - dirX * arrowOffset;
+            const arrowY = endY - dirY * arrowOffset;
+            const perpX = -dirY;
+            const perpY = dirX;
+            
+            laser.fillStyle(color, 0.8);
+            laser.beginPath();
+            laser.moveTo(endX, endY);
+            laser.lineTo(arrowX - perpX * arrowSize/2, arrowY - perpY * arrowSize/2);
+            laser.lineTo(arrowX + perpX * arrowSize/2, arrowY + perpY * arrowSize/2);
+            laser.closePath();
+            laser.fillPath();
+            
+            // Add to jump arrows list
+            if (this.inputIndicators) {
+                this.inputIndicators.jumpArrows.push(laser);
+                console.log('Arrow added to list, total arrows:', this.inputIndicators.jumpArrows.length);
+            }
+            
+            // Fade out animation
+            this.tweens.add({
+                targets: laser,
+                alpha: 0,
+                duration: fadeDuration,
+                ease: 'Sine.easeOut',
+                onComplete: () => {
+                    console.log('Arrow fade complete, destroying');
+                    laser.clear();
+                    laser.destroy();
+                    // Remove from array
+                    if (this.inputIndicators) {
+                        const index = this.inputIndicators.jumpArrows.indexOf(laser);
+                        if (index > -1) {
+                            this.inputIndicators.jumpArrows.splice(index, 1);
+                        }
+                    }
+                }
+            });
+        } else {
+            console.warn('Arrow distance is 0, not drawing');
+            laser.destroy();
+        }
     }
     
     /**
@@ -559,6 +895,18 @@ export default class PlaybackScene extends JsonMapBase {
                 }
             }
             
+            // Clear any active jump arrows when seeking
+            if (this.inputIndicators) {
+                this.inputIndicators.jumpArrows.forEach(arrow => {
+                    arrow.clear();
+                    arrow.destroy();
+                });
+                this.inputIndicators.jumpArrows = [];
+            }
+            
+            // Reset current input state to force proper arrow creation
+            this.currentInputState = null;
+            
             // Render the current frame
             this.renderFrameInterpolated(frameIndex);
         }
@@ -579,6 +927,19 @@ export default class PlaybackScene extends JsonMapBase {
         this.elapsedTime = 0;
         this.trailPoints = []; // Clear trail points
         this.trailGraphics.clear();
+        
+        // Clear any active jump arrows when restarting
+        if (this.inputIndicators) {
+            this.inputIndicators.jumpArrows.forEach(arrow => {
+                arrow.clear();
+                arrow.destroy();
+            });
+            this.inputIndicators.jumpArrows = [];
+        }
+        
+        // Reset current input state
+        this.currentInputState = null;
+        
         this.renderFrameInterpolated(0);
         this.play();
     }
@@ -605,6 +966,22 @@ export default class PlaybackScene extends JsonMapBase {
             this.trailGraphics.destroy();
         }
         
+        // Clean up input indicators
+        if (this.inputIndicators) {
+            this.inputIndicators.leftStick.range.destroy();
+            this.inputIndicators.leftStick.indicator.destroy();
+            this.inputIndicators.rightStick.range.destroy();
+            this.inputIndicators.rightStick.indicator.destroy();
+            
+            // Clean up any remaining jump arrows
+            this.inputIndicators.jumpArrows.forEach(arrow => {
+                arrow.clear();
+                arrow.destroy();
+            });
+            
+            this.inputIndicators = null;
+        }
+        
         // Clean up the worm instance
         if (this.worm) {
             this.worm.destroy();
@@ -615,7 +992,4 @@ export default class PlaybackScene extends JsonMapBase {
         this.frames = [];
         this.isPlaying = false;
     }
-
-    // Private properties for UI elements
-    private frameCounterText: Phaser.GameObjects.Text;
 }

@@ -231,9 +231,15 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                         </select>
                     </div>
 
-                    {/* Frame Counter */}
+                    {/* Frame and Time Counter */}
                     <div className="text-sm text-gray-400">
-                        Frame: {currentFrame} / {recording.frameCount}
+                        <span className="font-mono">
+                            Frame: {currentFrame}/{recording.frameCount}
+                        </span>
+                        <span className="mx-2">|</span>
+                        <span className="font-mono">
+                            {formatTime(currentTime)}/{formatTime(recording.duration)}
+                        </span>
                     </div>
                 </div>
             </div>

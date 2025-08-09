@@ -250,9 +250,14 @@ export default class GameScene extends JsonMapBase {
             this.stopwatch.update();
         }
         
-        // Record ghost frame
+        // Record ghost frame with input state
         if (this.ghostRecorder && this.ghostRecorder.isRecording && this.worm && this.worm.segments) {
-            this.ghostRecorder.recordFrame(this.worm.segments, this.stopwatch.elapsedTime);
+            // Get current input state from the worm's input manager
+            let inputState = null;
+            if (this.worm.inputManager && this.worm.inputManager.getInputState) {
+                inputState = this.worm.inputManager.getInputState(delta);
+            }
+            this.ghostRecorder.recordFrame(this.worm.segments, this.stopwatch.elapsedTime, inputState);
         }
         
         // Update ghost playback
