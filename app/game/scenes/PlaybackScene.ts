@@ -19,9 +19,11 @@ export default class PlaybackScene extends JsonMapBase {
     // Use actual DoubleWorm component (physics disabled)
     private worm: any;
     private wormVisuals: Phaser.GameObjects.Arc[] = [];
-    private trailGraphics: Phaser.GameObjects.Graphics;
-    private trailPoints: { x: number, y: number }[] = [];
-    private maxTrailLength: number = 200; // Limit trail length for performance
+    private headTrailGraphics: Phaser.GameObjects.Graphics;
+    private tailTrailGraphics: Phaser.GameObjects.Graphics;
+    private headTrailPoints: { x: number, y: number }[] = [];
+    private tailTrailPoints: { x: number, y: number }[] = [];
+    private maxTrailLength: number = 128; // Limit trail length for performance
     
     // Callbacks for UI integration
     private onFrameUpdate?: (frame: number) => void;
@@ -93,10 +95,12 @@ export default class PlaybackScene extends JsonMapBase {
         // Call parent create to set up the map
         await super.create();
         
-        // Create trail graphics for worm path
-        this.trailGraphics = this.add.graphics();
-        this.trailGraphics.setAlpha(0.3);
-        this.trailGraphics.setDepth(5);
+        // Create trail graphics for head and tail paths
+        this.headTrailGraphics = this.add.graphics();
+        this.headTrailGraphics.setDepth(5);
+        
+        this.tailTrailGraphics = this.add.graphics();
+        this.tailTrailGraphics.setDepth(5);
         
         // Decode recording data
         await this.decodeRecordingData();
@@ -482,8 +486,10 @@ export default class PlaybackScene extends JsonMapBase {
             this.pause();
             this.currentFrameIndex = 0;
             this.elapsedTime = 0;
-            this.trailPoints = [];
-            this.trailGraphics.clear();
+            this.headTrailPoints = [];
+            this.tailTrailPoints = [];
+            this.headTrailGraphics.clear();
+            this.tailTrailGraphics.clear();
             this.renderFrameInterpolated(0);
             return;
         }
@@ -788,20 +794,33 @@ export default class PlaybackScene extends JsonMapBase {
                 
                 // Update trail for head segment (less frequently to avoid trail buildup)
                 if (i === 0) {
-                    const lastPoint = this.trailPoints[this.trailPoints.length - 1];
+                    const lastHeadPoint = this.headTrailPoints[this.headTrailPoints.length - 1];
                     // Only add point if it's far enough from the last one
-                    if (!lastPoint || 
-                        Math.abs(lastPoint.x - position.x) > 2 || 
-                        Math.abs(lastPoint.y - position.y) > 2) {
-                        this.trailPoints.push({ x: position.x, y: position.y });
+                    if (!lastHeadPoint || 
+                        Math.abs(lastHeadPoint.x - position.x) > 2 || 
+                        Math.abs(lastHeadPoint.y - position.y) > 2) {
+                        this.headTrailPoints.push({ x: position.x, y: position.y });
                         
                         // Limit trail length
-                        if (this.trailPoints.length > this.maxTrailLength) {
-                            this.trailPoints.shift();
+                        if (this.headTrailPoints.length > this.maxTrailLength) {
+                            this.headTrailPoints.shift();
                         }
+                    }
+                }
+                
+                // Update trail for tail segment
+                if (i === segments.length - 1) {
+                    const lastTailPoint = this.tailTrailPoints[this.tailTrailPoints.length - 1];
+                    // Only add point if it's far enough from the last one
+                    if (!lastTailPoint || 
+                        Math.abs(lastTailPoint.x - position.x) > 2 || 
+                        Math.abs(lastTailPoint.y - position.y) > 2) {
+                        this.tailTrailPoints.push({ x: position.x, y: position.y });
                         
-                        // Redraw entire trail
-                        this.renderTrail();
+                        // Limit trail length
+                        if (this.tailTrailPoints.length > this.maxTrailLength) {
+                            this.tailTrailPoints.shift();
+                        }
                     }
                 }
                 
@@ -809,6 +828,9 @@ export default class PlaybackScene extends JsonMapBase {
                 // This works because we've made the bodies static
                 this.matter.body.setPosition(segment, position);
             }
+            
+            // Redraw both trails
+            this.renderTrails();
         }
         
         // Update camera target to follow worm
@@ -822,20 +844,33 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     /**
-     * Render the trail efficiently
+     * Render both trails efficiently
      */
-    private renderTrail() {
-        this.trailGraphics.clear();
+    private renderTrails() {
+        // Clear both trail graphics
+        this.headTrailGraphics.clear();
+        this.tailTrailGraphics.clear();
         
-        if (this.trailPoints.length < 2) return;
+        // Draw head trail (red with 0.5 alpha)
+        if (this.headTrailPoints.length >= 2) {
+            for (let i = 1; i < this.headTrailPoints.length; i++) {
+                const alpha = (i / this.headTrailPoints.length) * 0.5; // Fade from transparent to 0.5
+                this.headTrailGraphics.lineStyle(2, 0xff6b6b, alpha);
+                this.headTrailGraphics.moveTo(this.headTrailPoints[i - 1].x, this.headTrailPoints[i - 1].y);
+                this.headTrailGraphics.lineTo(this.headTrailPoints[i].x, this.headTrailPoints[i].y);
+                this.headTrailGraphics.strokePath();
+            }
+        }
         
-        // Draw the trail with gradient alpha
-        for (let i = 1; i < this.trailPoints.length; i++) {
-            const alpha = (i / this.trailPoints.length) * 0.3; // Fade from transparent to 0.3
-            this.trailGraphics.lineStyle(2, 0x4ecdc4, alpha);
-            this.trailGraphics.moveTo(this.trailPoints[i - 1].x, this.trailPoints[i - 1].y);
-            this.trailGraphics.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
-            this.trailGraphics.strokePath();
+        // Draw tail trail (blue with 0.5 alpha)
+        if (this.tailTrailPoints.length >= 2) {
+            for (let i = 1; i < this.tailTrailPoints.length; i++) {
+                const alpha = (i / this.tailTrailPoints.length) * 0.5; // Fade from transparent to 0.5
+                this.tailTrailGraphics.lineStyle(2, 0x74b9ff, alpha);
+                this.tailTrailGraphics.moveTo(this.tailTrailPoints[i - 1].x, this.tailTrailPoints[i - 1].y);
+                this.tailTrailGraphics.lineTo(this.tailTrailPoints[i].x, this.tailTrailPoints[i].y);
+                this.tailTrailGraphics.strokePath();
+            }
         }
     }
 
@@ -883,14 +918,22 @@ export default class PlaybackScene extends JsonMapBase {
             this.elapsedTime = this.frames[frameIndex].timestamp;
             
             // Rebuild trail points up to current frame
-            this.trailPoints = [];
+            this.headTrailPoints = [];
+            this.tailTrailPoints = [];
             const startFrame = Math.max(0, frameIndex - this.maxTrailLength);
             
             for (let i = startFrame; i <= frameIndex; i++) {
                 if (this.frames[i] && this.frames[i].segments.length > 0) {
-                    this.trailPoints.push({
+                    // Add head position
+                    this.headTrailPoints.push({
                         x: this.frames[i].segments[0].x,
                         y: this.frames[i].segments[0].y
+                    });
+                    // Add tail position
+                    const lastSegmentIndex = this.frames[i].segments.length - 1;
+                    this.tailTrailPoints.push({
+                        x: this.frames[i].segments[lastSegmentIndex].x,
+                        y: this.frames[i].segments[lastSegmentIndex].y
                     });
                 }
             }
@@ -925,8 +968,10 @@ export default class PlaybackScene extends JsonMapBase {
     public restart() {
         this.currentFrameIndex = 0;
         this.elapsedTime = 0;
-        this.trailPoints = []; // Clear trail points
-        this.trailGraphics.clear();
+        this.headTrailPoints = []; // Clear head trail points
+        this.tailTrailPoints = []; // Clear tail trail points
+        this.headTrailGraphics.clear();
+        this.tailTrailGraphics.clear();
         
         // Clear any active jump arrows when restarting
         if (this.inputIndicators) {
@@ -945,25 +990,17 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     /**
-     * Format time for display
-     */
-    private formatTime(milliseconds: number): string {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    /**
      * Clean up when scene shuts down
      */
     cleanup() {
         super.cleanup();
         
         // Clean up playback-specific elements
-        if (this.trailGraphics) {
-            this.trailGraphics.destroy();
+        if (this.headTrailGraphics) {
+            this.headTrailGraphics.destroy();
+        }
+        if (this.tailTrailGraphics) {
+            this.tailTrailGraphics.destroy();
         }
         
         // Clean up input indicators

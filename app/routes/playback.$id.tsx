@@ -79,6 +79,9 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                     parent: containerRef.current,
                     width: 800,
                     height: 600,
+                    mode: Phaser.Scale.FIT,
+                    autoRound: true,
+                    autoCenter: Phaser.Scale.CENTER_BOTH,
                     backgroundColor: '#333333',
                     physics: {
                         default: 'matter',
