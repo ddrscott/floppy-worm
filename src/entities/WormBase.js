@@ -61,6 +61,9 @@ export default class WormBase {
         // Track surface constraints for better friction
         this.surfaceConstraints = new Map(); // segment -> constraint
         
+        // Initialize sound effects for constraints
+        this.initializeConstraintSounds();
+        
         // Initialize audio system
         this.initializeAudio();
         
@@ -315,6 +318,104 @@ export default class WormBase {
         };
     }
     
+    initializeConstraintSounds() {
+        // Initialize sound effects for constraint creation/destruction
+        this.constraintSounds = {
+            squishStart: null,
+            squishEnd: null
+        };
+        
+        // Load the sound effects if they haven't been loaded yet
+        if (!this.scene.cache.audio.exists('constraint-squish-start')) {
+            this.scene.load.audio('constraint-squish-start', 'audio/squish-start.wav');
+        }
+        if (!this.scene.cache.audio.exists('constraint-squish-end')) {
+            this.scene.load.audio('constraint-squish-end', 'audio/squish-end.wav');
+        }
+        
+        // Start loading if needed
+        if (!this.scene.load.isLoading() && !this.scene.load.hasLoaded) {
+            this.scene.load.start();
+        }
+        
+        // Create sound objects when loaded
+        this.scene.load.once('complete', () => {
+            if (this.scene.cache.audio.exists('constraint-squish-start')) {
+                this.constraintSounds.squishStart = this.scene.sound.add('constraint-squish-start', { volume: 0.4 });
+            }
+            if (this.scene.cache.audio.exists('constraint-squish-end')) {
+                this.constraintSounds.squishEnd = this.scene.sound.add('constraint-squish-end', { volume: 0.4 });
+            }
+        });
+        
+        // If already loaded, create sound objects immediately
+        if (this.scene.cache.audio.exists('constraint-squish-start')) {
+            this.constraintSounds.squishStart = this.scene.sound.add('constraint-squish-start', { volume: 0.4 });
+        }
+        if (this.scene.cache.audio.exists('constraint-squish-end')) {
+            this.constraintSounds.squishEnd = this.scene.sound.add('constraint-squish-end', { volume: 0.4 });
+        }
+    }
+    
+    playConstraintStartSound(velocity = 10) {
+        if (this.constraintSounds && this.constraintSounds.squishStart) {
+            // Scale volume based on collision velocity
+            // Velocity typically ranges from 0 to 30+
+            // Map to volume range 0.1 to 0.6
+            const minVelocity = 2;   // Minimum velocity for audible sound
+            const maxVelocity = 25;  // Velocity for maximum volume
+            const minVolume = 0.1;
+            const maxVolume = 0.9;
+            
+            // Calculate base volume from velocity
+            const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
+            const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
+            
+            // Add small random variation (±10%)
+            const volumeVariation = (Math.random() - 0.5) * 0.1;
+            const finalVolume = Math.max(0.05, Math.min(0.7, baseVolume + volumeVariation));
+            
+            // Playback rate also slightly affected by velocity (harder = higher pitch)
+            const baseRate = 0.9 + normalizedVelocity * 0.2; // 0.9 to 1.1
+            const rateVariation = (Math.random() - 0.5) * 0.1; // ±0.05
+            const finalRate = baseRate + rateVariation;
+            
+            this.constraintSounds.squishStart.play({
+                volume: finalVolume,
+                rate: finalRate
+            });
+        }
+    }
+    
+    playConstraintEndSound(velocity = 5) {
+        if (this.constraintSounds && this.constraintSounds.squishEnd) {
+            // For end sound, velocity represents how stretched the constraint was
+            // or the separation velocity
+            const minVelocity = 1;
+            const maxVelocity = 20;
+            const minVolume = 0.15;
+            const maxVolume = 0.25;
+            
+            // Calculate base volume from velocity
+            const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
+            const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
+            
+            // Add random variation (±15%)
+            const volumeVariation = (Math.random() - 0.5) * 0.15;
+            const finalVolume = Math.max(0.05, Math.min(0.6, baseVolume + volumeVariation));
+            
+            // Playback rate varies more for end sound
+            const baseRate = 0.85 + normalizedVelocity * 0.3; // 0.85 to 1.15
+            const rateVariation = (Math.random() - 0.5) * 0.15; // ±0.075
+            const finalRate = baseRate + rateVariation;
+            
+            this.constraintSounds.squishEnd.play({
+                volume: finalVolume,
+                rate: finalRate
+            });
+        }
+    }
+    
     stopAudio() {
         if (this.whooshSynthesizer) {
             this.whooshSynthesizer.stop();
@@ -536,6 +637,12 @@ export default class WormBase {
                     );
                     
                     this.surfaceConstraints.set(segment, constraint);
+                    
+                    // Calculate collision velocity for volume scaling
+                    const segmentVelocity = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
+                    
+                    // Play sound effect when constraint is created with velocity-based volume
+                    this.playConstraintStartSound(segmentVelocity);
                 }
             }
         });
@@ -567,8 +674,14 @@ export default class WormBase {
             // Remove surface constraint when collision ends
             const constraint = this.surfaceConstraints.get(segment);
             if (constraint) {
+                // Calculate separation velocity for volume
+                const segmentVelocity = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
+                
                 this.scene.matter.world.remove(constraint);
                 this.surfaceConstraints.delete(segment);
+                
+                // Play sound effect when constraint is removed with velocity-based volume
+                this.playConstraintEndSound(segmentVelocity);
             }
             
             // Clear collision data
@@ -640,6 +753,11 @@ export default class WormBase {
             }
             
             this.surfaceConstraints.delete(segment);
+            
+            // Play sound effect when constraint breaks due to overstretching
+            // Use the stretch distance as a proxy for break intensity
+            const breakIntensity = Math.min(30, distance * 2); // Scale distance to velocity-like range
+            this.playConstraintEndSound(breakIntensity);
             
             // Also clear collision data for this segment
             const segmentIndex = this.segments.indexOf(segment);
