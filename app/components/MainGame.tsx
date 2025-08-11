@@ -102,14 +102,14 @@ export function MainGame() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+    <div style={{ width: '100vw', height: '100svh', position: 'relative' }}>
       <div id="game-container" style={{ width: '100%', height: '100%' }}>
         {!gameLoaded && (
           <div style={{
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            height: '100vh',
+            height: '100svh',
             background: '#232333',
             color: 'white',
             fontFamily: 'Arial'
