@@ -54,15 +54,6 @@ export default class GhostRecorder {
                 leftTrigger: inputState.leftTrigger,
                 rightTrigger: inputState.rightTrigger
             };
-            
-            // Debug log to see if we're recording trigger values
-            if (inputState.leftTrigger > 0.01 || inputState.rightTrigger > 0.01) {
-                console.log('Recording triggers:', {
-                    leftTrigger: inputState.leftTrigger,
-                    rightTrigger: inputState.rightTrigger,
-                    timestamp: Math.round(elapsedTime)
-                });
-            }
         }
         
         this.frames.push(frameData);
