@@ -1314,11 +1314,23 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createViewportIndicator() {
-        this.viewportIndicator = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x4ecdc4);
-        this.viewportIndicator.setStrokeStyle(5, 0x4ecdc4, 0.8);
+        // Remove any existing viewport indicator to prevent duplicates
+        if (this.viewportIndicator) {
+            this.viewportIndicator.destroy();
+        }
+        
+        // Create viewport indicator rectangle  
+        // We'll use the actual viewport dimensions from the start
+        const mainCam = this.cameras.main;
+        const viewWidth = mainCam.width / mainCam.zoom;
+        const viewHeight = mainCam.height / mainCam.zoom;
+        
+        this.viewportIndicator = this.add.rectangle(0, 0, viewWidth, viewHeight, 0x4ecdc4);
+        this.viewportIndicator.setStrokeStyle(2, 0x4ecdc4, 0.8);
         this.viewportIndicator.setFillStyle(0x4ecdc4, 0.1);
         this.viewportIndicator.setDepth(100);
         
+        // IMPORTANT: Main camera should ignore it, but minimap should see it
         this.cameras.main.ignore(this.viewportIndicator);
     }
     
@@ -1359,8 +1371,7 @@ export default class JsonMapBase extends Phaser.Scene {
         const mainCam = this.cameras.main;
         if (!mainCam || !mainCam.width || !mainCam.height || !mainCam.zoom) return;
         
-        const miniZoom = this.minimap.zoom;
-        
+        // Calculate the actual world view dimensions of the main camera
         const viewWidth = mainCam.width / mainCam.zoom;
         const viewHeight = mainCam.height / mainCam.zoom;
         
@@ -1369,11 +1380,12 @@ export default class JsonMapBase extends Phaser.Scene {
         const centerX = mainCam.worldView.centerX;
         const centerY = mainCam.worldView.centerY;
         
+        // Update position to match camera center
         this.viewportIndicator.setPosition(centerX, centerY);
         
-        const scaleX = viewWidth * miniZoom / 50;
-        const scaleY = viewHeight * miniZoom / 30;
-        this.viewportIndicator.setScale(scaleX, scaleY);
+        // Update size to match viewport dimensions
+        // The rectangle was created with initial dimensions, so we need to update its size
+        this.viewportIndicator.setSize(viewWidth, viewHeight);
     }
     
     update(time, delta) {
