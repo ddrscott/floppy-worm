@@ -20,5 +20,8 @@ export default defineConfig({
     },
     define: {
         global: "globalThis",
+        'import.meta.env.BUILD_MODE': JSON.stringify('server'),
+        'import.meta.env.HAS_API': 'true',
+        'import.meta.env.HAS_EDITOR': 'true',
     },
 });

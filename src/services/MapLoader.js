@@ -1,5 +1,3 @@
-import { hasAPISupport } from '../utils/buildMode';
-
 /**
  * Centralized map loading service to ensure consistent map loading
  * across all entry points (main game, test mode, editor, etc.)
@@ -14,11 +12,12 @@ export default class MapLoader {
         // Clean up the map key - remove .json extension if present
         const cleanMapKey = mapKey.replace(/\.json$/i, '');
         
-        // Check if API is available
-        const apiAvailable = await hasAPISupport();
+        // Use build-time constant instead of runtime detection
+        // @ts-ignore - import.meta.env is defined by Vite
+        const hasAPI = import.meta?.env?.HAS_API === true || import.meta?.env?.HAS_API === 'true';
         
-        // Try API endpoint first if available
-        if (apiAvailable) {
+        // Try API endpoint first if available (server/dev mode)
+        if (hasAPI) {
             try {
                 // Always use .json extension for API
                 const filename = `${cleanMapKey}.json`;
@@ -41,7 +40,7 @@ export default class MapLoader {
             const { loadMapData } = await import('../scenes/maps/MapDataRegistry');
             const mapData = await loadMapData(cleanMapKey);
             if (mapData) {
-                console.log(`Loaded map "${cleanMapKey}" from registry${!apiAvailable ? ' (static build)' : ''}`);
+                console.log(`Loaded map "${cleanMapKey}" from registry${!hasAPI ? ' (static build)' : ''}`);
                 return mapData;
             }
         } catch (err) {

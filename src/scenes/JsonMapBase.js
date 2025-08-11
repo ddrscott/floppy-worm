@@ -1349,7 +1349,8 @@ export default class JsonMapBase extends Phaser.Scene {
             const mapY = this.miniMapConfig.padding;
             this.minimap.setPosition(mapX, mapY);
             this.updateMiniMapBorder(mapX, mapY);
-            this.updateViewportIndicator();
+            // Don't update viewport indicator during initial setup
+            // It will be created and updated later in createMiniMap
         }
     }
     
@@ -1381,11 +1382,15 @@ export default class JsonMapBase extends Phaser.Scene {
         const centerY = mainCam.worldView.centerY;
         
         // Update position to match camera center
-        this.viewportIndicator.setPosition(centerX, centerY);
+        if (this.viewportIndicator.setPosition) {
+            this.viewportIndicator.setPosition(centerX, centerY);
+        }
         
         // Update size to match viewport dimensions
-        // The rectangle was created with initial dimensions, so we need to update its size
-        this.viewportIndicator.setSize(viewWidth, viewHeight);
+        // Check if setSize method exists (it may not be available during initialization)
+        if (this.viewportIndicator.setSize) {
+            this.viewportIndicator.setSize(viewWidth, viewHeight);
+        }
     }
     
     update(time, delta) {
@@ -1513,10 +1518,13 @@ export default class JsonMapBase extends Phaser.Scene {
         // Update mini-map
         if (this.minimap && this.worm && this.miniMapConfig.visible) {
             const head = this.worm.getHead();
-            if (head) {
+            if (head && head.position) {
                 this.minimap.centerOn(head.position.x, head.position.y);
             }
-            this.updateViewportIndicator();
+            // Only update viewport indicator if it exists
+            if (this.viewportIndicator) {
+                this.updateViewportIndicator();
+            }
         }
         
         // Check if worm has fallen off the map

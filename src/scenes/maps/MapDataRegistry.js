@@ -38,8 +38,6 @@ const STATIC_MAP_REGISTRY = {
     'Slope-Run': SlopeRun
 };
 
-import { hasAPISupport } from '../../utils/buildMode';
-
 // Dynamic map discovery - no need for hardcoded lists when API is available
 
 // Cache for loaded map data
@@ -53,30 +51,25 @@ async function loadAllMapData() {
     
     let mapData = {};
     
-    // Check if API is available
-    const apiAvailable = await hasAPISupport();
+    // Use build-time constant instead of runtime detection
+    // @ts-ignore - import.meta.env is defined by Vite
+    const hasAPI = import.meta?.env?.HAS_API === true || import.meta?.env?.HAS_API === 'true';
     
-    if (apiAvailable) {
-        // Load dynamically via API when available
+    if (hasAPI) {
+        // Load dynamically via API when available (server/dev mode)
         try {
-            // First, get the list of all maps
-            const listResponse = await fetch('/api/maps');
+            // Fetch all maps with full data in a single request
+            const listResponse = await fetch('/api/maps?fullData=true');
             if (listResponse.ok) {
                 const listResult = await listResponse.json();
                 if (listResult.maps) {
-                    // Load each map's data
+                    // Process all maps from the single response
                     for (const mapInfo of listResult.maps) {
                         const key = mapInfo.filename.replace('.json', '');
-                        try {
-                            const response = await fetch(`/api/maps/${mapInfo.filename}`);
-                            if (response.ok) {
-                                const result = await response.json();
-                                if (result.mapData) {
-                                    mapData[key] = result.mapData;
-                                }
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to load ${mapInfo.filename}:`, error);
+                        if (mapInfo.mapData) {
+                            mapData[key] = mapInfo.mapData;
+                        } else if (mapInfo.error) {
+                            console.warn(`Map ${mapInfo.filename} had error: ${mapInfo.error}`);
                             // Fallback to static data if available
                             if (STATIC_MAP_REGISTRY[key]) {
                                 mapData[key] = STATIC_MAP_REGISTRY[key];
@@ -93,8 +86,7 @@ async function loadAllMapData() {
             mapData = STATIC_MAP_REGISTRY;
         }
     } else {
-        // No API available: Use static imports (bundled at build time)
-        console.log('Using static map registry (no API available)');
+        // Static build: Use static imports only (no API calls)
         mapData = STATIC_MAP_REGISTRY;
     }
     

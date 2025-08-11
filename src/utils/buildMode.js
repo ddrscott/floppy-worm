@@ -1,35 +1,37 @@
 /**
+ * @deprecated This entire module is deprecated in favor of build-time constants.
+ * 
  * Build mode detection utilities
- * Determines if we're running in static mode (game only) or server mode (with editor)
+ * Uses build-time constants set by Vite configuration
+ * 
+ * Instead of using functions from this module, use Vite's build constants directly:
+ * - import.meta.env.BUILD_MODE ('static' | 'server')
+ * - import.meta.env.HAS_API (boolean)
+ * - import.meta.env.HAS_EDITOR (boolean)
+ * 
+ * This module is kept for backward compatibility but will be removed in a future version.
  */
 
 /**
  * Check if API endpoints are available
+ * @deprecated Use import.meta.env.HAS_API directly
  * @returns {Promise<boolean>} True if API is available, false otherwise
  */
 export async function hasAPISupport() {
-    try {
-        // Try to fetch the maps list endpoint
-        const response = await fetch('/api/maps', { 
-            method: 'HEAD',
-            // Add a short timeout to avoid hanging
-            signal: AbortSignal.timeout(1000)
-        });
-        return response.ok || response.status === 405; // 405 if HEAD not supported but endpoint exists
-    } catch (error) {
-        // Network error or timeout means no API
-        return false;
-    }
+    // Now uses build-time constant instead of runtime detection
+    // @ts-ignore - import.meta.env is defined by Vite
+    return import.meta?.env?.HAS_API === true || import.meta?.env?.HAS_API === 'true';
 }
 
 /**
  * Get the current build mode
+ * @deprecated Use import.meta.env.BUILD_MODE directly
  * @returns {Promise<'static' | 'server'>} The current build mode
  */
 export async function getBuildMode() {
-    // Check if API is available
-    const hasAPI = await hasAPISupport();
-    return hasAPI ? 'server' : 'static';
+    // Now uses build-time constant
+    // @ts-ignore - import.meta.env is defined by Vite
+    return import.meta?.env?.BUILD_MODE || 'static';
 }
 
 /**
@@ -73,6 +75,7 @@ export const BuildConfig = {
 
 /**
  * Get configuration for current build mode
+ * @deprecated Use import.meta.env constants directly
  * @returns {Promise<Object>} Configuration object
  */
 export async function getCurrentConfig() {
@@ -84,19 +87,17 @@ export async function getCurrentConfig() {
 }
 
 /**
- * Cache the mode detection result for performance
+ * Get cached build mode - no longer needs caching as it's a build constant
+ * @deprecated Use import.meta.env.BUILD_MODE directly
  */
-let cachedMode = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 30000; // 30 seconds
-
 export async function getCachedBuildMode() {
-    const now = Date.now();
-    if (cachedMode && (now - cacheTimestamp) < CACHE_DURATION) {
-        return cachedMode;
-    }
-    
-    cachedMode = await getBuildMode();
-    cacheTimestamp = now;
-    return cachedMode;
+    return getBuildMode();
+}
+
+/**
+ * Clear all caches - no longer needed with build constants
+ * @deprecated No longer needed with build-time constants
+ */
+export function clearBuildModeCache() {
+    // No-op - caching is no longer needed with build-time constants
 }

@@ -6,6 +6,10 @@ import { join } from "path";
 export async function loader({ request }: LoaderFunctionArgs) {
   const mapsDir = join(process.cwd(), "src", "scenes", "maps", "data");
   
+  // Check if client wants full data
+  const url = new URL(request.url);
+  const includeFullData = url.searchParams.get('fullData') === 'true';
+  
   try {
     const files = await readdir(mapsDir);
     const mapFiles = files.filter(file => file.endsWith('.json'));
@@ -18,12 +22,22 @@ export async function loader({ request }: LoaderFunctionArgs) {
           const stats = await stat(filePath);
           const mapData = JSON.parse(content);
           
-          return {
+          const baseInfo = {
             filename,
             title: mapData.title || mapData.metadata?.name || filename.replace('.json', ''),
             difficulty: mapData.difficulty || mapData.metadata?.difficulty || 1,
             lastModified: stats.mtime.toISOString()
           };
+          
+          // Include full map data if requested
+          if (includeFullData) {
+            return {
+              ...baseInfo,
+              mapData: mapData
+            };
+          }
+          
+          return baseInfo;
         } catch (error) {
           return {
             filename,

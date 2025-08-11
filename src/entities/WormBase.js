@@ -327,10 +327,10 @@ export default class WormBase {
         
         // Load the sound effects if they haven't been loaded yet
         if (!this.scene.cache.audio.exists('constraint-squish-start')) {
-            this.scene.load.audio('constraint-squish-start', 'audio/squish-start.wav');
+            this.scene.load.audio('constraint-squish-start', '/audio/squish-start.wav');
         }
         if (!this.scene.cache.audio.exists('constraint-squish-end')) {
-            this.scene.load.audio('constraint-squish-end', 'audio/squish-end.wav');
+            this.scene.load.audio('constraint-squish-end', '/audio/squish-end.wav');
         }
         
         // Start loading if needed

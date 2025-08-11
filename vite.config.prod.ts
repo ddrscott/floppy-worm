@@ -25,5 +25,8 @@ export default defineConfig({
     },
     define: {
         global: "globalThis",
+        'import.meta.env.BUILD_MODE': JSON.stringify('static'),
+        'import.meta.env.HAS_API': 'false',
+        'import.meta.env.HAS_EDITOR': 'false',
     },
 });

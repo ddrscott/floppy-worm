@@ -276,8 +276,16 @@ export default class MapSelectScene extends Phaser.Scene {
         }).setOrigin(0, 0).setInteractive();
         
         recordingsButton.on('pointerup', () => {
-            // Open recordings page in new tab
-            window.open('/recordings', '_blank');
+            // Navigate to recordings page
+            // With proper SPA hosting (Vercel, Netlify, etc), this works in new tabs too
+            // For local testing without SPA support, use same window
+            if (window.location.hostname === 'localhost' && window.location.port === '8080') {
+                // Local python server without SPA support
+                window.location.href = '/recordings';
+            } else {
+                // Production or proper SPA hosting
+                window.open('/recordings', '_blank');
+            }
         });
         
         recordingsButton.on('pointerover', () => {
