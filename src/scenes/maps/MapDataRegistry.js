@@ -20,6 +20,7 @@ import SlopeRun from './data/Slope-Run.json';
 
 
 // Static registry for production
+// Keys must match the actual filenames (without .json extension)
 const STATIC_MAP_REGISTRY = {
     'Map001': Map001Data,
     'Map002': Map002Data,
@@ -27,7 +28,7 @@ const STATIC_MAP_REGISTRY = {
     'Map004': Map004Data,
     'Swing': SwingMapData,
     'Tower': TowerData,
-    'Mini-Tower': MiniTower,
+    'Mini-Tower-005': MiniTower,  // Use actual filename
     'Try-angles': TryAnglesData,
     'Electric-Slide': Electric,
     'Electric-Slide-EZ': ElectricEz,

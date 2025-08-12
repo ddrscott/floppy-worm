@@ -1,6 +1,42 @@
 import JsonMapBase from '/src/scenes/JsonMapBase';
 import DoubleWorm from '/src/entities/DoubleWorm';
 
+// Import all map data files statically
+import Map001Data from '/src/scenes/maps/data/Map001.json';
+import Map002Data from '/src/scenes/maps/data/Map002.json';
+import Map003Data from '/src/scenes/maps/data/Map003.json';
+import Map004Data from '/src/scenes/maps/data/Map004.json';
+import SwingData from '/src/scenes/maps/data/Swing.json';
+import TowerData from '/src/scenes/maps/data/Tower.json';
+import MiniTowerData from '/src/scenes/maps/data/Mini-Tower-005.json';
+import TryAnglesData from '/src/scenes/maps/data/Try-angles.json';
+import ElectricData from '/src/scenes/maps/data/Electric-Slide.json';
+import ElectricEzData from '/src/scenes/maps/data/Electric-Slide-EZ.json';
+import MorganData from '/src/scenes/maps/data/Morgan.json';
+import PendulumData from '/src/scenes/maps/data/Pendulum-Test.json';
+import BlackholeData from '/src/scenes/maps/data/blackhole-test.json';
+import SimpleMovesData from '/src/scenes/maps/data/simple-moves.json';
+import SlopeRunData from '/src/scenes/maps/data/Slope-Run.json';
+
+// Static map registry
+const STATIC_MAP_REGISTRY: Record<string, any> = {
+    'Map001': Map001Data,
+    'Map002': Map002Data,
+    'Map003': Map003Data,
+    'Map004': Map004Data,
+    'Swing': SwingData,
+    'Tower': TowerData,
+    'Mini-Tower-005': MiniTowerData,
+    'Try-angles': TryAnglesData,
+    'Electric-Slide': ElectricData,
+    'Electric-Slide-EZ': ElectricEzData,
+    'Morgan': MorganData,
+    'Pendulum-Test': PendulumData,
+    'blackhole-test': BlackholeData,
+    'simple-moves': SimpleMovesData,
+    'Slope-Run': SlopeRunData
+};
+
 /**
  * PlaybackScene extends JsonMapBase to provide recording playback functionality
  * This renders the map identically but controls the worm from recorded data
@@ -49,9 +85,19 @@ export default class PlaybackScene extends JsonMapBase {
         this.onFrameUpdate = data.onFrameUpdate;
         this.onPlayStateChange = data.onPlayStateChange;
         
-        // Extract map key from recording
+        // Extract map key from recording and load map data immediately
         if (this.recording && this.recording.mapKey) {
             this.mapKey = this.recording.mapKey;
+            
+            // Load map data immediately in init
+            const cleanMapKey = this.recording.mapKey.replace(/\.json$/i, '');
+            this.mapData = STATIC_MAP_REGISTRY[cleanMapKey];
+            
+            if (this.mapData) {
+                console.log('Init: Loaded map data for', cleanMapKey, 'with', this.mapData.platforms?.length, 'platforms');
+            } else {
+                console.error('Init: Map not found in static registry:', cleanMapKey);
+            }
         }
         
         // Initialize frames array
@@ -64,35 +110,38 @@ export default class PlaybackScene extends JsonMapBase {
         super.init(data);
     }
 
-    async preload() {
-        super.preload();
+    preload() {
+        // MapData should already be loaded in init
+        console.log('Preload: mapData status:', {
+            hasMapData: !!this.mapData,
+            platformCount: this.mapData?.platforms?.length || 0,
+            mapKey: this.mapKey
+        });
         
-        // Load map data based on recording's mapKey
-        if (this.recording && this.recording.mapKey) {
-            try {
-                // Try to load map data from API
-                const response = await fetch(`/api/maps/${this.recording.mapKey}.json`);
-                if (response.ok) {
-                    const result = await response.json();
-                    this.mapData = result.mapData;
-                    console.log('Loaded map data for playback:', this.recording.mapKey);
-                }
-            } catch (error) {
-                console.error('Failed to load map data:', error);
-                
-                // Try loading from static imports as fallback
-                try {
-                    const MapLoader = (await import('/src/services/MapLoader')).default;
-                    this.mapData = await MapLoader.loadMapData(this.recording.mapKey);
-                } catch (err) {
-                    console.error('Failed to load map from MapLoader:', err);
-                }
-            }
-        }
+        super.preload();
     }
 
     async create() {
-        // Call parent create to set up the map
+        // Ensure map data is available before calling parent create
+        if (!this.mapData) {
+            console.error('No map data available for playback scene');
+            // Create a minimal empty map structure to prevent errors
+            this.mapData = {
+                metadata: { name: 'Unknown Map' },
+                boundaries: { width: 1200, height: 800 },
+                platforms: [],
+                entities: {
+                    wormStart: { x: 400, y: 300 },
+                    goal: { x: 800, y: 300 }
+                },
+                constraints: []
+            };
+        }
+        
+        console.log('PlaybackScene.create() - mapData has', this.mapData?.platforms?.length || 0, 'platforms');
+        console.log('PlaybackScene.create() - mapData entities:', this.mapData?.entities);
+        
+        // Call parent create - it should use the mapData we set in preload
         await super.create();
         
         // Create trail graphics for head and tail paths
@@ -354,7 +403,7 @@ export default class PlaybackScene extends JsonMapBase {
         const hasInputData = this.recording.encoding === 'binary-v2' || this.recording.hasInputData;
         const inputBytesPerFrame = hasInputData ? 24 : 0; // 6 floats * 4 bytes
         const bytesPerFrame = 4 + (segmentCount * 8) + inputBytesPerFrame;
-        const frameCount = buffer.byteLength / bytesPerFrame;
+        const frameCount = Math.floor(buffer.byteLength / bytesPerFrame);
         
         console.log('Decoding binary frames:', {
             bufferSize: buffer.byteLength,
@@ -365,19 +414,39 @@ export default class PlaybackScene extends JsonMapBase {
             hasInputData
         });
         
+        // Validate buffer size
+        if (buffer.byteLength < bytesPerFrame) {
+            console.error('Buffer too small for even one frame:', {
+                bufferSize: buffer.byteLength,
+                requiredSize: bytesPerFrame
+            });
+            return [];
+        }
+        
         let offset = 0;
         for (let f = 0; f < frameCount; f++) {
-            const timestamp = view.getUint32(offset, true);
-            offset += 4;
-            
-            const segments = [];
-            for (let s = 0; s < segmentCount; s++) {
-                const x = view.getFloat32(offset, true);
-                offset += 4;
-                const y = view.getFloat32(offset, true);
-                offset += 4;
-                segments.push({ x, y });
+            // Check if we have enough bytes remaining
+            if (offset + bytesPerFrame > buffer.byteLength) {
+                console.warn(`Stopping at frame ${f}, not enough bytes remaining`);
+                break;
             }
+            
+            try {
+                const timestamp = view.getUint32(offset, true);
+                offset += 4;
+                
+                const segments = [];
+                for (let s = 0; s < segmentCount; s++) {
+                    if (offset + 8 > buffer.byteLength) {
+                        console.error(`Not enough bytes for segment ${s} at frame ${f}`);
+                        return frames; // Return what we have so far
+                    }
+                    const x = view.getFloat32(offset, true);
+                    offset += 4;
+                    const y = view.getFloat32(offset, true);
+                    offset += 4;
+                    segments.push({ x, y });
+                }
             
             // Create frame data
             const frameData: any = { timestamp, segments };
@@ -412,7 +481,11 @@ export default class PlaybackScene extends JsonMapBase {
                 offset += 24;
             }
             
-            frames.push(frameData);
+                frames.push(frameData);
+            } catch (error) {
+                console.error(`Error decoding frame ${f}:`, error);
+                break; // Stop processing on error
+            }
         }
         
         return frames;
