@@ -1,0 +1,72 @@
+{
+  "name": "Floppy Worm",
+  "short_name": "Floppy Worm",
+  "description": "A physics-based worm game with challenging levels",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "theme_color": "#232333",
+  "background_color": "#232333",
+  "categories": ["games", "puzzle"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/gameplay.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Gameplay"
+    },
+    {
+      "src": "/screenshots/menu.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Map Selection"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Play",
+      "short_name": "Play",
+      "description": "Start playing",
+      "url": "/",
+      "icons": [{ "src": "/icons/play-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Recordings",
+      "short_name": "Recordings",
+      "description": "View recordings",
+      "url": "/recordings",
+      "icons": [{ "src": "/icons/recordings-96x96.png", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
+}

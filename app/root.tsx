@@ -10,7 +10,14 @@ import type { LinksFunction } from "@remix-run/node";
 import "./tailwind.css";
 
 export const links: LinksFunction = () => [
-  // Game-specific styling for fullscreen experience
+  // PWA manifest for installability
+  { rel: "manifest", href: "/manifest.json" },
+  // Favicon
+  { rel: "icon", type: "image/x-icon", href: "/icons/favicon.ico" },
+  { rel: "icon", type: "image/svg+xml", href: "/icons/favicon.svg" },
+  { rel: "icon", type: "image/png", sizes: "96x96", href: "/icons/favicon-96x96.png" },
+  // Apple touch icon
+  { rel: "apple-touch-icon", sizes: "180x180", href: "/icons/apple-touch-icon.png" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -21,6 +28,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#232333" />
+        <meta name="description" content="A physics-based worm game with challenging levels" />
         <Meta />
         <Links />
         <style dangerouslySetInnerHTML={{
@@ -43,6 +52,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script src="/register-sw.js" defer />
       </body>
     </html>
   );
