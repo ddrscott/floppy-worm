@@ -360,12 +360,13 @@ export default class PlaybackScene extends JsonMapBase {
      * Decode recording data
      */
     private async decodeRecordingData() {
-        if (!this.recording || !this.recording.recordingData) {
+        // Support both old format (recordingData) and new format (data)
+        if (!this.recording || (!this.recording.recordingData && !this.recording.data)) {
             console.error('No recording data available');
             return;
         }
         
-        const encodedData = this.recording.recordingData;
+        const encodedData = this.recording.recordingData || this.recording.data;
         
         try {
             // Decode base64 to array buffer
