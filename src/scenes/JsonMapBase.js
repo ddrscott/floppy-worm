@@ -1235,7 +1235,7 @@ export default class JsonMapBase extends Phaser.Scene {
     
     createUI() {
         // Title
-        const title = this.add.text(20, 20, this.sceneTitle, {
+        const title = this.add.text(70, 20, this.sceneTitle, {
             fontSize: '24px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.7)',
