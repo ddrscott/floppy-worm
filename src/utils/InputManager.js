@@ -69,6 +69,9 @@ export default class InputManager {
             buttons: {}
         };
         
+        // Track menu button state for edge detection
+        this.previousMenuButtonState = false;
+        
         // Initialize keyboard input
         this.initializeKeyboard();
         
@@ -101,16 +104,116 @@ export default class InputManager {
     }
     
     initializeTouchControls() {
-        // Create touch overlay if we're on a touch device
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-            console.log('InputManager: Touch device detected, creating TouchControlsOverlay');
+        // Only create touch overlay if we're on a mobile platform (iOS or Android)
+        const isMobile = this.scene.sys.game.device.os.android || this.scene.sys.game.device.os.iOS;
+        
+        if (isMobile) {
+            console.log('InputManager: Mobile platform detected (iOS/Android)');
+            
+            // Check if a gamepad is already connected
+            const pad = this.scene?.input?.gamepad?.getPad(0);
+            const gamepadConnected = pad && pad.connected;
+            
+            // Create touch controls but show/hide based on gamepad status
             this.touchControls = new TouchControlsOverlay(this.scene, {
-                ...this.config.touchConfig
+                ...this.config.touchConfig,
+                onMenuPress: () => {
+                    console.log('InputManager: Menu button pressed via callback');
+                    // Store reference to the scene for later use
+                    const gameScene = this.scene;
+                    
+                    // Try multiple ways to trigger the pause menu
+                    if (gameScene && typeof gameScene.showPauseMenu === 'function') {
+                        console.log('InputManager: Calling scene.showPauseMenu() directly');
+                        gameScene.showPauseMenu();
+                    } else if (gameScene && gameScene.scene && typeof gameScene.scene.pause === 'function') {
+                        console.log('InputManager: Trying to pause scene directly');
+                        // Try to pause the scene and launch pause menu
+                        gameScene.isPaused = true;
+                        gameScene.scene.pause();
+                        
+                        // Add PauseMenu scene if not already added
+                        if (!gameScene.scene.manager.getScene('PauseMenu')) {
+                            console.log('InputManager: PauseMenu scene not found, cannot show menu');
+                        } else {
+                            gameScene.scene.launch('PauseMenu', {
+                                gameScene: gameScene,
+                                mapKey: gameScene.mapKey || gameScene.scene.key
+                            });
+                        }
+                    } else {
+                        console.log('InputManager: Cannot find a way to show pause menu', {
+                            hasScene: !!gameScene,
+                            hasShowPauseMenu: gameScene ? typeof gameScene.showPauseMenu : 'no scene',
+                            sceneKeys: gameScene ? Object.keys(gameScene) : []
+                        });
+                    }
+                }
             });
-            console.log('InputManager: Touch controls initialized');
+            
+            // Only show touch controls if no gamepad is connected
+            if (gamepadConnected) {
+                console.log('InputManager: Gamepad connected, hiding touch controls');
+                this.touchControls.setVisible(false);
+            } else {
+                console.log('InputManager: No gamepad connected, showing touch controls');
+                this.touchControls.setVisible(true);
+            }
+            
+            // Set up gamepad connect/disconnect event handlers
+            this.setupGamepadEventHandlers();
         } else {
-            console.log('InputManager: No touch device detected');
+            console.log('InputManager: Not a mobile platform, touch controls disabled');
         }
+    }
+    
+    setupGamepadEventHandlers() {
+        if (!this.touchControls) return;
+        
+        // Handle gamepad connection
+        this.scene.input.gamepad.on('connected', (pad) => {
+            console.log('InputManager: Gamepad connected, hiding touch controls');
+            if (this.touchControls) {
+                this.touchControls.setVisible(false);
+            }
+        });
+        
+        // Handle gamepad disconnection
+        this.scene.input.gamepad.on('disconnected', (pad) => {
+            console.log('InputManager: Gamepad disconnected, showing touch controls');
+            if (this.touchControls) {
+                this.touchControls.setVisible(true);
+            }
+        });
+    }
+    
+    /**
+     * Check if menu button was just pressed (for mobile pause menu)
+     * Should be called once per frame in the update loop
+     * @returns {boolean} True if menu button was just pressed
+     */
+    isMenuButtonJustPressed() {
+        if (!this.touchControls) return false;
+        
+        const currentState = this.touchControls.getState().buttons.menu;
+        const wasPressed = this.previousMenuButtonState || false;
+        
+        // Debug logging - log all state changes
+        if (currentState !== wasPressed) {
+            console.log(`InputManager: Menu button state changed from ${wasPressed} to ${currentState}`);
+        }
+        
+        // Detect rising edge (just pressed)
+        const justPressed = currentState && !wasPressed;
+        
+        if (justPressed) {
+            console.log('InputManager: Menu button JUST PRESSED - triggering pause!');
+        }
+        
+        // Update state for next frame
+        this.previousMenuButtonState = currentState;
+        
+        return justPressed;
     }
     
     /**
@@ -369,6 +472,11 @@ export default class InputManager {
         }
         if (this.touchControls) {
             this.touchControls.destroy();
+        }
+        // Remove gamepad event listeners
+        if (this.scene?.input?.gamepad) {
+            this.scene.input.gamepad.off('connected');
+            this.scene.input.gamepad.off('disconnected');
         }
     }
 }

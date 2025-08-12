@@ -16,6 +16,7 @@ import Phaser from 'phaser';
 export default class TouchControlsOverlay {
     constructor(scene, config = {}) {
         this.scene = scene;
+        this.menuButtonCallback = config.onMenuPress || null;
         this.config = {
             // Layout config
             joystickRadius: 60,
@@ -59,14 +60,15 @@ export default class TouchControlsOverlay {
         
         // Tap detection thresholds
         this.tapMaxDuration = 300; // milliseconds (more lenient)
-        this.tapMaxMovement = 0.3; // normalized movement (30% of radius)
+        this.tapMaxMovement = 0.1; // normalized movement (30% of radius)
         
         this.buttonStates = {
             leftTrigger: false,
             rightTrigger: false,
             leftShoulder: false,
             rightShoulder: false,
-            roll: false
+            roll: false,
+            menu: false
         };
         
         // Graphics containers
@@ -74,10 +76,8 @@ export default class TouchControlsOverlay {
         this.joysticks = {};
         this.buttons = {};
         
-        // Only create controls if touch is available
-        if (this.isTouchDevice()) {
-            this.createControls();
-        }
+        // Always create controls when instantiated (InputManager handles platform detection)
+        this.createControls();
     }
     
     isTouchDevice() {
@@ -101,6 +101,9 @@ export default class TouchControlsOverlay {
         this.createButton('leftShoulder', 'LB');
         this.createButton('rightShoulder', 'RB');
         // this.createButton('roll', 'ROLL');
+        
+        // Create menu button (hamburger icon)
+        this.createMenuButton();
         
         // Update positions on resize
         this.scene.scale.on('resize', this.updatePositions, this);
@@ -205,6 +208,59 @@ export default class TouchControlsOverlay {
         };
     }
     
+    createMenuButton() {
+        // Create menu button with hamburger icon
+        const buttonSize = 30; // Slightly smaller than other buttons
+        const buttonColor = 0x666666; // Gray color
+        const buttonActiveColor = 0x999999;
+        
+        // Create button circle
+        const button = this.scene.add.circle(
+            0, 0,
+            buttonSize,
+            buttonColor,
+            this.config.opacity
+        );
+        button.setStrokeStyle(2, buttonColor);
+        
+        // Create hamburger icon (three horizontal lines)
+        const graphics = this.scene.add.graphics();
+        graphics.lineStyle(3, 0xffffff);
+        const lineWidth = 16;
+        const lineSpacing = 5;
+        
+        // Draw three horizontal lines
+        graphics.moveTo(-lineWidth/2, -lineSpacing);
+        graphics.lineTo(lineWidth/2, -lineSpacing);
+        
+        graphics.moveTo(-lineWidth/2, 0);
+        graphics.lineTo(lineWidth/2, 0);
+        
+        graphics.moveTo(-lineWidth/2, lineSpacing);
+        graphics.lineTo(lineWidth/2, lineSpacing);
+        
+        graphics.strokePath();
+        
+        // Create container
+        const buttonContainer = this.scene.add.container(0, 0, [button, graphics]);
+        this.container.add(buttonContainer);
+        button.setAlpha(this.config.opacity);
+        
+        // Store reference
+        this.buttons['menu'] = {
+            container: buttonContainer,
+            button: button,
+            graphics: graphics,
+            id: 'menu',
+            worldX: 0,
+            worldY: 0,
+            radius: buttonSize,
+            pointerId: 0,
+            buttonColor: buttonColor,
+            buttonActiveColor: buttonActiveColor
+        };
+    }
+    
     updatePositions() {
         const { width, height } = this.scene.scale;
         const padding = this.config.padding;
@@ -240,6 +296,11 @@ export default class TouchControlsOverlay {
                 case 'roll':
                     x = width / 2;
                     y = this.config.rollButtonTopOffset;
+                    break;
+                case 'menu':
+                    // Position in top-left corner (avoids minimap in top-right)
+                    x = padding + 30; // 30 is the menu button radius
+                    y = padding + 30;
                     break;
             }
             
@@ -480,10 +541,23 @@ export default class TouchControlsOverlay {
                 // Just pressed
                 button.button.setFillStyle(button.buttonActiveColor, this.config.activeOpacity);
                 button.button.setScale(0.9);
+                // Debug log for menu button
+                if (id === 'menu') {
+                    console.log('TouchControlsOverlay: Menu button pressed');
+                    // Directly call the menu callback if provided
+                    if (this.menuButtonCallback) {
+                        console.log('TouchControlsOverlay: Calling menu callback');
+                        this.menuButtonCallback();
+                    }
+                }
             } else if (!isPressed && wasPressed) {
                 // Just released
                 button.button.setFillStyle(button.buttonColor, this.config.opacity);
                 button.button.setScale(1);
+                // Debug log for menu button
+                if (id === 'menu') {
+                    console.log('TouchControlsOverlay: Menu button released');
+                }
             }
         });
     }
