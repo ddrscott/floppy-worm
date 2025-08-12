@@ -13,6 +13,9 @@ export default class MapSelectScene extends Phaser.Scene {
         this.maps = []; // Will be loaded in create()
         this.isFocused = false; // Track if user has started navigating
         this.stateManager = null; // Will be initialized in init()
+        this.scrollContainer = null; // Container for all scrollable content
+        this.currentScrollY = 0; // Track current scroll position
+        this.targetScrollY = 0; // Target scroll position for smooth scrolling
     }
     
     init() {
@@ -28,13 +31,16 @@ export default class MapSelectScene extends Phaser.Scene {
         this.registry.events.on(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
     }
     
-    async loadMapsFromDataRegistry() {
+    loadMapsFromDataRegistry() {
+        // loadMapMetadata is now synchronous
         const maps = loadMapMetadata();
         
-        // Preload all maps using the unified loader
-        for (const map of maps) {
-            await MapLoader.preloadMap(this, map.key);
-        }
+        // Preload map assets (textures, sounds, etc) if needed
+        // Note: Map data itself is already loaded via import.meta.glob
+        maps.forEach(map => {
+            // Any asset preloading can go here if needed
+            // For now, maps are loaded from the static registry
+        });
         
         return maps;
     }
@@ -47,26 +53,16 @@ export default class MapSelectScene extends Phaser.Scene {
         this.buildMode = await getCachedBuildMode();
         this.buildConfig = BuildConfig[this.buildMode];
         
-        // Initialize keyboard controls immediately (before async loading)
+        // Initialize keyboard controls
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
         
-        // Show loading text
-        const loadingText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2, 
-            'Loading maps...', {
-            fontSize: '24px',
-            fill: '#ffffff'
-        }).setOrigin(0.5);
-        
-        // Load maps now that scene manager is available
-        this.maps = await this.loadMapsFromDataRegistry();
+        // Load maps instantly from static registry
+        this.maps = this.loadMapsFromDataRegistry();
         
         // Ensure all maps have progress entries
         const mapKeys = this.maps.map(map => map.key);
         this.stateManager.ensureAllMapsHaveProgress(mapKeys);
-        
-        // Remove loading text
-        loadingText.destroy();
         
         // Responsive design detection
         const gameWidth = this.scale.width;
@@ -107,18 +103,20 @@ export default class MapSelectScene extends Phaser.Scene {
         this.events.once('shutdown', this.cleanup, this);
         
         if (!isMobile) {
-            this.add.text(centerX, gameHeight - 30, 'Use ARROW KEYS, WASD, or GAMEPAD to navigate • ENTER, SPACE, or A button to select', {
-                fontSize: '14px',
+            this.add.text(centerX, gameHeight - 30, 
+                'ARROWS/WASD: Navigate • PAGE UP/DOWN: Jump rows • HOME/END: First/Last • ENTER/SPACE: Select • Mouse wheel: Scroll', {
+                fontSize: '13px',
                 color: '#7f8c8d',
                 backgroundColor: 'rgba(0,0,0,0.5)',
-            }).setOrigin(0.5);
+                padding: { x: 10, y: 5 }
+            }).setOrigin(0.5).setDepth(100);
         } else {
-            this.add.text(centerX, gameHeight - 60, 'Tap to select • ESC to refresh', {
+            this.add.text(centerX, gameHeight - 60, 'Tap to select • Swipe to scroll • ESC to refresh', {
                 fontSize: '12px',
                 color: '#7f8c8d',
                 backgroundColor: 'rgba(0,0,0,0.5)',
                 padding: { x: 15, y: 8 }
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(100);
         }
     }
     
@@ -135,6 +133,9 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     createMapGrid() {
+        // Create a container for all scrollable content
+        this.scrollContainer = this.add.container(0, 0);
+        
         const startX = this.scale.width / 2 - 400; // Centered with padding
         const startY = 220;
         const buttonWidth = 240;
@@ -142,6 +143,10 @@ export default class MapSelectScene extends Phaser.Scene {
         const spacingX = 20;
         const spacingY = 90;
         const mapsPerRow = 3;
+        
+        // Calculate total height needed for all maps
+        const totalRows = Math.ceil(this.maps.length / mapsPerRow);
+        this.totalContentHeight = startY + (totalRows * spacingY) + 100; // Add padding at bottom
         
         this.maps.forEach((map, index) => {
             const row = Math.floor(index / mapsPerRow);
@@ -154,8 +159,9 @@ export default class MapSelectScene extends Phaser.Scene {
             const isUnlocked = mapProgress.unlocked;
             const isCompleted = mapProgress.completed;
             
-            // Button background
+            // Button background (add to scroll container)
             const buttonBg = this.add.rectangle(x, y, buttonWidth, buttonHeight);
+            this.scrollContainer.add(buttonBg);
             
             // Make button interactive immediately
             buttonBg.setInteractive();
@@ -180,12 +186,13 @@ export default class MapSelectScene extends Phaser.Scene {
                 buttonBg.setStrokeStyle(2, 0x4ecdc4, 1);
             }
             
-            // Map number
+            // Map number (add to scroll container)
             const mapNumber = this.add.text(x - buttonWidth/2 + 20, y - 15, `${(index + 1).toString().padStart(2, '0')}`, {
                 fontSize: '24px',
                 color: '#ffffff',
                 fontStyle: 'bold'
             });
+            this.scrollContainer.add(mapNumber);
             
             // Map title (all maps are unlocked, so always white)
             const titleColor = '#ffffff';
@@ -194,26 +201,29 @@ export default class MapSelectScene extends Phaser.Scene {
                 color: titleColor,
                 fontStyle: isCompleted ? 'bold' : 'normal'
             });
+            this.scrollContainer.add(title);
             
             // Best time (show for any map with a recorded time)
             const bestTime = mapProgress.bestTime;
             if (bestTime) {
                 const bestTimeText = this.formatTime(bestTime);
                 const timeColor = isCompleted ? '#4ecdc4' : '#95a5a6';
-                this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTimeText}`, {
+                const timeText = this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTimeText}`, {
                     fontSize: '16px',
                     color: timeColor,
                     fontStyle: 'bold'
                 });
+                this.scrollContainer.add(timeText);
             }
             
             
             // Status indicator (only show checkmark for completed maps)
             if (isCompleted) {
-                this.add.text(x + buttonWidth/2 - 20, y, '✓', {
+                const checkmark = this.add.text(x + buttonWidth/2 - 20, y, '✓', {
                     fontSize: '24px',
                     color: '#2ecc71'
                 }).setOrigin(0.5);
+                this.scrollContainer.add(checkmark);
             }
             
             // Store button data
@@ -227,6 +237,16 @@ export default class MapSelectScene extends Phaser.Scene {
                 width: buttonWidth,
                 height: buttonHeight
             });
+        });
+        
+        // Add scroll indicators if content is scrollable
+        if (this.totalContentHeight > this.scale.height) {
+            this.createScrollIndicators();
+        }
+        
+        // Set up mouse wheel scrolling
+        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+            this.scrollContent(deltaY * 0.5);
         });
         
         // Update selection highlight
@@ -252,6 +272,9 @@ export default class MapSelectScene extends Phaser.Scene {
             const selectedButton = this.mapButtons[this.selectedMapIndex];
             if (selectedButton) {
                 selectedButton.background.setStrokeStyle(6, 0xffffff, 1); // Thicker white stroke for visibility
+                
+                // Auto-scroll to keep selected button in view
+                this.scrollToButton(selectedButton);
             }
         }
     }
@@ -317,6 +340,12 @@ export default class MapSelectScene extends Phaser.Scene {
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+        
+        // Page navigation keys for faster scrolling
+        this.pageUpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_UP);
+        this.pageDownKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_DOWN);
+        this.homeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.HOME);
+        this.endKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.END);
         
         // Fullscreen toggle
         this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
@@ -406,7 +435,7 @@ export default class MapSelectScene extends Phaser.Scene {
         }
     }
     
-    update() {
+    update(time, delta) {
         // Guard against incomplete initialization (async create)
         if (!this.cursors || !this.wasd || !this.maps || this.maps.length === 0) {
             return;
@@ -415,6 +444,14 @@ export default class MapSelectScene extends Phaser.Scene {
         // Don't process input if we're transitioning
         if (this.isTransitioning) {
             return;
+        }
+        
+        // Smooth scrolling animation
+        if (this.scrollContainer && Math.abs(this.targetScrollY - this.currentScrollY) > 1) {
+            const scrollSpeed = 0.15;
+            this.currentScrollY += (this.targetScrollY - this.currentScrollY) * scrollSpeed;
+            this.scrollContainer.y = -this.currentScrollY;
+            this.updateScrollIndicators();
         }
         
         // Handle keyboard navigation
@@ -430,6 +467,23 @@ export default class MapSelectScene extends Phaser.Scene {
 
         // Handle gamepad navigation
         this.handleGamepadInput();
+        
+        // Handle page navigation for faster scrolling
+        if (Phaser.Input.Keyboard.JustDown(this.pageUpKey)) {
+            this.navigateMap(0, -3); // Jump 3 rows up
+        } else if (Phaser.Input.Keyboard.JustDown(this.pageDownKey)) {
+            this.navigateMap(0, 3); // Jump 3 rows down
+        } else if (Phaser.Input.Keyboard.JustDown(this.homeKey)) {
+            // Jump to first map
+            this.selectedMapIndex = 0;
+            this.isFocused = true;
+            this.updateSelection();
+        } else if (Phaser.Input.Keyboard.JustDown(this.endKey)) {
+            // Jump to last map
+            this.selectedMapIndex = this.maps.length - 1;
+            this.isFocused = true;
+            this.updateSelection();
+        }
         
         // Handle selection
         if (Phaser.Input.Keyboard.JustDown(this.enterKey) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
@@ -600,6 +654,94 @@ export default class MapSelectScene extends Phaser.Scene {
         if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
             this.stateManager.resetProgress();
             this.scene.restart();
+        }
+    }
+    
+    // New scroll helper methods
+    scrollContent(deltaY) {
+        if (!this.scrollContainer) return;
+        
+        // Calculate max scroll bounds
+        const maxScroll = Math.max(0, this.totalContentHeight - this.scale.height + 100);
+        
+        // Update target scroll position
+        this.targetScrollY = Phaser.Math.Clamp(this.targetScrollY + deltaY, 0, maxScroll);
+    }
+    
+    scrollToButton(button) {
+        if (!this.scrollContainer) return;
+        
+        const viewportHeight = this.scale.height;
+        const buttonTop = button.y - button.height/2 - this.currentScrollY;
+        const buttonBottom = button.y + button.height/2 - this.currentScrollY;
+        
+        // Define visible area (leave some margin at top and bottom)
+        const marginTop = 200;
+        const marginBottom = 100;
+        
+        if (buttonTop < marginTop) {
+            // Button is above visible area, scroll up
+            this.targetScrollY = button.y - button.height/2 - marginTop;
+        } else if (buttonBottom > viewportHeight - marginBottom) {
+            // Button is below visible area, scroll down
+            this.targetScrollY = button.y + button.height/2 - viewportHeight + marginBottom;
+        }
+        
+        // Clamp to valid range
+        const maxScroll = Math.max(0, this.totalContentHeight - viewportHeight + 100);
+        this.targetScrollY = Phaser.Math.Clamp(this.targetScrollY, 0, maxScroll);
+    }
+    
+    createScrollIndicators() {
+        // Create up arrow indicator
+        this.scrollUpIndicator = this.add.triangle(
+            this.scale.width / 2, 180,
+            0, 15, 15, 15, 7.5, 0,
+            0x4ecdc4, 0.8
+        );
+        this.scrollUpIndicator.setDepth(100);
+        
+        // Create down arrow indicator
+        this.scrollDownIndicator = this.add.triangle(
+            this.scale.width / 2, this.scale.height - 80,
+            0, 0, 15, 0, 7.5, 15,
+            0x4ecdc4, 0.8
+        );
+        this.scrollDownIndicator.setDepth(100);
+        
+        // Create scroll bar on the right
+        const scrollBarBg = this.add.rectangle(
+            this.scale.width - 20, this.scale.height / 2,
+            4, this.scale.height - 300,
+            0x333333, 0.5
+        );
+        scrollBarBg.setDepth(100);
+        
+        // Create scroll thumb
+        this.scrollThumb = this.add.rectangle(
+            this.scale.width - 20, 300,
+            8, 50,
+            0x4ecdc4, 0.8
+        );
+        this.scrollThumb.setDepth(101);
+        
+        this.updateScrollIndicators();
+    }
+    
+    updateScrollIndicators() {
+        if (!this.scrollUpIndicator || !this.scrollDownIndicator) return;
+        
+        const maxScroll = Math.max(0, this.totalContentHeight - this.scale.height + 100);
+        
+        // Show/hide scroll indicators
+        this.scrollUpIndicator.setAlpha(this.currentScrollY > 10 ? 0.8 : 0.2);
+        this.scrollDownIndicator.setAlpha(this.currentScrollY < maxScroll - 10 ? 0.8 : 0.2);
+        
+        // Update scroll thumb position
+        if (this.scrollThumb && maxScroll > 0) {
+            const scrollPercentage = this.currentScrollY / maxScroll;
+            const thumbRange = this.scale.height - 350;
+            this.scrollThumb.y = 300 + (scrollPercentage * thumbRange);
         }
     }
 }
