@@ -1229,9 +1229,6 @@ export default class JsonMapBase extends Phaser.Scene {
             }
         }, this);
         
-        // Virtual controls disabled - now handled by InputManager in DoubleWorm
-        // this.virtualControls = new VirtualControls(this);
-        
         // Track gamepad button states
         this.button0WasPressed = false;
     }

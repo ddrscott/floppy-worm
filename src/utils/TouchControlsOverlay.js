@@ -1,10 +1,14 @@
 import Phaser from 'phaser';
 
 /**
- * TouchControlsOverlay2 - Simplified virtual touch controls using global pointer tracking
+ * TouchControlsOverlay - Virtual touch controls with tap-to-jump support
  * 
- * Based on Phaser's multitouch example for more reliable input handling
- * Joysticks track touch input even when moved outside their visual bounds
+ * Features:
+ * - Dual joysticks for movement control (drag to move)
+ * - Tap detection on joysticks for jump action (tap anywhere in the circle)
+ * - Trigger/shoulder buttons for additional actions
+ * - Multitouch support for simultaneous inputs
+ * - Visual feedback with color-coded controls (red=left/head, blue=right/tail)
  */
 export default class TouchControlsOverlay {
     constructor(scene, config = {}) {
@@ -46,9 +50,13 @@ export default class TouchControlsOverlay {
         
         // State tracking
         this.joystickStates = {
-            left: { x: 0, y: 0, active: false, pointerId: -1 },
-            right: { x: 0, y: 0, active: false, pointerId: -1 }
+            left: { x: 0, y: 0, active: false, pointerId: 0, tapStartTime: 0, tapStartX: 0, tapStartY: 0 },
+            right: { x: 0, y: 0, active: false, pointerId: 0, tapStartTime: 0, tapStartX: 0, tapStartY: 0 }
         };
+        
+        // Tap detection thresholds
+        this.tapMaxDuration = 300; // milliseconds (more lenient)
+        this.tapMaxMovement = 0.3; // normalized movement (30% of radius)
         
         this.buttonStates = {
             leftTrigger: false,
@@ -74,8 +82,6 @@ export default class TouchControlsOverlay {
     }
     
     createControls() {
-        console.log('TouchControlsOverlay2: Creating controls');
-        
         // Add extra pointers for multitouch (supports up to 10 simultaneous touches)
         this.scene.input.addPointer(9);
         
@@ -100,9 +106,8 @@ export default class TouchControlsOverlay {
         this.updatePositions();
         
         // Add update handler to track pointers
-        this.scene.events.on('update', this.update, this);
-        
-        console.log('TouchControlsOverlay2: Controls created successfully');
+        // Use preupdate to run before the scene's update
+        this.scene.events.on('preupdate', this.update, this);
     }
     
     createJoystick(side) {
@@ -193,7 +198,7 @@ export default class TouchControlsOverlay {
             worldX: 0,
             worldY: 0,
             radius: this.config.buttonSize,
-            pointerId: -1,
+            pointerId: 0,
             buttonColor: buttonColor,
             buttonActiveColor: buttonActiveColor
         };
@@ -286,17 +291,30 @@ export default class TouchControlsOverlay {
         const { base, knob, worldX, worldY } = joystick;
         
         // Check if we already have an active pointer for this joystick
-        if (state.pointerId >= 0) {
+        if (state.pointerId > 0) {
             const pointer = pointers[state.pointerId - 1];
             if (pointer && pointer.isDown) {
                 // Continue tracking this pointer regardless of distance
                 const dx = pointer.x - worldX;
                 const dy = pointer.y - worldY;
                 this.setJoystickPosition(side, dx, dy);
+                
+                // Update tap tracking - check if finger moved too much from initial position
+                if (state.tapStartTime > 0) {
+                    // Calculate how far the finger has moved from its starting position
+                    const fingerMovement = Math.sqrt(
+                        Math.pow(pointer.x - state.tapStartX, 2) + 
+                        Math.pow(pointer.y - state.tapStartY, 2)
+                    );
+                    // Cancel tap if finger moved too far (more than 30% of joystick radius)
+                    if (fingerMovement > this.config.joystickRadius * this.tapMaxMovement) {
+                        state.tapStartTime = 0;
+                    }
+                }
                 return;
             }
-            // Pointer released
-            this.resetJoystick(side);
+            // Pointer released - check for tap
+            this.handleJoystickRelease(side);
         }
         
         // Look for a new pointer within the joystick area
@@ -314,11 +332,13 @@ export default class TouchControlsOverlay {
                         // Claim this pointer
                         state.pointerId = pointer.id;
                         state.active = true;
+                        // Record tap start info
+                        state.tapStartTime = Date.now();
+                        state.tapStartX = pointer.x;
+                        state.tapStartY = pointer.y;
                         base.setAlpha(this.config.activeOpacity);
                         knob.setAlpha(this.config.activeOpacity);
                         this.setJoystickPosition(side, dx, dy);
-                        
-                        console.log(`TouchControlsOverlay2: ${side} joystick activated by pointer ${pointer.id}`);
                         break;
                     }
                 }
@@ -348,11 +368,24 @@ export default class TouchControlsOverlay {
         // Update state with normalized values (-1 to 1)
         state.x = knobX / this.config.joystickRadius;
         state.y = knobY / this.config.joystickRadius;
+    }
+    
+    handleJoystickRelease(side) {
+        const state = this.joystickStates[side];
         
-        // Log significant movements
-        if (Math.abs(state.x) > 0.1 || Math.abs(state.y) > 0.1) {
-            console.log(`TouchControlsOverlay2: ${side} joystick at (${state.x.toFixed(2)}, ${state.y.toFixed(2)})`);
+        // Check if this was a tap (tapStartTime > 0 means tap detection wasn't cancelled)
+        if (state.tapStartTime > 0) {
+            const duration = Date.now() - state.tapStartTime;
+            
+            // A tap is a quick touch and release anywhere in the joystick area
+            if (duration <= this.tapMaxDuration) {
+                // Trigger the corresponding trigger button for jump
+                const triggerButton = side === 'left' ? 'leftTrigger' : 'rightTrigger';
+                this.simulateButtonPress(triggerButton);
+            }
         }
+        
+        this.resetJoystick(side);
     }
     
     resetJoystick(side) {
@@ -369,17 +402,54 @@ export default class TouchControlsOverlay {
         state.x = 0;
         state.y = 0;
         state.active = false;
-        state.pointerId = -1;
+        state.pointerId = 0;
+        state.tapStartTime = 0;
+        state.tapStartX = 0;
+        state.tapStartY = 0;
+    }
+    
+    simulateButtonPress(buttonId) {
+        // Don't simulate if already pressed (avoid conflicts with real presses)
+        if (this.buttonStates[buttonId]) {
+            return;
+        }
+        
+        // Set the button state to pressed
+        this.buttonStates[buttonId] = true;
+        
+        // Visual feedback if button exists
+        const button = this.buttons[buttonId];
+        if (button) {
+            button.button.setFillStyle(button.buttonActiveColor, this.config.activeOpacity);
+            button.button.setScale(0.9);
+        }
+        
+        // Hold the button for 150ms to ensure it's detected
+        this.scene.time.delayedCall(150, () => {
+            this.buttonStates[buttonId] = false;
+            if (button) {
+                button.button.setFillStyle(button.buttonColor, this.config.opacity);
+                button.button.setScale(1);
+            }
+        });
     }
     
     updateButtons(pointers) {
         // Check each button
         Object.entries(this.buttons).forEach(([id, button]) => {
             const wasPressed = this.buttonStates[id];
+            
+            // Skip updating if this button is being simulated
+            // Check if the button was set by simulateButtonPress (no pointer assigned)
+            if (this.buttonStates[id] && button.pointerId === 0) {
+                // This button is being simulated, don't override its state
+                return;
+            }
+            
             let isPressed = false;
             
             // Check if button's current pointer is still down
-            if (button.pointerId >= 0) {
+            if (button.pointerId > 0) {
                 const pointer = pointers[button.pointerId - 1];
                 if (pointer && pointer.isDown) {
                     const dx = pointer.x - button.worldX;
@@ -390,11 +460,11 @@ export default class TouchControlsOverlay {
                         isPressed = true;
                     } else {
                         // Pointer moved away, release
-                        button.pointerId = -1;
+                        button.pointerId = 0;
                     }
                 } else {
                     // Pointer released
-                    button.pointerId = -1;
+                    button.pointerId = 0;
                 }
             }
             
@@ -416,7 +486,6 @@ export default class TouchControlsOverlay {
                             if (!pointerInUse) {
                                 button.pointerId = pointer.id;
                                 isPressed = true;
-                                console.log(`TouchControlsOverlay2: Button ${id} pressed by pointer ${pointer.id}`);
                                 break;
                             }
                         }
@@ -469,6 +538,6 @@ export default class TouchControlsOverlay {
         
         // Remove event listeners
         this.scene.scale.off('resize', this.updatePositions, this);
-        this.scene.events.off('update', this.update, this);
+        this.scene.events.off('preupdate', this.update, this);
     }
 }
