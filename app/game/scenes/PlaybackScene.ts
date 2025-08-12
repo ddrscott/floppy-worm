@@ -173,6 +173,15 @@ export default class PlaybackScene extends JsonMapBase {
     }
     
     /**
+     * Override ghost system initialization to disable it completely
+     */
+    async initializeGhostSystem() {
+        // Do nothing - we don't want ghost system in playback mode
+        console.log('Ghost system disabled for PlaybackScene');
+        return Promise.resolve();
+    }
+    
+    /**
      * Override entity creation to create DoubleWorm with physics disabled
      */
     createEntitiesFromJSON(entitiesData: any) {
