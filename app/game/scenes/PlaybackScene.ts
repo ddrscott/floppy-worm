@@ -31,6 +31,9 @@ export default class PlaybackScene extends JsonMapBase {
     private onFrameUpdate?: (frame: number) => void;
     private onPlayStateChange?: (playing: boolean) => void;
     
+    // Return scene handling
+    private returnScene: string = 'MapSelectScene';
+    
     // Input visualization elements
     private inputIndicators: {
         leftStick: { range: Phaser.GameObjects.Graphics, indicator: Phaser.GameObjects.Graphics },
@@ -50,6 +53,7 @@ export default class PlaybackScene extends JsonMapBase {
         this.recording = data.recording;
         this.onFrameUpdate = data.onFrameUpdate;
         this.onPlayStateChange = data.onPlayStateChange;
+        this.returnScene = data.returnScene || 'MapSelectScene';
         
         // Extract map key from recording and load map data immediately
         if (this.recording && this.recording.mapKey) {
@@ -272,14 +276,24 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     /**
-     * Override setupControls to skip input handling
+     * Override setupControls to add back button handling
      */
     setupControls() {
-        // No input controls needed for playback
+        // Add keyboard controls for back functionality
+        const escKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        escKey?.on('down', () => this.goBack());
+        
+        // Add gamepad button handling
+        this.input.gamepad?.on('down', (pad: any, button: any) => {
+            // B button (Xbox) or Circle button (PlayStation) - typically button 1
+            if (button.index === 1) {
+                this.goBack();
+            }
+        });
     }
 
     /**
-     * Override createUI to create minimal UI
+     * Override createUI to create minimal UI with back button
      */
     createUI() {
         // Title
@@ -305,7 +319,41 @@ export default class PlaybackScene extends JsonMapBase {
         
         this.minimapIgnoreList.push(statusText);
         
-        // Frame counter removed - now displayed in HTML controls
+        // Back button visual indicator
+        const backButton = this.add.text(this.scale.width - 20, 20, '← Back (ESC)', {
+            fontSize: '18px',
+            color: '#ffffff',
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(1, 0).setScrollFactor(0).setInteractive();
+        
+        backButton.on('pointerup', () => this.goBack());
+        backButton.on('pointerover', () => {
+            backButton.setColor('#4ecdc4');
+        });
+        backButton.on('pointerout', () => {
+            backButton.setColor('#ffffff');
+        });
+        
+        this.minimapIgnoreList.push(backButton);
+        
+        // Mobile back button (larger touch target)
+        if (this.sys.game.device.input.touch) {
+            const mobileBackButton = this.add.rectangle(60, 100, 100, 40, 0x000000, 0.7)
+                .setStrokeStyle(2, 0x4ecdc4)
+                .setScrollFactor(0)
+                .setInteractive();
+            
+            const mobileBackText = this.add.text(60, 100, '← Back', {
+                fontSize: '20px',
+                color: '#ffffff'
+            }).setOrigin(0.5).setScrollFactor(0);
+            
+            mobileBackButton.on('pointerup', () => this.goBack());
+            
+            this.minimapIgnoreList.push(mobileBackButton);
+            this.minimapIgnoreList.push(mobileBackText);
+        }
     }
 
     /**
@@ -1035,6 +1083,15 @@ export default class PlaybackScene extends JsonMapBase {
         
         this.renderFrameInterpolated(0);
         this.play();
+    }
+    
+    /**
+     * Go back to the previous scene
+     */
+    private goBack() {
+        this.cleanup();
+        this.scene.stop();
+        this.scene.start(this.returnScene);
     }
 
     /**

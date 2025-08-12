@@ -139,7 +139,7 @@ export default class MapLoader {
             }
             
             // Override victory to handle test/editor modes
-            victory() {
+            async victory() {
                 if (this.testMode || this.editorMode) {
                     // Simple victory message for test/editor modes
                     const victoryText = this.add.text(
@@ -162,7 +162,7 @@ export default class MapLoader {
                     }
                 } else {
                     // Normal victory flow
-                    super.victory();
+                    await super.victory();
                 }
             }
         }

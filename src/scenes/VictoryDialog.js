@@ -46,7 +46,7 @@ export default class VictoryDialog extends Phaser.Scene {
         
         // Dialog background
         const dialogWidth = 600;
-        const dialogHeight = 320;
+        const dialogHeight = 360;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -107,8 +107,7 @@ export default class VictoryDialog extends Phaser.Scene {
     
     async createStaticModeButtons() {
         const centerY = this.scale.height / 2 + 20;
-        const buttonWidth = 140;
-        const buttonHeight = 45;
+        const buttonSize = 100; // Square buttons
         const spacing = 15;
         
         // Get next level info
@@ -118,25 +117,25 @@ export default class VictoryDialog extends Phaser.Scene {
         const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
         const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
         
-        // Calculate button positions (2 or 3 buttons)
+        // Calculate button positions (3 buttons in a row, or 2 if no next level)
         const numButtons = hasNext ? 3 : 2;
-        const totalWidth = numButtons * buttonWidth + (numButtons - 1) * spacing;
-        const startX = this.scale.width / 2 - totalWidth / 2 + buttonWidth / 2;
+        const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
+        const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
         
         let buttonX = startX;
         
-        // Replay button
-        this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+        // Retry button
+        this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
             this.close();
             // Restart the scene completely for a clean replay
             this.gameScene.scene.restart();
         });
         
-        buttonX += buttonWidth + spacing;
+        buttonX += buttonSize + spacing;
         
         // Next Level button - only if there's a next level
         if (hasNext) {
-            this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, async () => {
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Next\nLevel', 0x27ae60, async () => {
                 this.close();
                 this.gameScene.scene.stop();
                 
@@ -151,11 +150,11 @@ export default class VictoryDialog extends Phaser.Scene {
                     this.scene.start('MapSelectScene');
                 }
             });
-            buttonX += buttonWidth + spacing;
+            buttonX += buttonSize + spacing;
         }
         
         // Main Menu button
-        this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Main Menu', 0xe74c3c, () => {
+        this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Main\nMenu', 0xe74c3c, () => {
             this.close();
             this.gameScene.scene.stop();
             this.gameScene.scene.start('MapSelectScene');
@@ -164,7 +163,7 @@ export default class VictoryDialog extends Phaser.Scene {
         // Instructions
         this.add.text(
             this.scale.width / 2,
-            centerY + buttonHeight / 2 + 30,
+            centerY + buttonSize / 2 + 30,
             'Use ARROW KEYS or GAMEPAD to select • SPACE/ENTER/A to confirm',
             {
                 fontSize: '14px',
@@ -175,8 +174,7 @@ export default class VictoryDialog extends Phaser.Scene {
     
     async createServerModeButtons() {
         const centerY = this.scale.height / 2 + 40;
-        const buttonWidth = 160;
-        const buttonHeight = 50;
+        const buttonSize = 100; // Square buttons
         const spacing = 20;
         
         // Check if map editor is actually available
@@ -184,27 +182,33 @@ export default class VictoryDialog extends Phaser.Scene {
         
         if (hasMapEditor) {
             // Three buttons horizontally when editor is available
-            const leftX = this.scale.width / 2 - buttonWidth - spacing;
-            const centerX = this.scale.width / 2;
-            const rightX = this.scale.width / 2 + buttonWidth + spacing;
+            const numButtons = 3;
+            const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
+            const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
             
-            // Replay Level button
-            this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+            let buttonX = startX;
+            
+            // Retry button
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
                 this.close();
                 // Restart the scene completely for a clean replay
                 this.gameScene.scene.restart();
             });
             
+            buttonX += buttonSize + spacing;
+            
             // Return to Editor button
-            this.createButton(centerX, centerY, buttonWidth, buttonHeight, 'Return to Editor', 0x27ae60, () => {
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Editor', 0x27ae60, () => {
                 // Switch to map editor
                 this.close();
                 this.gameScene.scene.stop();
                 this.gameScene.scene.start('MapEditor');
             });
             
+            buttonX += buttonSize + spacing;
+            
             // Map Selection button
-            this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Maps', 0xe74c3c, () => {
                 this.close();
                 this.gameScene.scene.stop();
                 this.gameScene.scene.start('MapSelectScene');
@@ -213,7 +217,7 @@ export default class VictoryDialog extends Phaser.Scene {
             // Instructions
             this.add.text(
                 this.scale.width / 2,
-                centerY + buttonHeight / 2 + 30,
+                centerY + buttonSize / 2 + 30,
                 'Server Mode • TAB to toggle editor',
                 {
                     fontSize: '14px',
@@ -221,19 +225,24 @@ export default class VictoryDialog extends Phaser.Scene {
                 }
             ).setOrigin(0.5).setDepth(10002);
         } else {
-            // Two buttons when no editor (same as static mode layout)
-            const leftX = this.scale.width / 2 - buttonWidth/2 - spacing/2;
-            const rightX = this.scale.width / 2 + buttonWidth/2 + spacing/2;
+            // Two buttons when no editor
+            const numButtons = 2;
+            const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
+            const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
             
-            // Replay Level button
-            this.createButton(leftX, centerY, buttonWidth, buttonHeight, 'Replay Level', 0x3498db, () => {
+            let buttonX = startX;
+            
+            // Retry button
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
                 this.close();
                 // Restart the scene completely for a clean replay
                 this.gameScene.scene.restart();
             });
             
+            buttonX += buttonSize + spacing;
+            
             // Map Selection button
-            this.createButton(rightX, centerY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Maps', 0xe74c3c, () => {
                 this.close();
                 this.gameScene.scene.stop();
                 this.gameScene.scene.start('MapSelectScene');
@@ -242,7 +251,7 @@ export default class VictoryDialog extends Phaser.Scene {
             // Instructions
             this.add.text(
                 this.scale.width / 2,
-                centerY + buttonHeight / 2 + 30,
+                centerY + buttonSize / 2 + 30,
                 'Use ARROW KEYS or GAMEPAD to select • SPACE/ENTER/A to confirm',
                 {
                     fontSize: '14px',
@@ -258,10 +267,15 @@ export default class VictoryDialog extends Phaser.Scene {
         button.setStrokeStyle(2, 0x4ecdc4, 1);
         button.setInteractive();
         
+        // Adjust font size based on button size and text lines
+        const lineCount = text.split('\n').length;
+        const fontSize = lineCount > 1 ? '16px' : '18px';
+        
         const buttonText = this.add.text(x, y, text, {
-            fontSize: '18px',
+            fontSize: fontSize,
             color: '#ffffff',
-            fontStyle: 'bold'
+            fontStyle: 'bold',
+            align: 'center'
         }).setOrigin(0.5).setDepth(103);
         
         // Store button data
@@ -376,8 +390,17 @@ export default class VictoryDialog extends Phaser.Scene {
     navigate(deltaX, deltaY) {
         if (this.buttons.length === 0) return;
         
-        // Both modes now use horizontal layout
-        this.selectedButton = (this.selectedButton + deltaX + this.buttons.length) % this.buttons.length;
+        // All buttons are now in a horizontal row
+        // Left/right arrows navigate between buttons
+        if (deltaX !== 0) {
+            this.selectedButton = (this.selectedButton + deltaX + this.buttons.length) % this.buttons.length;
+        }
+        // Up/down arrows also navigate horizontally for convenience
+        else if (deltaY !== 0) {
+            // Down goes right, up goes left
+            const direction = deltaY > 0 ? 1 : -1;
+            this.selectedButton = (this.selectedButton + direction + this.buttons.length) % this.buttons.length;
+        }
         
         this.updateSelection();
     }
