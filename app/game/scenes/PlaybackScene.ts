@@ -14,8 +14,6 @@ export default class PlaybackScene extends JsonMapBase {
     private currentFrameIndex: number = 0;
     private isPlaying: boolean = false;
     private playbackSpeed: number = 1;
-    private playbackStartTime: number = 0;
-    private playbackPausedTime: number = 0;
     private elapsedTime: number = 0;
     
     // Use actual DoubleWorm component (physics disabled)
@@ -25,7 +23,7 @@ export default class PlaybackScene extends JsonMapBase {
     private tailTrailGraphics: Phaser.GameObjects.Graphics;
     private headTrailPoints: { x: number, y: number }[] = [];
     private tailTrailPoints: { x: number, y: number }[] = [];
-    private maxTrailLength: number = 128; // Limit trail length for performance
+    private maxTrailLength: number = 60; // Shorter trail for better fade visibility
     
     // Callbacks for UI integration
     private onFrameUpdate?: (frame: number) => void;
@@ -883,19 +881,14 @@ export default class PlaybackScene extends JsonMapBase {
                 const segment = this.worm.segments[i];
                 const position = segments[i];
                 
-                // Update trail for head segment (less frequently to avoid trail buildup)
+                // Update trail for head segment
                 if (i === 0) {
-                    const lastHeadPoint = this.headTrailPoints[this.headTrailPoints.length - 1];
-                    // Only add point if it's far enough from the last one
-                    if (!lastHeadPoint || 
-                        Math.abs(lastHeadPoint.x - position.x) > 2 || 
-                        Math.abs(lastHeadPoint.y - position.y) > 2) {
-                        this.headTrailPoints.push({ x: position.x, y: position.y });
-                        
-                        // Limit trail length
-                        if (this.headTrailPoints.length > this.maxTrailLength) {
-                            this.headTrailPoints.shift();
-                        }
+                    // Always add the point to keep a smooth trail
+                    this.headTrailPoints.push({ x: position.x, y: position.y });
+                    
+                    // Limit trail length
+                    if (this.headTrailPoints.length > this.maxTrailLength) {
+                        this.headTrailPoints.shift();
                     }
                 }
                 
@@ -942,22 +935,36 @@ export default class PlaybackScene extends JsonMapBase {
         this.headTrailGraphics.clear();
         this.tailTrailGraphics.clear();
         
-        // Draw head trail (red with 0.5 alpha)
+        // Draw head trail (red, fading from transparent to solid)
         if (this.headTrailPoints.length >= 2) {
+            // Draw as a single path with varying alpha segments
             for (let i = 1; i < this.headTrailPoints.length; i++) {
-                const alpha = (i / this.headTrailPoints.length) * 0.5; // Fade from transparent to 0.5
-                this.headTrailGraphics.lineStyle(2, 0xff6b6b, alpha);
+                // Calculate alpha based on position in array
+                // First segments (oldest) should be transparent, last segments (newest) should be solid
+                const progress = i / (this.headTrailPoints.length - 1);
+                const alpha = 0.8 * progress;
+                
+                // Draw this segment with its alpha
+                this.headTrailGraphics.lineStyle(3, 0xff6b6b, alpha);
+                this.headTrailGraphics.beginPath();
                 this.headTrailGraphics.moveTo(this.headTrailPoints[i - 1].x, this.headTrailPoints[i - 1].y);
                 this.headTrailGraphics.lineTo(this.headTrailPoints[i].x, this.headTrailPoints[i].y);
                 this.headTrailGraphics.strokePath();
             }
         }
         
-        // Draw tail trail (blue with 0.5 alpha)
+        // Draw tail trail (blue, fading from transparent to solid)
         if (this.tailTrailPoints.length >= 2) {
+            // Draw as a single path with varying alpha segments
             for (let i = 1; i < this.tailTrailPoints.length; i++) {
-                const alpha = (i / this.tailTrailPoints.length) * 0.5; // Fade from transparent to 0.5
-                this.tailTrailGraphics.lineStyle(2, 0x74b9ff, alpha);
+                // Calculate alpha based on position in array
+                // First segments (oldest) should be transparent, last segments (newest) should be solid
+                const progress = i / (this.tailTrailPoints.length - 1);
+                const alpha = 0.5 * progress; // Goes from 0 to 0.5
+                
+                // Draw this segment with its alpha
+                this.tailTrailGraphics.lineStyle(3, 0x74b9ff, alpha);
+                this.tailTrailGraphics.beginPath();
                 this.tailTrailGraphics.moveTo(this.tailTrailPoints[i - 1].x, this.tailTrailPoints[i - 1].y);
                 this.tailTrailGraphics.lineTo(this.tailTrailPoints[i].x, this.tailTrailPoints[i].y);
                 this.tailTrailGraphics.strokePath();
