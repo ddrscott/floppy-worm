@@ -4,11 +4,14 @@ import Phaser from 'phaser';
  * TouchControlsOverlay - Virtual touch controls with tap-to-jump support
  * 
  * Features:
- * - Dual joysticks for movement control (drag to move)
- * - Tap detection on joysticks for jump action (tap anywhere in the circle)
- * - Trigger/shoulder buttons for additional actions
+ * - Dual joysticks: drag for movement, tap for jump
+ * - Shoulder buttons (LB/RB) for grab actions
  * - Multitouch support for simultaneous inputs
  * - Visual feedback with color-coded controls (red=left/head, blue=right/tail)
+ * 
+ * Controls:
+ * - Left/Right Joystick: Drag to move segments, tap to trigger jump
+ * - LB/RB Buttons: Grab/release actions
  */
 export default class TouchControlsOverlay {
     constructor(scene, config = {}) {
@@ -17,7 +20,7 @@ export default class TouchControlsOverlay {
             // Layout config
             joystickRadius: 60,
             joystickKnobRadius: 15,
-            buttonSize: 48,
+            buttonSize: 36,
             opacity: 0.4,
             activeOpacity: 0.7,
             
@@ -34,7 +37,7 @@ export default class TouchControlsOverlay {
             rollButtonActiveColor: 0x66ff66,
             
             // Positioning (pixels from edges)
-            padding: 30, // Default padding from screen edges
+            padding: 10, // Default padding from screen edges
             joystickBottomOffset: 100, // Distance from bottom for joysticks
             
             // Button stacking above joysticks
@@ -94,9 +97,7 @@ export default class TouchControlsOverlay {
         this.createJoystick('left');
         this.createJoystick('right');
         
-        // Create buttons
-        this.createButton('leftTrigger', 'Jmp');
-        this.createButton('rightTrigger', 'Jmp');
+        // Create buttons (jump buttons removed - use tap on joysticks instead)
         this.createButton('leftShoulder', 'LB');
         this.createButton('rightShoulder', 'RB');
         // this.createButton('roll', 'ROLL');
@@ -209,9 +210,9 @@ export default class TouchControlsOverlay {
         const padding = this.config.padding;
         
         // Position joysticks from bottom corners
-        const leftJoystickX = padding + this.config.joystickRadius * 1.5;
-        const rightJoystickX = width - padding - this.config.joystickRadius * 1.5;
-        const joystickY = height - padding - this.config.joystickRadius * 1.5;
+        const leftJoystickX = padding + this.config.joystickRadius * 1.125;
+        const rightJoystickX = width - padding - this.config.joystickRadius * 1.125;
+        const joystickY = height - padding - this.config.joystickRadius * 1.125;
         
         Object.entries(this.joysticks).forEach(([side, joystick]) => {
             const x = side === 'left' ? leftJoystickX : rightJoystickX;
@@ -227,25 +228,14 @@ export default class TouchControlsOverlay {
             let x, y;
             
             switch(id) {
-                case 'leftTrigger':
-                    x = leftJoystickX;
-                    // Stack above joystick: joystick top - spacing - button radius
-                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
-                    break;
-                case 'rightTrigger':
-                    x = rightJoystickX;
-                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
-                    break;
                 case 'leftShoulder':
-                    x = leftJoystickX;
-                    // Stack above trigger: trigger position - spacing - button radius
-                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize
-                        - this.config.buttonStackSpacing - this.config.buttonSize * 2;
+                    x = leftJoystickX - this.config.padding * 2;
+                    // Stack above joystick
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
                     break;
                 case 'rightShoulder':
-                    x = rightJoystickX;
-                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize
-                        - this.config.buttonStackSpacing - this.config.buttonSize * 2;
+                    x = rightJoystickX + this.config.padding * 2;
+                    y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
                     break;
                 case 'roll':
                     x = width / 2;
@@ -414,23 +404,13 @@ export default class TouchControlsOverlay {
             return;
         }
         
-        // Set the button state to pressed
+        // Set the button state to pressed (for jump triggers)
         this.buttonStates[buttonId] = true;
         
-        // Visual feedback if button exists
-        const button = this.buttons[buttonId];
-        if (button) {
-            button.button.setFillStyle(button.buttonActiveColor, this.config.activeOpacity);
-            button.button.setScale(0.9);
-        }
-        
-        // Hold the button for 150ms to ensure it's detected
+        // Note: No visual feedback needed since trigger buttons are not visible
+        // Hold the button for 150ms to ensure it's detected by InputManager
         this.scene.time.delayedCall(150, () => {
             this.buttonStates[buttonId] = false;
-            if (button) {
-                button.button.setFillStyle(button.buttonColor, this.config.opacity);
-                button.button.setScale(1);
-            }
         });
     }
     
