@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import Random from '../utils/Random.js';
 
 export default class Sticker {
     constructor(scene, x, y, text, config = {}) {
@@ -31,7 +32,7 @@ export default class Sticker {
         
         // Store original data for serialization
         this.data = {
-            id: config.id || `sticker_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: config.id || `sticker_${Date.now()}_${Random.random().toString(36).substr(2, 9)}`,
             x: x,
             y: y,
             text: text,

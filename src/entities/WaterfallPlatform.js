@@ -1,4 +1,5 @@
 import PlatformBase from './PlatformBase.js';
+import Random from '../utils/Random.js';
 import Tick from '../utils/Tick.js';
 
 export default class WaterfallPlatform extends PlatformBase {
@@ -179,7 +180,7 @@ export default class WaterfallPlatform extends PlatformBase {
                 
                 // Apply initial downward force
                 this.scene.matter.body.applyForce(segment, segment.position, {
-                    x: (Math.random() - 0.5) * this.splashForce,
+                    x: (Random.random() - 0.5) * this.splashForce,
                     y: this.splashForce
                 });
             }
@@ -273,7 +274,7 @@ export default class WaterfallPlatform extends PlatformBase {
             const lateralForce = Math.sin(driftPhase) * this.lateralDrift;
             
             // Turbulence based on position
-            const turbulence = (Math.random() - 0.5) * this.fallSpeed * 0.2;
+            const turbulence = (Random.random() - 0.5) * this.fallSpeed * 0.2;
             
             // Apply combined forces
             this.scene.matter.body.applyForce(segment, segment.position, {
@@ -289,7 +290,7 @@ export default class WaterfallPlatform extends PlatformBase {
             });
             
             // Log forces for debugging
-            if (Math.random() < 0.01) {
+            if (Random.random() < 0.01) {
                 Tick.push('waterfall_force_y', downwardForce * 1000, 0x1e88e5);
                 Tick.push('waterfall_drift_x', lateralForce * 1000, 0x42a5f5);
             }

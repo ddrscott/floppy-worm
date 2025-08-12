@@ -18,6 +18,7 @@ import VictoryDialog from './VictoryDialog';
 import PauseMenu from './PauseMenu';
 import { getCachedBuildMode } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
+import Random from '../utils/Random';
 
 export default class JsonMapBase extends Phaser.Scene {
     constructor(config = {}) {
@@ -277,6 +278,19 @@ export default class JsonMapBase extends Phaser.Scene {
     }
 
     init(data) {
+        // Reset random seed for deterministic behavior
+        // IMPORTANT: Each map ALWAYS gets the same seed, so players can master
+        // the exact patterns. Electric sparks, ice crystals, water bubbles, etc.
+        // will always appear in the same pattern for a given map.
+        // This is crucial for speedrunning and skill-based gameplay.
+        const seed = this.mapKey ? 
+            this.mapKey.split('').reduce((acc, char, index) => {
+                // Generate a stable hash from the map key
+                return acc + (char.charCodeAt(0) * (index + 1));
+            }, 42) : // Start with 42 as base seed
+            12345; // Fallback seed if no map key
+        Random.setSeed(seed);
+        
         // Reset state on scene init (called before preload)
         this.victoryAchieved = false;
         this.victoryReturnTimer = null;

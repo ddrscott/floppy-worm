@@ -1,4 +1,5 @@
 import PlatformBase from './PlatformBase.js';
+import Random from '../utils/Random.js';
 
 export default class ElectricPlatform extends PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
@@ -66,7 +67,7 @@ export default class ElectricPlatform extends PlatformBase {
     setupElectricalActivity() {
         // Periodic electrical pulse
         this.electricTimer = this.scene.time.addEvent({
-            delay: 150 + Math.random() * 200,
+            delay: 150 + Random.random() * 200,
             callback: this.createElectricPulse,
             callbackScope: this,
             loop: true
@@ -84,13 +85,13 @@ export default class ElectricPlatform extends PlatformBase {
         const steps = parseInt(this.width / 32);
         const stepWidth = this.width / steps;
         let currentX = -this.width/2;
-        let currentY = (Math.random() - 0.5) * this.height;
+        let currentY = (Random.random() - 0.5) * this.height;
         
         arcGraphics.moveTo(currentX, currentY);
         
         for (let i = 1; i <= steps; i++) {
             const nextX = -this.width/2 + i * stepWidth;
-            const jagY = (Math.random() - 0.5) * this.height;
+            const jagY = (Random.random() - 0.5) * this.height;
             
             arcGraphics.lineTo(nextX, jagY);
             currentY = jagY;
@@ -175,7 +176,7 @@ export default class ElectricPlatform extends PlatformBase {
     
     applyElectricShock(segment) {
         // Apply random shock force
-        const shockAngle = Math.random() * Math.PI * 2;
+        const shockAngle = Random.random() * Math.PI * 2;
         const shockForceVector = {
             x: Math.cos(shockAngle) * this.shockForce,
             y: Math.sin(shockAngle) * this.shockForce
@@ -185,8 +186,8 @@ export default class ElectricPlatform extends PlatformBase {
         
         // Add some random impulse for erratic movement
         const randomImpulse = {
-            x: (Math.random() - 0.5) * this.shockForce * 2,
-            y: (Math.random() - 0.5) * this.shockForce * 2
+            x: (Random.random() - 0.5) * this.shockForce * 2,
+            y: (Random.random() - 0.5) * this.shockForce * 2
         };
         
         this.scene.matter.body.applyForce(segment, segment.position, randomImpulse);

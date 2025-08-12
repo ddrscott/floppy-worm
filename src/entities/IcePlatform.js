@@ -1,4 +1,5 @@
 import PlatformBase from './PlatformBase.js';
+import Random from '../utils/Random.js';
 
 export default class IcePlatform extends PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
@@ -39,9 +40,9 @@ export default class IcePlatform extends PlatformBase {
         // Draw ice crystal pattern
         const numCrystals = Math.floor((this.width * this.height) / 1000);
         for (let i = 0; i < numCrystals; i++) {
-            const localX = (Math.random() - 0.5) * this.width * 0.8;
-            const localY = (Math.random() - 0.5) * this.height * 0.8;
-            const size = Math.random() * 8 + 2;
+            const localX = (Random.random() - 0.5) * this.width * 0.8;
+            const localY = (Random.random() - 0.5) * this.height * 0.8;
+            const size = Random.random() * 8 + 2;
             
             // Draw simple crystal shape (6-pointed star)
             crystalGraphics.moveTo(localX, localY - size);
@@ -108,10 +109,10 @@ export default class IcePlatform extends PlatformBase {
         }
         
         // Slight random slip for more realistic ice behavior
-        if (Math.random() < 0.3) {
+        if (Random.random() < 0.3) {
             const randomSlip = {
-                x: (Math.random() - 0.5) * this.slipForce * 0.5,
-                y: (Math.random() - 0.5) * this.slipForce * 0.3
+                x: (Random.random() - 0.5) * this.slipForce * 0.5,
+                y: (Random.random() - 0.5) * this.slipForce * 0.3
             };
             this.scene.matter.body.applyForce(segment, segment.position, randomSlip);
         }

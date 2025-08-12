@@ -1,6 +1,7 @@
 import JsonMapBase from '/src/scenes/JsonMapBase';
 import DoubleWorm from '/src/entities/DoubleWorm';
 import { loadMapDataSync } from '/src/scenes/maps/MapDataRegistry';
+import Random from '/src/utils/Random';
 
 /**
  * PlaybackScene extends JsonMapBase to provide recording playback functionality
@@ -53,6 +54,13 @@ export default class PlaybackScene extends JsonMapBase {
         // Extract map key from recording and load map data immediately
         if (this.recording && this.recording.mapKey) {
             this.mapKey = this.recording.mapKey;
+            
+            // Use the same seed as the original map for identical random patterns
+            // This ensures platforms behave exactly the same during playback
+            const seed = this.mapKey.split('').reduce((acc: number, char: string, index: number) => {
+                return acc + (char.charCodeAt(0) * (index + 1));
+            }, 42);
+            Random.setSeed(seed);
             
             // Load map data synchronously from the registry
             this.mapData = loadMapDataSync(this.recording.mapKey);
@@ -519,15 +527,12 @@ export default class PlaybackScene extends JsonMapBase {
         
         // Check if playback has finished
         if (this.currentFrameIndex >= this.frames.length - 1) {
-            // Reached end, stop and reset
+            // Reached end, just pause at the last frame
             this.pause();
-            this.currentFrameIndex = 0;
-            this.elapsedTime = 0;
-            this.headTrailPoints = [];
-            this.tailTrailPoints = [];
-            this.headTrailGraphics.clear();
-            this.tailTrailGraphics.clear();
-            this.renderFrameInterpolated(0);
+            this.currentFrameIndex = this.frames.length - 1;
+            this.elapsedTime = this.frames[this.frames.length - 1].timestamp;
+            // Keep the trails visible, don't clear them
+            this.renderFrameInterpolated(this.currentFrameIndex);
             return;
         }
         
@@ -915,6 +920,12 @@ export default class PlaybackScene extends JsonMapBase {
      * Start playback
      */
     public play() {
+        // If we're at the last frame and user hits play, restart from beginning
+        if (this.currentFrameIndex >= this.frames.length - 1 && this.frames.length > 0) {
+            this.restart();
+            return;
+        }
+        
         this.isPlaying = true;
         
         if (this.onPlayStateChange) {

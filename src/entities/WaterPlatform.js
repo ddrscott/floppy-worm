@@ -1,4 +1,5 @@
 import PlatformBase from './PlatformBase.js';
+import Random from '../utils/Random.js';
 import Tick from '../utils/Tick.js';
 
 export default class WaterPlatform extends PlatformBase {
@@ -221,7 +222,7 @@ export default class WaterPlatform extends PlatformBase {
     
     applyFlowForces() {
         // Debug: Log when this is called
-        if (Math.random() < 0.01 && this.segmentsInWater.size > 0) {
+        if (Random.random() < 0.01 && this.segmentsInWater.size > 0) {
             console.log('Applying water forces to', this.segmentsInWater.size, 'segments');
         }
         
@@ -232,7 +233,7 @@ export default class WaterPlatform extends PlatformBase {
             
             // Apply flow force
             const baseFlow = this.flowDirection === 'right' ? this.flowSpeed : -this.flowSpeed;
-            const flowVariation = (Math.random() - 0.5) * this.flowVariation * this.flowSpeed;
+            const flowVariation = (Random.random() - 0.5) * this.flowVariation * this.flowSpeed;
             const flowForce = (baseFlow + flowVariation) * depthFactor;
             
             // Apply drag (resistance to motion) - reduced for better swimming
@@ -262,7 +263,7 @@ export default class WaterPlatform extends PlatformBase {
                 }
                 
                 // Create bubbles to show we're in water
-                if (this.bubbleEmitter && Math.random() < 0.2) {
+                if (this.bubbleEmitter && Random.random() < 0.2) {
                     this.bubbleEmitter.emitParticleAt(segment.position.x, segment.position.y);
                 }
             }
@@ -278,7 +279,7 @@ export default class WaterPlatform extends PlatformBase {
             Tick.push('water_total_x', (flowForce + dragX + swimX), 0xff0000);
             
             // Create occasional bubbles from moving segments
-            if (this.bubbleEmitter && Math.random() < 0.1) {
+            if (this.bubbleEmitter && Random.random() < 0.1) {
                 this.bubbleEmitter.emitParticleAt(segment.position.x, segment.position.y);
             }
         }

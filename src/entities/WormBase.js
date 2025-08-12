@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import WhooshSynthesizer from '../audio/WhooshSynthesizer.js';
 import Tick from '../utils/Tick.js';
+import Random from '../utils/Random.js';
 
 export default class WormBase {
     constructor(scene, x, y, config = {}) {
@@ -372,12 +373,12 @@ export default class WormBase {
             const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
             
             // Add small random variation (±10%)
-            const volumeVariation = (Math.random() - 0.5) * 0.1;
+            const volumeVariation = (Random.random() - 0.5) * 0.1;
             const finalVolume = Math.max(0.05, Math.min(0.7, baseVolume + volumeVariation));
             
             // Playback rate also slightly affected by velocity (harder = higher pitch)
             const baseRate = 0.9 + normalizedVelocity * 0.2; // 0.9 to 1.1
-            const rateVariation = (Math.random() - 0.5) * 0.1; // ±0.05
+            const rateVariation = (Random.random() - 0.5) * 0.1; // ±0.05
             const finalRate = baseRate + rateVariation;
             
             this.constraintSounds.squishStart.play({
@@ -401,12 +402,12 @@ export default class WormBase {
             const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
             
             // Add random variation (±15%)
-            const volumeVariation = (Math.random() - 0.5) * 0.15;
+            const volumeVariation = (Random.random() - 0.5) * 0.15;
             const finalVolume = Math.max(0.05, Math.min(0.6, baseVolume + volumeVariation));
             
             // Playback rate varies more for end sound
             const baseRate = 0.85 + normalizedVelocity * 0.3; // 0.85 to 1.15
-            const rateVariation = (Math.random() - 0.5) * 0.15; // ±0.075
+            const rateVariation = (Random.random() - 0.5) * 0.15; // ±0.075
             const finalRate = baseRate + rateVariation;
             
             this.constraintSounds.squishEnd.play({
@@ -906,8 +907,8 @@ export default class WormBase {
                 const targetSegment = this.segments[middleIndex];
                 
                 if (targetSegment && targetSegment.position) {
-                    const randomForceX = (Math.random() - 0.5) * 0.00002;
-                    const randomForceY = (Math.random() - 0.5) * 0.00002;
+                    const randomForceX = (Random.random() - 0.5) * 0.00002;
+                    const randomForceY = (Random.random() - 0.5) * 0.00002;
                     
                     this.scene.matter.body.applyForce(targetSegment, targetSegment.position, {
                         x: randomForceX,
@@ -928,11 +929,11 @@ export default class WormBase {
             
             // Randomize the angle more for a natural scatter effect
             const baseAngle = (Math.PI * 2 * i) / numParticles;
-            const angleVariation = (Math.random() - 0.5) * Math.PI / 3; // ±30 degrees variation
+            const angleVariation = (Random.random() - 0.5) * Math.PI / 3; // ±30 degrees variation
             const angle = baseAngle + angleVariation;
             
             // Randomize speed slightly
-            const speed = 10 + Math.random() * 20; // 40-70 pixels
+            const speed = 10 + Random.random() * 20; // 40-70 pixels
             
             this.scene.tweens.add({
                 targets: particle,
@@ -940,7 +941,7 @@ export default class WormBase {
                 y: y + Math.sin(angle) * speed,
                 alpha: 0,
                 scale: 0.5,
-                duration: 50 + Math.random() * 100, // 250-350ms
+                duration: 50 + Random.random() * 100, // 250-350ms
                 ease: 'Power2',
                 onComplete: () => {
                     particle.destroy();

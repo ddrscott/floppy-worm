@@ -1,4 +1,5 @@
 import PlatformBase from './PlatformBase.js';
+import Random from '../utils/Random.js';
 
 export default class FirePlatform extends PlatformBase {
     constructor(scene, x, y, width, height, config = {}) {
@@ -98,7 +99,7 @@ export default class FirePlatform extends PlatformBase {
         this.fireTimer = this.scene.time.addEvent({
             delay: 100,
             callback: () => {
-                this.fireIntensity = this.baseIntensity + (Math.random() - 0.5) * 0.3;
+                this.fireIntensity = this.baseIntensity + (Random.random() - 0.5) * 0.3;
                 this.fireIntensity = Math.max(0.1, Math.min(1.0, this.fireIntensity));
                 this.updateFireVisuals();
             },
@@ -160,7 +161,7 @@ export default class FirePlatform extends PlatformBase {
         
         // Apply initial burn force (upward thrust)
         this.scene.matter.body.applyForce(segment, segment.position, {
-            x: (Math.random() - 0.5) * this.burnForce,
+            x: (Random.random() - 0.5) * this.burnForce,
             y: -this.burnForce * 2
         });
         
@@ -220,7 +221,7 @@ export default class FirePlatform extends PlatformBase {
         
         // Apply continuous burn force
         const burnDirection = {
-            x: (Math.random() - 0.5) * this.burnForce * 0.5,
+            x: (Random.random() - 0.5) * this.burnForce * 0.5,
             y: -this.burnForce * 0.5
         };
         

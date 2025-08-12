@@ -3,6 +3,7 @@ import { loadMapMetadata, createMapScene, getMapKeys } from './maps/MapDataRegis
 import MapLoader from '../services/MapLoader';
 import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
+import Random from '../utils/Random';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -19,6 +20,9 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     init() {
+        // Reset random seed for consistent behavior
+        Random.setSeed(12345); // Fixed seed for menu scene
+        
         // Reset state on scene init (called before preload)
         this.selectedMapIndex = -1;
         this.isFocused = false;
