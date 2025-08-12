@@ -110,22 +110,12 @@ export default function RecordingsIndex() {
                 {/* Header */}
                 <div className="flex justify-between items-center mb-8 sticky top-0 bg-gray-900 z-10 pb-4">
                     <h1 className="text-4xl font-bold">Ghost Recordings</h1>
-                    <div className="flex gap-4">
-                        <Link 
-                            to="/" 
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                        >
-                            Back to Game
-                        </Link>
-                        {recordings.length > 0 && (
-                            <button 
-                                onClick={handleDeleteAll}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition-colors"
-                            >
-                                Delete {selectedMap ? 'Map' : 'All'} Recordings
-                            </button>
-                        )}
-                    </div>
+                    <Link 
+                        to="/" 
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                    >
+                        Back to Game
+                    </Link>
                 </div>
 
                 {storageInfo && (
@@ -239,6 +229,24 @@ export default function RecordingsIndex() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+                
+                {/* Delete All Button - Moved to bottom for safety */}
+                {recordings.length > 0 && (
+                    <div className="mt-12 pt-8 border-t border-gray-700">
+                        <div className="flex flex-col items-center gap-4">
+                            <p className="text-gray-400 text-sm">Danger Zone</p>
+                            <button 
+                                onClick={handleDeleteAll}
+                                className="px-6 py-3 bg-red-900 hover:bg-red-800 border-2 border-red-600 rounded transition-colors"
+                            >
+                                🗑️ Delete {selectedMap ? `All ${selectedMap}` : 'ALL'} Recordings
+                            </button>
+                            <p className="text-gray-500 text-xs max-w-md text-center">
+                                This will permanently delete {selectedMap ? `all recordings for ${selectedMap}` : 'all your recordings'}. This action cannot be undone.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>
