@@ -1,41 +1,6 @@
 import JsonMapBase from '/src/scenes/JsonMapBase';
 import DoubleWorm from '/src/entities/DoubleWorm';
-
-// Import all map data files statically
-import Map001Data from '/src/scenes/maps/data/Map001.json';
-import Map002Data from '/src/scenes/maps/data/Map002.json';
-import Map003Data from '/src/scenes/maps/data/Map003.json';
-import Map004Data from '/src/scenes/maps/data/Map004.json';
-import SwingData from '/src/scenes/maps/data/Swing.json';
-import TowerData from '/src/scenes/maps/data/Tower.json';
-import MiniTowerData from '/src/scenes/maps/data/Mini-Tower-005.json';
-import TryAnglesData from '/src/scenes/maps/data/Try-angles.json';
-import ElectricData from '/src/scenes/maps/data/Electric-Slide.json';
-import ElectricEzData from '/src/scenes/maps/data/Electric-Slide-EZ.json';
-import MorganData from '/src/scenes/maps/data/Morgan.json';
-import PendulumData from '/src/scenes/maps/data/Pendulum-Test.json';
-import BlackholeData from '/src/scenes/maps/data/blackhole-test.json';
-import SimpleMovesData from '/src/scenes/maps/data/simple-moves.json';
-import SlopeRunData from '/src/scenes/maps/data/Slope-Run.json';
-
-// Static map registry
-const STATIC_MAP_REGISTRY: Record<string, any> = {
-    'Map001': Map001Data,
-    'Map002': Map002Data,
-    'Map003': Map003Data,
-    'Map004': Map004Data,
-    'Swing': SwingData,
-    'Tower': TowerData,
-    'Mini-Tower-005': MiniTowerData,
-    'Try-angles': TryAnglesData,
-    'Electric-Slide': ElectricData,
-    'Electric-Slide-EZ': ElectricEzData,
-    'Morgan': MorganData,
-    'Pendulum-Test': PendulumData,
-    'blackhole-test': BlackholeData,
-    'simple-moves': SimpleMovesData,
-    'Slope-Run': SlopeRunData
-};
+import { loadMapDataSync } from '/src/scenes/maps/MapDataRegistry';
 
 /**
  * PlaybackScene extends JsonMapBase to provide recording playback functionality
@@ -89,14 +54,13 @@ export default class PlaybackScene extends JsonMapBase {
         if (this.recording && this.recording.mapKey) {
             this.mapKey = this.recording.mapKey;
             
-            // Load map data immediately in init
-            const cleanMapKey = this.recording.mapKey.replace(/\.json$/i, '');
-            this.mapData = STATIC_MAP_REGISTRY[cleanMapKey];
+            // Load map data synchronously from the registry
+            this.mapData = loadMapDataSync(this.recording.mapKey);
             
             if (this.mapData) {
-                console.log('Init: Loaded map data for', cleanMapKey, 'with', this.mapData.platforms?.length, 'platforms');
+                console.log('Init: Loaded map data for', this.recording.mapKey, 'with', this.mapData.platforms?.length, 'platforms');
             } else {
-                console.error('Init: Map not found in static registry:', cleanMapKey);
+                console.error('Init: Map not found:', this.recording.mapKey);
             }
         }
         
@@ -111,7 +75,7 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     preload() {
-        // MapData should already be loaded in init
+        // Map data should already be loaded synchronously in init
         console.log('Preload: mapData status:', {
             hasMapData: !!this.mapData,
             platformCount: this.mapData?.platforms?.length || 0,

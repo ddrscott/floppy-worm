@@ -38,7 +38,7 @@ export default class MapLoader {
         // Try loading from static registry (for built-in maps or when API unavailable)
         try {
             const { loadMapData } = await import('../scenes/maps/MapDataRegistry');
-            const mapData = await loadMapData(cleanMapKey);
+            const mapData = loadMapData(cleanMapKey);
             if (mapData) {
                 console.log(`Loaded map "${cleanMapKey}" from registry${!hasAPI ? ' (static build)' : ''}`);
                 return mapData;

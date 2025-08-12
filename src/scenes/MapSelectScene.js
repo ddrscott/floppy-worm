@@ -29,7 +29,7 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     async loadMapsFromDataRegistry() {
-        const maps = await loadMapMetadata();
+        const maps = loadMapMetadata();
         
         // Preload all maps using the unified loader
         for (const map of maps) {

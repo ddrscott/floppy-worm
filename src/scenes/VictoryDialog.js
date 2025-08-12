@@ -112,7 +112,7 @@ export default class VictoryDialog extends Phaser.Scene {
         
         // Get next level info
         const { getMapKeys } = await import('./maps/MapDataRegistry');
-        const mapKeys = await getMapKeys();
+        const mapKeys = getMapKeys();
         const currentIndex = mapKeys.indexOf(this.mapKey);
         const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
         const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
