@@ -83,6 +83,11 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                     autoRound: true,
                     autoCenter: Phaser.Scale.CENTER_BOTH,
                     backgroundColor: '#333333',
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        expandedParent: true, // Ensure this matches your HTML element ID
+    },
                     physics: {
                         default: 'matter',
                         matter: {
