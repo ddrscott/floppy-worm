@@ -369,13 +369,21 @@ export default class JsonMapBase extends Phaser.Scene {
         // Set up controls
         this.setupControls();
         
-        // Initialize ghost system
-        this.initializeGhostSystem();
-        
-        // Start the timer
-        if (this.stopwatch) {
-            this.stopwatch.start();
-        }
+        // Initialize ghost system and start timer after it's loaded
+        this.initializeGhostSystem().then(() => {
+            // Start the timer and ghost
+            if (this.stopwatch) {
+                this.stopwatch.start();
+                
+                // Start ghost playback if loaded
+                if (this.ghostPlayer && this.ghostPlayer.frames.length > 0) {
+                    console.log('Starting ghost player with', this.ghostPlayer.frames.length, 'frames');
+                    this.ghostPlayer.start();
+                } else {
+                    console.log('Ghost not started - player:', !!this.ghostPlayer, 'frames:', this.ghostPlayer?.frames?.length);
+                }
+            }
+        });
     }
 
 
@@ -1440,7 +1448,7 @@ export default class JsonMapBase extends Phaser.Scene {
         }
         
         // Update ghost playback
-        if (this.ghostPlayer && this.ghostPlayer.isPlaying && this.stopwatch) {
+        if (this.ghostPlayer && this.stopwatch) {
             this.ghostPlayer.update(this.stopwatch.elapsedTime);
         }
         
@@ -1619,7 +1627,7 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
-    victory() {
+    async victory() {
         // Set victory flag to handle input differently (from BaseLevelScene)
         this.victoryAchieved = true;
         
@@ -1628,12 +1636,22 @@ export default class JsonMapBase extends Phaser.Scene {
             const completionTime = this.stopwatch.stop();
 
             const elapsedTime = this.stopwatch.elapsedTime;
-            this.saveRecordingToIndexedDB(true, elapsedTime);
+            
+            // Get recording data ONCE
+            if (this.ghostRecorder && this.ghostRecorder.isRecording) {
+                this.ghostRecorder.stopRecording();
+            }
+            const recordingData = this.ghostRecorder ? await this.ghostRecorder.getRecordingData() : null;
+            
+            // Save to IndexedDB (all recordings)
+            if (recordingData) {
+                await this.saveRecordingToIndexedDBWithData(true, elapsedTime, null, recordingData);
+            }
         
             this.saveBestTime(completionTime);
             
-            // Save ghost BEFORE showing UI or destroying worm
-            this.saveGhostIfBest(completionTime);
+            // Save ghost if best (localStorage)
+            await this.saveGhostIfBest(completionTime, recordingData);
         }
         
         // NOW clean up worm after screenshot is taken
@@ -1668,11 +1686,23 @@ export default class JsonMapBase extends Phaser.Scene {
         // Try to load existing ghost
         const ghostData = await this.ghostStorage.loadGhost(this.mapKey, this.mapData);
         if (ghostData) {
-            this.ghostPlayer = new GhostPlayer(this, ghostData.segmentCount);
-            await this.ghostPlayer.loadGhostData(ghostData);
-            this.ghostPlayer.start();
+            console.log('Ghost data loaded:', {
+                segmentCount: ghostData.segmentCount,
+                frameCount: ghostData.frameCount,
+                duration: ghostData.duration,
+                completionTime: ghostData.completionTime,
+                dataLength: ghostData.data?.length
+            });
+            const segmentCount = ghostData.segmentCount || 12; // Default to 12 if missing
+            this.ghostPlayer = new GhostPlayer(this, segmentCount);
+            const loaded = await this.ghostPlayer.loadGhostData(ghostData);
+            // Don't start the ghost yet - wait for stopwatch to start
             
-            console.log(`Loaded ghost with time: ${this.formatTime(ghostData.completionTime)}`);
+            if (loaded) {
+                console.log(`Ghost loaded successfully with ${this.ghostPlayer.frames.length} frames, time: ${this.formatTime(ghostData.completionTime)}`);
+            } else {
+                console.error('Failed to load ghost data into player');
+            }
             
             // Create ghost indicator UI
             this.createGhostIndicator(ghostData.completionTime);
@@ -1720,6 +1750,96 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
+    async saveRecordingToIndexedDBWithData(success, completionTime = null, deathReason = null, recordingData = null) {
+        console.log('🎬 saveRecordingToIndexedDBWithData called:', {
+            success,
+            completionTime,
+            deathReason,
+            mapKey: this.mapKey,
+            hasRecorder: !!this.ghostRecorder,
+            hasDb: !!this.recordingDb,
+            hasRecordingData: !!recordingData
+        });
+        
+        if (!this.recordingDb) {
+            console.warn('Missing recording database');
+            return;
+        }
+        
+        // Capture screenshot BEFORE any other operations
+        const screenshot = this.captureScreenshot();
+        console.log('📸 Screenshot captured:', screenshot ? `success (${screenshot.length} bytes)` : 'failed');
+        
+        // Use provided recording data or get it from recorder
+        if (!recordingData && this.ghostRecorder) {
+            // Only stop and get data if not already provided
+            if (this.ghostRecorder.isRecording) {
+                this.ghostRecorder.stopRecording();
+            }
+            recordingData = await this.ghostRecorder.getRecordingData();
+        }
+        
+        if (!recordingData) {
+            console.warn('No recording data available');
+            return;
+        }
+        
+        console.log('📹 Recording data obtained:', {
+            frameCount: recordingData.frameCount,
+            duration: recordingData.duration,
+            dataLength: recordingData.data?.length
+        });
+        
+        // Prepare recording data for IndexedDB
+        const dbRecordingData = {
+            mapKey: this.mapKey,
+            mapTitle: this.sceneTitle || this.mapKey,
+            success: success,
+            completionTime: completionTime,
+            deathReason: deathReason,
+            timestamp: new Date().toISOString(),
+            duration: recordingData.duration,
+            frameCount: recordingData.frameCount,
+            segmentCount: recordingData.segmentCount,
+            compression: recordingData.compression,
+            encoding: recordingData.encoding,
+            data: recordingData.data,
+            screenshot: screenshot
+        };
+        
+        console.log('💾 Attempting to save to IndexedDB:', {
+            mapKey: this.mapKey,
+            success: success,
+            deathReason: deathReason,
+            screenshotSize: screenshot ? screenshot.length : 0
+        });
+        
+        try {
+            const recordingId = await this.recordingDb.saveRecording(dbRecordingData);
+            console.log(`✅ Recording saved to IndexedDB with ID: ${recordingId}`);
+            
+            // Show confirmation
+            const text = this.add.text(this.scale.width / 2, 100, 
+                success ? '📹 Victory saved!' : '💀 Death saved!', {
+                fontSize: '24px',
+                color: success ? '#4ecdc4' : '#e74c3c',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                y: 50,
+                duration: 2000,
+                ease: 'Power2',
+                onComplete: () => text.destroy()
+            });
+        } catch (error) {
+            console.error('Failed to save recording to IndexedDB:', error);
+        }
+    }
+    
     async saveRecordingToIndexedDB(success, completionTime = null, deathReason = null) {
         console.log('🎬 saveRecordingToIndexedDB called:', {
             success,
@@ -1743,7 +1863,9 @@ export default class JsonMapBase extends Phaser.Scene {
         console.log('📸 Screenshot captured:', screenshot ? `success (${screenshot.length} bytes)` : 'failed');
         
         // Now stop recording and get data
-        this.ghostRecorder.stopRecording();
+        if (this.ghostRecorder.isRecording) {
+            this.ghostRecorder.stopRecording();
+        }
         const recordingData = await this.ghostRecorder.getRecordingData();
         
         if (!recordingData) {
@@ -1814,7 +1936,7 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
-    async saveGhostIfBest(completionTime) {
+    async saveGhostIfBest(completionTime, recordingData = null) {
         if (!this.ghostRecorder || !this.ghostStorage) {
             return;
         }
@@ -1824,9 +1946,14 @@ export default class JsonMapBase extends Phaser.Scene {
             return;
         }
         
-        // Stop recording and get data
-        this.ghostRecorder.stopRecording();
-        const recordingData = await this.ghostRecorder.getRecordingData();
+        // Use provided recording data or get it from recorder
+        if (!recordingData) {
+            // Only stop and get data if not already provided
+            if (this.ghostRecorder.isRecording) {
+                this.ghostRecorder.stopRecording();
+            }
+            recordingData = await this.ghostRecorder.getRecordingData();
+        }
         
         if (recordingData) {
             await this.ghostStorage.saveGhost(

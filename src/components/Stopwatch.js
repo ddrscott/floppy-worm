@@ -46,7 +46,9 @@ export default class Stopwatch {
     
     start() {
         if (!this.isRunning) {
-            this.startTime = Date.now() - this.elapsedTime;
+            // Reset elapsed time when starting fresh
+            this.elapsedTime = 0;
+            this.startTime = Date.now();
             this.isRunning = true;
         }
     }

@@ -59,10 +59,24 @@ export default class GhostPlayer {
     }
     
     // Decode binary frames
-    decodeFrames(buffer, frameCount) {
+    decodeFrames(buffer, frameCount, encoding = 'binary-v1') {
         const view = new DataView(buffer);
         const frames = [];
-        const bytesPerFrame = 4 + (this.segmentCount * 8);
+        
+        // Determine bytes per frame based on encoding version
+        const hasInputData = encoding === 'binary-v2';
+        const inputBytesPerFrame = hasInputData ? 24 : 0; // 6 floats * 4 bytes
+        const bytesPerFrame = 4 + (this.segmentCount * 8) + inputBytesPerFrame;
+        
+        console.log('Decoding frames:', {
+            frameCount,
+            segmentCount: this.segmentCount,
+            encoding,
+            hasInputData,
+            bytesPerFrame,
+            bufferSize: buffer.byteLength,
+            expectedSize: frameCount * bytesPerFrame
+        });
         
         let offset = 0;
         for (let i = 0; i < frameCount; i++) {
@@ -80,8 +94,15 @@ export default class GhostPlayer {
                 segments.push({ x, y });
             }
             
+            // Skip input data if present (we don't need it for ghost playback)
+            if (hasInputData) {
+                offset += 24; // Skip 6 floats (left stick x/y, right stick x/y, triggers l/r)
+            }
+            
             frames.push({ timestamp, segments });
         }
+        
+        console.log(`Decoded ${frames.length} frames, first timestamp: ${frames[0]?.timestamp}, last timestamp: ${frames[frames.length-1]?.timestamp}`);
         
         return frames;
     }
@@ -100,12 +121,17 @@ export default class GhostPlayer {
                 ghostData.compression
             );
             
-            this.frames = this.decodeFrames(decompressedBuffer, ghostData.frameCount);
+            this.frames = this.decodeFrames(decompressedBuffer, ghostData.frameCount, ghostData.encoding);
             this.completionTime = ghostData.duration;
             this.currentFrameIndex = 0;
             
             // Create ghost visual segments
             this.createGhostSegments();
+            
+            // Position segments at first frame
+            if (this.frames.length > 0 && this.frames[0].segments) {
+                this.updateSegmentPositions(this.frames[0].segments);
+            }
             
             return true;
         } catch (error) {
@@ -159,6 +185,12 @@ export default class GhostPlayer {
         
         this.isPlaying = true;
         this.currentFrameIndex = 0;
+        
+        // Position ghost at first frame
+        const firstFrame = this.frames[0];
+        if (firstFrame && firstFrame.segments) {
+            this.updateSegmentPositions(firstFrame.segments);
+        }
     }
     
     stop() {
@@ -234,6 +266,7 @@ export default class GhostPlayer {
                 this.ghostSegments[i].setVisible(this.visible);
             }
         });
+        
     }
     
     hideSegments() {
