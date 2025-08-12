@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getCachedBuildMode } from '../utils/buildMode';
+import MapLoader from '../services/MapLoader';
 
 /**
  * Victory dialog scene for both static and server modes
@@ -135,10 +136,20 @@ export default class VictoryDialog extends Phaser.Scene {
         
         // Next Level button - only if there's a next level
         if (hasNext) {
-            this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, () => {
+            this.createButton(buttonX, centerY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, async () => {
                 this.close();
                 this.gameScene.scene.stop();
-                this.gameScene.scene.start(nextMapKey);
+                
+                // Use MapLoader to properly load and start the next map
+                try {
+                    await MapLoader.loadAndStart(this, nextMapKey, {
+                        returnScene: 'MapSelectScene'
+                    });
+                } catch (error) {
+                    console.error('Failed to load next map:', error);
+                    // Fallback to map select screen on error
+                    this.scene.start('MapSelectScene');
+                }
             });
             buttonX += buttonWidth + spacing;
         }
