@@ -13,7 +13,8 @@ export default defineConfig({
         tsconfigPaths()
     ],
     server: {
-        port: 3001
+        port: 3001,
+        allowedHosts: true,
     },
     optimizeDeps: {
         include: ["phaser", "dat.gui"],
