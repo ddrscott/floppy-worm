@@ -366,7 +366,7 @@ export default class WormBase {
             const minVelocity = 2;   // Minimum velocity for audible sound
             const maxVelocity = 25;  // Velocity for maximum volume
             const minVolume = 0.1;
-            const maxVolume = 0.9;
+            const maxVolume = 0.4;
             
             // Calculate base volume from velocity
             const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
@@ -395,7 +395,7 @@ export default class WormBase {
             const minVelocity = 1;
             const maxVelocity = 20;
             const minVolume = 0.15;
-            const maxVolume = 0.25;
+            const maxVolume = 0.4;
             
             // Calculate base volume from velocity
             const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
