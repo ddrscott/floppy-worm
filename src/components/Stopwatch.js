@@ -11,6 +11,7 @@ export default class Stopwatch {
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: { x: 10, y: 5 },
             showBestTime: true,
+            onPause: null,  // Callback for when pause is triggered
             ...options
         };
         
@@ -23,13 +24,21 @@ export default class Stopwatch {
     }
     
     create() {
-        // Create timer display
-        this.timerText = this.scene.add.text(this.x, this.y, this.formatTime(0), {
+        // Create timer display with pause icon
+        this.timerText = this.scene.add.text(this.x, this.y, '⏸ ' + this.formatTime(0), {
             fontSize: this.options.fontSize,
             color: this.options.color,
             backgroundColor: this.options.backgroundColor,
             padding: this.options.padding
         }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
+        
+        // Make timer clickable for pause
+        this.timerText.setInteractive({ useHandCursor: true });
+        this.timerText.on('pointerdown', () => {
+            if (this.options.onPause) {
+                this.options.onPause();
+            }
+        });
         
         // Create best time display if enabled
         if (this.options.showBestTime) {
@@ -77,7 +86,7 @@ export default class Stopwatch {
     
     updateDisplay() {
         if (this.timerText) {
-            this.timerText.setText(this.formatTime(this.elapsedTime));
+            this.timerText.setText('⏸ ' + this.formatTime(this.elapsedTime));
         }
     }
     

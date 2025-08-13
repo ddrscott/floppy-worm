@@ -643,6 +643,7 @@ export default class WormBase {
                     const segmentVelocity = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
                     
                     // Play sound effect when constraint is created with velocity-based volume
+                    // FIXME this is too slow on mobile
                     this.playConstraintStartSound(segmentVelocity);
                 }
             }
@@ -682,7 +683,8 @@ export default class WormBase {
                 this.surfaceConstraints.delete(segment);
                 
                 // Play sound effect when constraint is removed with velocity-based volume
-                this.playConstraintEndSound(segmentVelocity);
+                // FIXME this is too slow on mobile
+                // this.playConstraintEndSound(segmentVelocity);
             }
             
             // Clear collision data
@@ -758,7 +760,8 @@ export default class WormBase {
             // Play sound effect when constraint breaks due to overstretching
             // Use the stretch distance as a proxy for break intensity
             const breakIntensity = Math.min(30, distance * 2); // Scale distance to velocity-like range
-            this.playConstraintEndSound(breakIntensity);
+            // FIXME this is too slow on mobile
+            // this.playConstraintEndSound(breakIntensity);
             
             // Also clear collision data for this segment
             const segmentIndex = this.segments.indexOf(segment);

@@ -19,11 +19,11 @@ export default class TouchControlsOverlay {
         this.menuButtonCallback = config.onMenuPress || null;
         this.config = {
             // Layout config
-            joystickRadius: 60,
+            joystickRadius: 90,
             joystickKnobRadius: 15,
             buttonSize: 36,
-            opacity: 0.4,
-            activeOpacity: 0.7,
+            opacity: 0.3,
+            activeOpacity: 0.15,
             
             // Colors - match worm head/tail colors
             leftJoystickColor: 0xff6b6b,    // Head color (red)
@@ -39,7 +39,6 @@ export default class TouchControlsOverlay {
             
             // Positioning (pixels from edges)
             padding: 10, // Default padding from screen edges
-            joystickBottomOffset: 100, // Distance from bottom for joysticks
             
             // Button stacking above joysticks
             buttonStackSpacing: 10, // Space between stacked buttons
@@ -72,7 +71,7 @@ export default class TouchControlsOverlay {
         };
         
         // Graphics containers
-        this.container = null;
+        this.layer = null;  // Using Phaser layer instead of container
         this.joysticks = {};
         this.buttons = {};
         
@@ -88,10 +87,11 @@ export default class TouchControlsOverlay {
         // Add extra pointers for multitouch (supports up to 10 simultaneous touches)
         this.scene.input.addPointer(9);
         
-        // Create main container at high depth
-        this.container = this.scene.add.container(0, 0);
-        this.container.setDepth(9999);
-        this.container.setScrollFactor(0);
+        // Create a layer for all touch controls
+        // Layer automatically manages depth for all its children
+        this.layer = this.scene.add.layer();
+        // Set to very high depth - higher than minimap border (1001)
+        this.layer.setDepth(10000);
         
         // Create joysticks
         this.createJoystick('left');
@@ -102,8 +102,7 @@ export default class TouchControlsOverlay {
         this.createButton('rightShoulder', 'RB');
         // this.createButton('roll', 'ROLL');
         
-        // Create menu button (hamburger icon)
-        this.createMenuButton();
+        // Don't create menu button here - it will be added by the game scene
         
         // Update positions on resize
         this.scene.scale.on('resize', this.updatePositions, this);
@@ -131,6 +130,8 @@ export default class TouchControlsOverlay {
             this.config.opacity
         );
         base.setStrokeStyle(2, baseColor);
+        base.setAlpha(this.config.opacity);
+        base.setScrollFactor(0);
         
         // Create joystick knob
         const knob = this.scene.add.circle(
@@ -139,21 +140,21 @@ export default class TouchControlsOverlay {
             knobColor,
             this.config.opacity
         );
-        base.setAlpha(this.config.opacity);
         knob.setAlpha(this.config.opacity);
+        knob.setScrollFactor(0);
         
-        // Create container for this joystick
-        const joystickContainer = this.scene.add.container(0, 0, [base, knob]);
-        this.container.add(joystickContainer);
+        // Add to layer instead of container
+        this.layer.add([base, knob]);
         
         // Store references
         this.joysticks[side] = {
-            container: joystickContainer,
             base: base,
             knob: knob,
             side: side,
             worldX: 0,
-            worldY: 0
+            worldY: 0,
+            baseX: 0,  // Store base position separately
+            baseY: 0
         };
     }
     
@@ -180,6 +181,8 @@ export default class TouchControlsOverlay {
             this.config.opacity
         );
         button.setStrokeStyle(2, buttonColor);
+        button.setAlpha(this.config.opacity);
+        button.setScrollFactor(0);
         
         // Add label
         const text = this.scene.add.text(0, 0, label, {
@@ -188,14 +191,12 @@ export default class TouchControlsOverlay {
             align: 'center'
         });
         text.setOrigin(0.5);
+        text.setScrollFactor(0);
         
-        // Create container
-        const buttonContainer = this.scene.add.container(0, 0, [button, text]);
-        this.container.add(buttonContainer);
-        button.setAlpha(this.config.opacity);
+        // Add to layer
+        this.layer.add([button, text]);
         // Store reference
         this.buttons[id] = {
-            container: buttonContainer,
             button: button,
             text: text,
             id: id,
@@ -208,75 +209,30 @@ export default class TouchControlsOverlay {
         };
     }
     
-    createMenuButton() {
-        // Create menu button with hamburger icon
-        const buttonSize = 30; // Slightly smaller than other buttons
-        const buttonColor = 0x666666; // Gray color
-        const buttonActiveColor = 0x999999;
-        
-        // Create button circle
-        const button = this.scene.add.circle(
-            0, 0,
-            buttonSize,
-            buttonColor,
-            this.config.opacity
-        );
-        button.setStrokeStyle(2, buttonColor);
-        
-        // Create hamburger icon (three horizontal lines)
-        const graphics = this.scene.add.graphics();
-        graphics.lineStyle(3, 0xffffff);
-        const lineWidth = 16;
-        const lineSpacing = 5;
-        
-        // Draw three horizontal lines
-        graphics.moveTo(-lineWidth/2, -lineSpacing);
-        graphics.lineTo(lineWidth/2, -lineSpacing);
-        
-        graphics.moveTo(-lineWidth/2, 0);
-        graphics.lineTo(lineWidth/2, 0);
-        
-        graphics.moveTo(-lineWidth/2, lineSpacing);
-        graphics.lineTo(lineWidth/2, lineSpacing);
-        
-        graphics.strokePath();
-        
-        // Create container
-        const buttonContainer = this.scene.add.container(0, 0, [button, graphics]);
-        this.container.add(buttonContainer);
-        button.setAlpha(this.config.opacity);
-        
-        // Store reference
-        this.buttons['menu'] = {
-            container: buttonContainer,
-            button: button,
-            graphics: graphics,
-            id: 'menu',
-            worldX: 0,
-            worldY: 0,
-            radius: buttonSize,
-            pointerId: 0,
-            buttonColor: buttonColor,
-            buttonActiveColor: buttonActiveColor
-        };
-    }
+    // Menu button creation removed - now handled by the game scene
     
     updatePositions() {
         const { width, height } = this.scene.scale;
-        const padding = this.config.padding;
+        const { padding } = this.config;
         
         // Position joysticks from bottom corners
-        const leftJoystickX = padding + this.config.joystickRadius * 1.125;
-        const rightJoystickX = width - padding - this.config.joystickRadius * 1.125;
-        const joystickY = height - padding - this.config.joystickRadius * 1.125;
+        const leftJoystickX = padding + this.config.joystickRadius * 1;
+        const rightJoystickX = width - padding - this.config.joystickRadius * 1;
+        const joystickY = height - padding - this.config.joystickRadius * 1;
         
         Object.entries(this.joysticks).forEach(([side, joystick]) => {
             const x = side === 'left' ? leftJoystickX : rightJoystickX;
             const y = joystickY;
             
-            joystick.container.setPosition(x, y);
+            // Position base and knob
+            joystick.base.setPosition(x, y);
+            joystick.knob.setPosition(x, y);  // Knob starts at center
+            
+            // Store positions
             joystick.worldX = x;
             joystick.worldY = y;
+            joystick.baseX = x;
+            joystick.baseY = y;
         });
         
         // Position buttons stacked above joysticks
@@ -297,14 +253,16 @@ export default class TouchControlsOverlay {
                     x = width / 2;
                     y = this.config.rollButtonTopOffset;
                     break;
-                case 'menu':
-                    // Position in top-left corner (avoids minimap in top-right)
-                    x = padding + 30; // 30 is the menu button radius
-                    y = padding + 30;
-                    break;
             }
             
-            button.container.setPosition(x, y);
+            // Position button and text
+            button.button.setPosition(x, y);
+            if (button.text) {
+                button.text.setPosition(x, y);
+            }
+            if (button.graphics) {
+                button.graphics.setPosition(x, y);
+            }
             button.worldX = x;
             button.worldY = y;
         });
@@ -339,7 +297,7 @@ export default class TouchControlsOverlay {
     updateJoystick(side, pointers) {
         const joystick = this.joysticks[side];
         const state = this.joystickStates[side];
-        const { base, knob, worldX, worldY } = joystick;
+        const { base, knob, baseX, baseY, worldX, worldY } = joystick;
         
         // Check if we already have an active pointer for this joystick
         if (state.pointerId > 0) {
@@ -413,8 +371,8 @@ export default class TouchControlsOverlay {
             knobY = (dy / distance) * limitedDistance;
         }
         
-        // Update knob position
-        knob.setPosition(knobX, knobY);
+        // Update knob position (relative to base position)
+        knob.setPosition(joystick.baseX + knobX, joystick.baseY + knobY);
         
         // Update state with normalized values (-1 to 1)
         state.x = knobX / this.config.joystickRadius;
@@ -445,7 +403,7 @@ export default class TouchControlsOverlay {
         const { base, knob } = joystick;
         
         // Reset visual state
-        knob.setPosition(0, 0);
+        knob.setPosition(joystick.baseX, joystick.baseY);  // Return to base center
         base.setAlpha(this.config.opacity);
         knob.setAlpha(this.config.opacity);
         
@@ -541,23 +499,10 @@ export default class TouchControlsOverlay {
                 // Just pressed
                 button.button.setFillStyle(button.buttonActiveColor, this.config.activeOpacity);
                 button.button.setScale(0.9);
-                // Debug log for menu button
-                if (id === 'menu') {
-                    console.log('TouchControlsOverlay: Menu button pressed');
-                    // Directly call the menu callback if provided
-                    if (this.menuButtonCallback) {
-                        console.log('TouchControlsOverlay: Calling menu callback');
-                        this.menuButtonCallback();
-                    }
-                }
             } else if (!isPressed && wasPressed) {
                 // Just released
                 button.button.setFillStyle(button.buttonColor, this.config.opacity);
                 button.button.setScale(1);
-                // Debug log for menu button
-                if (id === 'menu') {
-                    console.log('TouchControlsOverlay: Menu button released');
-                }
             }
         });
     }
@@ -577,8 +522,8 @@ export default class TouchControlsOverlay {
      * Show/hide controls
      */
     setVisible(visible) {
-        if (this.container) {
-            this.container.setVisible(visible);
+        if (this.layer) {
+            this.layer.setVisible(visible);
         }
     }
     
@@ -586,8 +531,8 @@ export default class TouchControlsOverlay {
      * Clean up
      */
     destroy() {
-        if (this.container) {
-            this.container.destroy();
+        if (this.layer) {
+            this.layer.destroy();
         }
         
         // Remove event listeners

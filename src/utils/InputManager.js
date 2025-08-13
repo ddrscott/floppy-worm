@@ -295,11 +295,6 @@ export default class InputManager {
         if (this.touchControls) {
             const touchState = this.touchControls.getState();
             touchStick = stick === 'left' ? touchState.leftStick : touchState.rightStick;
-            
-            // Log touch input if active
-            if (touchStick.active) {
-                console.log(`InputManager: Touch ${stick} stick: (${touchStick.x?.toFixed(2)}, ${touchStick.y?.toFixed(2)})`);
-            }
         }
         
         // Use whichever has greatest magnitude
