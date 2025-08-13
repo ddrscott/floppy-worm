@@ -43,7 +43,7 @@ export default class JsonMapBase extends Phaser.Scene {
         // Scene configuration
         this.sceneTitle = config.title || this.mapData.metadata?.name || 'JSON Level';
         this.returnScene = config.returnScene || 'MapSelectScene';
-        this.mapKey = config.key || config.mapKey || 'unknown';
+        this.mapKey = config.mapKey || config.key || 'unknown';
         
         // Victory state tracking
         this.victoryAchieved = false;
@@ -833,7 +833,6 @@ export default class JsonMapBase extends Phaser.Scene {
             const graphics = this.add.graphics();
             const fillColor = parseInt(color.replace('#', '0x'));
             graphics.fillStyle(fillColor);
-            graphics.strokeStyle(2, 0x000000, 0.8);
             
             // Determine corner radius
             let cornerRadius;
@@ -1284,7 +1283,7 @@ export default class JsonMapBase extends Phaser.Scene {
         // Calculate zoom to fit entire level in mini-map
         const zoomX = this.miniMapConfig.width / this.levelWidth;
         const zoomY = this.miniMapConfig.height / levelHeight;
-        const zoom = Math.min(zoomX, zoomY) * 0.9;
+        const zoom = Math.min(zoomX, zoomY);
         
         this.minimap.setZoom(zoom);
         this.minimap.setBackgroundColor(0x2c3e50);

@@ -199,6 +199,7 @@ export default class DoubleWorm extends WormBase {
         // Activate default abilities
         this.movementAbility.activate();
         this.grabAbility.activate();
+        this.jumpAbility.activate();
     }
     
     setupStateMachineListeners() {

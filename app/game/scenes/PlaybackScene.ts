@@ -39,6 +39,10 @@ export default class PlaybackScene extends JsonMapBase {
         jumpArrows: Phaser.GameObjects.Graphics[]
     } | null = null;
     private currentInputState: any = null;
+    
+    // Error state
+    private mapLoadError: boolean = false;
+    private missingMapKey: string = '';
 
     constructor(config: any = {}) {
         // Set the scene key for Phaser
@@ -65,12 +69,15 @@ export default class PlaybackScene extends JsonMapBase {
             Random.setSeed(seed);
             
             // Load map data synchronously from the registry
-            this.mapData = loadMapDataSync(this.recording.mapKey);
+            this.mapData = loadMapDataSync(this.mapKey);
             
             if (this.mapData) {
-                console.log('Init: Loaded map data for', this.recording.mapKey, 'with', this.mapData.platforms?.length, 'platforms');
+                console.log('Init: Loaded map data for', this.mapKey, 'with', this.mapData.platforms?.length, 'platforms');
             } else {
-                console.error('Init: Map not found:', this.recording.mapKey);
+                console.error('Init: Map not found:', this.mapKey);
+                // Store error state for display in create()
+                this.mapLoadError = true;
+                this.missingMapKey = this.mapKey;
             }
         }
         
@@ -96,6 +103,75 @@ export default class PlaybackScene extends JsonMapBase {
     }
 
     async create() {
+        // Check for map load error
+        if (this.mapLoadError) {
+            // Display clear error message to user
+            const centerX = this.scale.width / 2;
+            const centerY = this.scale.height / 2;
+            
+            // Dark overlay
+            const overlay = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x000000, 0.8);
+            overlay.setOrigin(0, 0);
+            overlay.setScrollFactor(0);
+            overlay.setDepth(9999);
+            
+            // Error icon (X symbol)
+            const errorIcon = this.add.text(centerX, centerY - 80, '⚠️', {
+                fontSize: '64px'
+            });
+            errorIcon.setOrigin(0.5);
+            errorIcon.setScrollFactor(0);
+            errorIcon.setDepth(10000);
+            
+            // Error title
+            const errorTitle = this.add.text(centerX, centerY - 20, 'Recording Cannot Be Played', {
+                fontSize: '28px',
+                color: '#ff6b6b',
+                fontStyle: 'bold'
+            });
+            errorTitle.setOrigin(0.5);
+            errorTitle.setScrollFactor(0);
+            errorTitle.setDepth(10000);
+            
+            // Error message
+            const errorMsg = this.add.text(centerX, centerY + 20, 
+                `Map "${this.missingMapKey}" not found.\n\nThis recording is no longer valid because\nthe map file has been renamed or deleted.`,
+                {
+                    fontSize: '18px',
+                    color: '#ffffff',
+                    align: 'center',
+                    lineSpacing: 5
+                }
+            );
+            errorMsg.setOrigin(0.5);
+            errorMsg.setScrollFactor(0);
+            errorMsg.setDepth(10000);
+            
+            // Return button
+            const returnButton = this.add.text(centerX, centerY + 100, 'Press ESC to Return', {
+                fontSize: '20px',
+                color: '#4ecdc4',
+                backgroundColor: '#2c3e50',
+                padding: { x: 20, y: 10 }
+            });
+            returnButton.setOrigin(0.5);
+            returnButton.setScrollFactor(0);
+            returnButton.setDepth(10000);
+            returnButton.setInteractive({ useHandCursor: true });
+            
+            // Handle return
+            const handleReturn = () => {
+                this.scene.stop();
+                this.scene.start(this.returnScene);
+            };
+            
+            returnButton.on('pointerdown', handleReturn);
+            this.input.keyboard.on('keydown-ESC', handleReturn);
+            
+            // Don't continue with normal scene creation
+            return;
+        }
+        
         // Ensure map data is available before calling parent create
         if (!this.mapData) {
             console.error('No map data available for playback scene');

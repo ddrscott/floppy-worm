@@ -62,18 +62,22 @@ export default class MapLoader {
             returnScene = 'MapSelectScene',
             testMode = false,
             editorMode = false,
-            showDebug = false
+            showDebug = false,
+            mapKey = null  // Allow explicit mapKey to be passed
         } = options;
         
         // Dynamically import JsonMapBase to avoid circular dependency
         const { default: JsonMapBase } = await import('../scenes/JsonMapBase');
+        
+        // Extract clean mapKey - remove prefixes and ensure it's just the basename
+        const cleanMapKey = mapKey || sceneKey.replace(/^(test-|editor-)/, '');
         
         // Create a dynamic scene class that extends JsonMapBase
         class DynamicMapScene extends JsonMapBase {
             constructor() {
                 super({
                     key: sceneKey,
-                    mapKey: sceneKey.replace('test-', '').replace('editor-', ''),
+                    mapKey: cleanMapKey,  // Always use the clean map key
                     title: mapData.metadata?.name || sceneKey,
                     mapData: mapData,
                     returnScene: testMode || editorMode ? null : returnScene,
@@ -194,8 +198,8 @@ export default class MapLoader {
                 currentScene.scene.manager.remove(sceneKey);
             }
             
-            // Create and add the scene
-            const SceneClass = await this.createMapScene(sceneKey, mapData, options);
+            // Create and add the scene (pass mapKey explicitly)
+            const SceneClass = await this.createMapScene(sceneKey, mapData, { ...options, mapKey });
             currentScene.scene.manager.add(sceneKey, SceneClass, false);
             
             // Stop current scene and start the map
