@@ -563,7 +563,7 @@ export default class MapSelectScene extends Phaser.Scene {
         // Quick swish effect
         if (type === 'map') {
             // Navigation sound - quick swish
-            this.menuWhoosh.update(0.7, 0.6);
+            this.menuWhoosh.update(0.7, 0.7);
             this.time.delayedCall(50, () => {
                 if (this.menuWhoosh) {
                     this.menuWhoosh.update(0, 0);
@@ -571,16 +571,16 @@ export default class MapSelectScene extends Phaser.Scene {
             });
         } else if (type === 'category') {
             // Selection sound - stronger swish
-            this.menuWhoosh.update(0.7, 0.3);
-            this.time.delayedCall(100, () => {
+            this.menuWhoosh.update(0.7, 0.4);
+            this.time.delayedCall(150, () => {
                 if (this.menuWhoosh) {
                     this.menuWhoosh.update(0, 0);
                 }
             });
         } else if (type === 'select') {
             // Selection sound - stronger swish
-            this.menuWhoosh.update(0.9, 1.0);
-            this.time.delayedCall(100, () => {
+            this.menuWhoosh.update(0.7, 1.0);
+            this.time.delayedCall(200, () => {
                 if (this.menuWhoosh) {
                     this.menuWhoosh.update(0, 0);
                 }
