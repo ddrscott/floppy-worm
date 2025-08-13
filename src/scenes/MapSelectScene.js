@@ -1,32 +1,66 @@
 import Phaser from 'phaser';
-import { loadMapMetadata, createMapScene, getMapKeys } from './maps/MapDataRegistry';
+import { getCategories, loadMapData, createMapScene } from './maps/MapDataRegistry';
 import MapLoader from '../services/MapLoader';
 import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
+import WhooshSynthesizer from '../audio/WhooshSynthesizer';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
         super({ key: 'MapSelectScene' });
         
-        this.selectedMapIndex = -1; // Start with nothing selected
-        this.mapButtons = [];
-        this.maps = []; // Will be loaded in create()
-        this.isFocused = false; // Track if user has started navigating
-        this.stateManager = null; // Will be initialized in init()
-        this.scrollContainer = null; // Container for all scrollable content
-        this.currentScrollY = 0; // Track current scroll position
-        this.targetScrollY = 0; // Target scroll position for smooth scrolling
+        this.categories = [];
+        this.selectedCategoryIndex = 0;
+        this.selectedMapIndex = 0;
+        this.currentCategory = null;
+        this.currentMaps = [];
+        this.stateManager = null;
+        this.isTransitioning = false;
+        
+        // UI elements
+        this.mapCarousel = null;
+        this.mapCards = [];
+        this.leftArrow = null;
+        this.rightArrow = null;
+        this.upArrow = null;
+        this.downArrow = null;
+        this.categoryLabel = null;
+        this.categoryLabelAbove = null;
+        this.categoryLabelBelow = null;
+        
+        // Gamepad state tracking
+        this.upWasPressed = false;
+        this.downWasPressed = false;
+        this.leftWasPressed = false;
+        this.rightWasPressed = false;
+        this.aWasPressed = false;
+        this.bWasPressed = false;
+        
+        // Audio
+        this.menuWhoosh = null;
     }
     
     init() {
         // Reset random seed for consistent behavior
         Random.setSeed(12345); // Fixed seed for menu scene
         
-        // Reset state on scene init (called before preload)
-        this.selectedMapIndex = -1;
-        this.isFocused = false;
-        this.mapButtons = [];
+        // Reset state
+        this.selectedCategoryIndex = 0;
+        this.selectedMapIndex = 0;
+        this.isTransitioning = false;
+        this.mapCards = [];
+        
+        // Input cooldown to prevent catching input from previous scenes
+        this.inputCooldown = 250; // milliseconds
+        
+        // Reset gamepad state
+        this.upWasPressed = false;
+        this.downWasPressed = false;
+        this.leftWasPressed = false;
+        this.rightWasPressed = false;
+        this.aWasPressed = false;
+        this.bWasPressed = false;
         
         // Initialize state manager
         this.stateManager = GameStateManager.getFromScene(this);
@@ -35,20 +69,6 @@ export default class MapSelectScene extends Phaser.Scene {
         this.registry.events.on(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
     }
     
-    loadMapsFromDataRegistry() {
-        // loadMapMetadata is now synchronous
-        const maps = loadMapMetadata();
-        
-        // Preload map assets (textures, sounds, etc) if needed
-        // Note: Map data itself is already loaded via import.meta.glob
-        maps.forEach(map => {
-            // Any asset preloading can go here if needed
-            // For now, maps are loaded from the static registry
-        });
-        
-        return maps;
-    }
-
     async create() {
         // Reset transitioning flag
         this.isTransitioning = false;
@@ -60,296 +80,56 @@ export default class MapSelectScene extends Phaser.Scene {
         // Initialize keyboard controls
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
         
-        // Load maps instantly from static registry
-        this.maps = this.loadMapsFromDataRegistry();
+        // Clear any lingering keyboard state from previous scenes
+        this.input.keyboard.resetKeys();
         
-        // Ensure all maps have progress entries
-        const mapKeys = this.maps.map(map => map.key);
-        this.stateManager.ensureAllMapsHaveProgress(mapKeys);
+        // Initialize menu sound
+        this.menuWhoosh = new WhooshSynthesizer({
+            pitch: 1.3,
+            filterBase: 900,
+            resonance: 16.0,
+            lowBoost: 1,
+            reverb: 0.03,
+            swishFactor: 0.8
+        });
+        
+        // Load categories
+        this.categories = getCategories();
         
         // Responsive design detection
         const gameWidth = this.scale.width;
         const gameHeight = this.scale.height;
-        const isMobile = gameWidth < 600;
         const centerX = gameWidth / 2;
         
-        // Create background with grid
+        // Create background
         this.createBackground();
         
-        // Title with responsive sizing
-        const titleSize = isMobile ? '36px' : '48px';
-        this.add.text(centerX, 60, 'Floppy Worm', {
-            fontSize: titleSize,
-            color: '#4ecdc4',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
+        // Create stacked carousel
+        this.createStackedCarousel();
         
-        const subtitleSize = isMobile ? '20px' : '24px';
-        this.add.text(centerX, 110, 'Select a Map', {
-            fontSize: subtitleSize,
-            color: '#95a5a6',
-            fontStyle: 'italic'
-        }).setOrigin(0.5);
+        // Create UI buttons
+        this.createUIButtons();
         
-        // Create map selection grid
-        this.createMapGrid();
+        // Instructions
+        this.add.text(centerX, gameHeight - 30, 
+            'ARROWS/D-PAD: Navigate (↑↓ Category, ←→ Map) • ENTER/A: Play • ESC/B: Refresh', {
+            fontSize: '13px',
+            color: '#7f8c8d',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setDepth(100);
         
-        // Create UI elements
-        this.createUI();
-        
-        // Set up input (after grid is created)
-        this.setupInput();
+        // Load the first category
+        if (this.categories.length > 0) {
+            this.selectCategory(0);
+        }
         
         // Clean up events on shutdown
         this.events.once('shutdown', this.cleanup, this);
-        
-        if (!isMobile) {
-            this.add.text(centerX, gameHeight - 30, 
-                'ARROWS/WASD: Navigate • PAGE UP/DOWN: Jump rows • HOME/END: First/Last • ENTER/SPACE: Select • Mouse wheel: Scroll', {
-                fontSize: '13px',
-                color: '#7f8c8d',
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                padding: { x: 10, y: 5 }
-            }).setOrigin(0.5).setDepth(100);
-        } else {
-            this.add.text(centerX, gameHeight - 60, 'Tap to select • Swipe to scroll • ESC to refresh', {
-                fontSize: '12px',
-                color: '#7f8c8d',
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                padding: { x: 15, y: 8 }
-            }).setOrigin(0.5).setDepth(100);
-        }
-    }
-    
-    cleanup() {
-        // Remove event listeners
-        this.registry.events.off(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
-    }
-    
-    onProgressUpdated(progress) {
-        // Refresh the UI when progress is updated from another scene
-        // For now, just restart the scene for simplicity
-        // In a more sophisticated implementation, we'd update the UI directly
-        this.scene.restart();
-    }
-    
-    createMapGrid() {
-        // Create a container for all scrollable content
-        this.scrollContainer = this.add.container(0, 0);
-        
-        const startX = this.scale.width / 2 - 400; // Centered with padding
-        const startY = 220;
-        const buttonWidth = 240;
-        const buttonHeight = 80;
-        const spacingX = 20;
-        const spacingY = 90;
-        const mapsPerRow = 3;
-        
-        // Calculate total height needed for all maps
-        const totalRows = Math.ceil(this.maps.length / mapsPerRow);
-        this.totalContentHeight = startY + (totalRows * spacingY) + 100; // Add padding at bottom
-        
-        this.maps.forEach((map, index) => {
-            const row = Math.floor(index / mapsPerRow);
-            const col = index % mapsPerRow;
-            
-            const x = startX + col * (buttonWidth + spacingX) + buttonWidth/2;
-            const y = startY + row * spacingY;
-            
-            const mapProgress = this.stateManager.getMapProgress(map.key);
-            const isUnlocked = mapProgress.unlocked;
-            const isCompleted = mapProgress.completed;
-            
-            // Button background (add to scroll container)
-            const buttonBg = this.add.rectangle(x, y, buttonWidth, buttonHeight);
-            this.scrollContainer.add(buttonBg);
-            
-            // Make button interactive immediately
-            buttonBg.setInteractive();
-            buttonBg.on('pointerup', () => {
-                this.selectedMapIndex = index;
-                this.updateSelection();
-                this.selectMap();
-            });
-            
-            buttonBg.on('pointerover', () => {
-                this.selectedMapIndex = index;
-                this.isFocused = true;
-                this.updateSelection();
-            });
-            
-            // Set button style based on state (all maps are unlocked)
-            if (isCompleted) {
-                buttonBg.setFillStyle(0x27ae60, 0.8);
-                buttonBg.setStrokeStyle(2, 0x2ecc71, 1);
-            } else {
-                buttonBg.setFillStyle(0x3498db, 0.8);
-                buttonBg.setStrokeStyle(2, 0x4ecdc4, 1);
-            }
-            
-            // Map number (add to scroll container)
-            const mapNumber = this.add.text(x - buttonWidth/2 + 20, y - 15, `${(index + 1).toString().padStart(2, '0')}`, {
-                fontSize: '24px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            });
-            this.scrollContainer.add(mapNumber);
-            
-            // Map title (all maps are unlocked, so always white)
-            const titleColor = '#ffffff';
-            const title = this.add.text(x - buttonWidth/2 + 60, y - 18, map.title, {
-                fontSize: '16px',
-                color: titleColor,
-                fontStyle: isCompleted ? 'bold' : 'normal'
-            });
-            this.scrollContainer.add(title);
-            
-            // Best time (show for any map with a recorded time)
-            const bestTime = mapProgress.bestTime;
-            if (bestTime) {
-                const bestTimeText = this.formatTime(bestTime);
-                const timeColor = isCompleted ? '#4ecdc4' : '#95a5a6';
-                const timeText = this.add.text(x - buttonWidth/2 + 60, y, `Best: ${bestTimeText}`, {
-                    fontSize: '16px',
-                    color: timeColor,
-                    fontStyle: 'bold'
-                });
-                this.scrollContainer.add(timeText);
-            }
-            
-            
-            // Status indicator (only show checkmark for completed maps)
-            if (isCompleted) {
-                const checkmark = this.add.text(x + buttonWidth/2 - 20, y, '✓', {
-                    fontSize: '24px',
-                    color: '#2ecc71'
-                }).setOrigin(0.5);
-                this.scrollContainer.add(checkmark);
-            }
-            
-            // Store button data
-            this.mapButtons.push({
-                background: buttonBg,
-                mapKey: map.key,
-                mapIndex: index,
-                isUnlocked: isUnlocked,
-                x: x,
-                y: y,
-                width: buttonWidth,
-                height: buttonHeight
-            });
-        });
-        
-        // Add scroll indicators if content is scrollable
-        if (this.totalContentHeight > this.scale.height) {
-            this.createScrollIndicators();
-        }
-        
-        // Set up mouse wheel scrolling
-        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-            this.scrollContent(deltaY * 0.5);
-        });
-        
-        // Update selection highlight
-        this.updateSelection();
-    }
-    
-    updateSelection() {
-        // Clear previous highlights
-        this.mapButtons.forEach(button => {
-            // Use current progress state
-            const mapProgress = this.stateManager.getMapProgress(button.mapKey);
-            const isCompleted = mapProgress.completed;
-            
-            // All maps are unlocked, so use appropriate colors
-            button.background.setStrokeStyle(2, 
-                isCompleted ? 0x2ecc71 : 0x4ecdc4, 
-                button.mapIndex === this.selectedMapIndex ? 1 : 0.8
-            );
-        });
-        
-        // Highlight selected button only if focused
-        if (this.isFocused && this.selectedMapIndex >= 0) {
-            const selectedButton = this.mapButtons[this.selectedMapIndex];
-            if (selectedButton) {
-                selectedButton.background.setStrokeStyle(6, 0xffffff, 1); // Thicker white stroke for visibility
-                
-                // Auto-scroll to keep selected button in view
-                this.scrollToButton(selectedButton);
-            }
-        }
-    }
-    
-    createUI() {
-        // Progress summary
-        const stats = this.stateManager.getCompletionStats();
-        const completedCount = stats.completed;
-        const totalCount = this.maps.length;
-        
-        this.add.text(this.scale.width / 2, 140, `Progress: ${completedCount}/${totalCount} maps completed`, {
-            fontSize: '18px',
-            color: '#4ecdc4'
-        }).setOrigin(0.5);
-        
-        // View Recordings button (top left)
-        const recordingsButton = this.add.text(20, 20, 'View Recordings', {
-            fontSize: '16px',
-            color: '#9b59b6',
-            backgroundColor: 'rgba(155, 89, 182, 0.2)',
-            padding: { x: 10, y: 5 }
-        }).setOrigin(0, 0).setInteractive();
-        
-        recordingsButton.on('pointerup', () => {
-            // Navigate to recordings page
-            // With proper SPA hosting (Vercel, Netlify, etc), this works in new tabs too
-            // For local testing without SPA support, use same window
-            if (window.location.hostname === 'localhost' && window.location.port === '8080') {
-                // Local python server without SPA support
-                window.location.href = '/recordings';
-            } else {
-                // Production or proper SPA hosting
-                window.open('/recordings', '_blank');
-            }
-        });
-        
-        recordingsButton.on('pointerover', () => {
-            recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.4)');
-        });
-        
-        recordingsButton.on('pointerout', () => {
-            recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.2)');
-        });
-        
-        // Reset progress button (top right)
-        const resetButton = this.add.text(this.scale.width - 20, 20, 'Reset Progress', {
-            fontSize: '16px',
-            color: '#e74c3c',
-            backgroundColor: 'rgba(231, 76, 60, 0.2)',
-            padding: { x: 10, y: 5 }
-        }).setOrigin(1, 0).setInteractive();
-        
-        resetButton.on('pointerup', () => {
-            this.resetProgress();
-        });
-    }
-    
-    setupInput() {
-        // Keyboard navigation already initialized in create()
-        
-        // Selection keys
-        this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-        this.rKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-        
-        // Page navigation keys for faster scrolling
-        this.pageUpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_UP);
-        this.pageDownKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.PAGE_DOWN);
-        this.homeKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.HOME);
-        this.endKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.END);
         
         // Fullscreen toggle
         this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
@@ -360,197 +140,14 @@ export default class MapSelectScene extends Phaser.Scene {
                 this.scale.startFullscreen();
             }
         }, this);
-        
-        // Gamepad setup
-        this.gamepadInputTimer = 0; // Track last gamepad input time
-        this.gamepadInputDelay = 200; // Milliseconds between gamepad inputs
-        
-        // Setup gamepad event listeners
-        this.setupGamepadEvents();
-        
-        // Listen for scene events to reset transitioning state
-        this.events.on('wake', () => {
-            this.isTransitioning = false;
-            this.setupGamepadEvents(); // Re-setup gamepad events when scene wakes
-        });
-        this.events.on('resume', () => {
-            this.isTransitioning = false;
-            this.setupGamepadEvents(); // Re-setup gamepad events when scene resumes
-        });
-        this.events.on('shutdown', () => {
-            this.removeGamepadEvents(); // Clean up gamepad events when scene shuts down
-        });
-        
-        // Mouse/touch input is handled directly in createMapGrid
     }
     
-    setupGamepadEvents() {
-        // Remove any existing listeners first
-        this.removeGamepadEvents();
-        
-        // Get the first gamepad
-        const pad = this.input.gamepad.getPad(0);
-        if (!pad) {
-            // If no gamepad connected, listen for connection
-            if (!this.gamepadConnectedHandler) {
-                this.gamepadConnectedHandler = (pad) => {
-                    this.setupGamepadEvents();
-                };
-                this.input.gamepad.once('connected', this.gamepadConnectedHandler);
-            }
-            return;
-        }
-        
-        // Store reference for cleanup
-        this.gamepad = pad;
-        
-        // Listen for button down events
-        this.gamepadDownHandler = (index, value, button) => {
-            // Don't process if transitioning
-            if (this.isTransitioning) return;
-            
-            const currentTime = this.time.now;
-            if (currentTime - this.gamepadInputTimer < this.gamepadInputDelay) {
-                return;
-            }
-            
-            switch(index) {
-                case 0: // A button
-                    this.selectMap();
-                    this.gamepadInputTimer = currentTime;
-                    break;
-                case 1: // B button
-                    this.scene.restart();
-                    this.gamepadInputTimer = currentTime;
-                    break;
-            }
-        };
-        
-        pad.on('down', this.gamepadDownHandler);
-    }
-    
-    removeGamepadEvents() {
-        if (this.gamepad && this.gamepadDownHandler) {
-            this.gamepad.off('down', this.gamepadDownHandler);
-        }
-        if (this.gamepadConnectedHandler) {
-            this.input.gamepad.off('connected', this.gamepadConnectedHandler);
-            this.gamepadConnectedHandler = null;
-        }
-    }
-    
-    update(time, delta) {
-        // Guard against incomplete initialization (async create)
-        if (!this.cursors || !this.wasd || !this.maps || this.maps.length === 0) {
-            return;
-        }
-        
-        // Don't process input if we're transitioning
-        if (this.isTransitioning) {
-            return;
-        }
-        
-        // Smooth scrolling animation
-        if (this.scrollContainer && Math.abs(this.targetScrollY - this.currentScrollY) > 1) {
-            const scrollSpeed = 0.15;
-            this.currentScrollY += (this.targetScrollY - this.currentScrollY) * scrollSpeed;
-            this.scrollContainer.y = -this.currentScrollY;
-            this.updateScrollIndicators();
-        }
-        
-        // Handle keyboard navigation
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.wasd.A)) {
-            this.navigateMap(-1, 0);
-        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.wasd.D)) {
-            this.navigateMap(1, 0);
-        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.wasd.W)) {
-            this.navigateMap(0, -1);
-        } else if (Phaser.Input.Keyboard.JustDown(this.cursors.down) || Phaser.Input.Keyboard.JustDown(this.wasd.S)) {
-            this.navigateMap(0, 1);
-        }
-
-        // Handle gamepad navigation
-        this.handleGamepadInput();
-        
-        // Handle page navigation for faster scrolling
-        if (Phaser.Input.Keyboard.JustDown(this.pageUpKey)) {
-            this.navigateMap(0, -3); // Jump 3 rows up
-        } else if (Phaser.Input.Keyboard.JustDown(this.pageDownKey)) {
-            this.navigateMap(0, 3); // Jump 3 rows down
-        } else if (Phaser.Input.Keyboard.JustDown(this.homeKey)) {
-            // Jump to first map
-            this.selectedMapIndex = 0;
-            this.isFocused = true;
-            this.updateSelection();
-        } else if (Phaser.Input.Keyboard.JustDown(this.endKey)) {
-            // Jump to last map
-            this.selectedMapIndex = this.maps.length - 1;
-            this.isFocused = true;
-            this.updateSelection();
-        }
-        
-        // Handle selection
-        if (Phaser.Input.Keyboard.JustDown(this.enterKey) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-            this.selectMap();
-        }
-        
-        // Handle ESC (restart scene to refresh)
-        if (Phaser.Input.Keyboard.JustDown(this.escKey)) {
-            this.scene.restart();
-        }
-        
-        // Handle reset (require Shift+R to avoid browser refresh conflict)
-        if (Phaser.Input.Keyboard.JustDown(this.rKey) && 
-            this.input.keyboard.keys[Phaser.Input.Keyboard.KeyCodes.SHIFT].isDown) {
-            this.resetProgress();
-        }
-    }
-
-    handleGamepadInput() {
-        const currentTime = this.time.now;
-        
-        // Check if enough time has passed since last gamepad input
-        if (currentTime - this.gamepadInputTimer < this.gamepadInputDelay) {
-            return;
-        }
-
-        // Get the first connected gamepad
-        const gamepads = this.input.gamepad.gamepads;
-        if (!gamepads || gamepads.length === 0) return;
-        
-        const gamepad = gamepads[0];
-        if (!gamepad) return;
-
-        let navigationOccurred = false;
-
-        // D-pad navigation
-        if (gamepad.left || gamepad.leftStick.x < -0.5) {
-            this.navigateMap(-1, 0);
-            navigationOccurred = true;
-        } else if (gamepad.right || gamepad.leftStick.x > 0.5) {
-            this.navigateMap(1, 0);
-            navigationOccurred = true;
-        } else if (gamepad.up || gamepad.leftStick.y < -0.5) {
-            this.navigateMap(0, -1);
-            navigationOccurred = true;
-        } else if (gamepad.down || gamepad.leftStick.y > 0.5) {
-            this.navigateMap(0, 1);
-            navigationOccurred = true;
-        }
-
-        // Button presses are now handled by gamepad events, not polling
-
-        // Update timer if any navigation occurred
-        if (navigationOccurred) {
-            this.gamepadInputTimer = currentTime;
-        }
-    }
-
     createBackground() {
-        // Create solid background first
-        this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x232333);
+        // Solid background
+        this.add.rectangle(this.scale.width / 2, this.scale.height / 2, 
+            this.scale.width, this.scale.height, 0x232333);
         
-        // Create a subtle grid background (from LevelsScene)
+        // Grid pattern
         const graphics = this.add.graphics();
         graphics.lineStyle(1, 0x333333, 0.2);
         
@@ -571,76 +168,553 @@ export default class MapSelectScene extends Phaser.Scene {
         graphics.setDepth(-100);
     }
     
-    navigateMap(deltaX, deltaY) {
-        // If not focused yet, start at first map
-        if (!this.isFocused) {
-            this.isFocused = true;
-            this.selectedMapIndex = 0;
-            this.updateSelection();
-            return;
+    createStackedCarousel() {
+        const centerX = this.scale.width / 2;
+        const carouselY = this.scale.height / 2;
+        const cardWidth = 280;
+        const cardHeight = 180;
+        
+        // Font sizes for category labels
+        const currentCategoryFontSize = 24;
+        const otherCategoryFontSize = 16;
+        
+        // Vertical spacing using em units (relative to font size)
+        const categoryLabelSpacing = currentCategoryFontSize * 3; // Space between current and prev/next labels
+        const arrowFromCategorySpacing = currentCategoryFontSize * 1; // Space between arrow and current category
+        const carouselFromCategorySpacing = currentCategoryFontSize * 5; // Space from category to carousel
+        
+        // Calculate positions
+        const currentCategoryY = carouselY - carouselFromCategorySpacing;
+        const upArrowY = currentCategoryY - arrowFromCategorySpacing;
+        const prevCategoryY = currentCategoryY - categoryLabelSpacing;
+        const downArrowY = carouselY + cardHeight/2 + otherCategoryFontSize * 4;
+        const nextCategoryY = downArrowY + otherCategoryFontSize * 3;
+        
+        // Create category labels
+        // Create vertical arrows for category navigation
+        this.upArrow = this.add.triangle(
+            centerX, upArrowY,
+            0, 15, 15, 15, 7.5, 0,
+            0x4ecdc4, 0.6
+        ).setInteractive();
+        
+        // Previous category (above)
+        this.categoryLabelAbove = this.add.text(centerX, prevCategoryY, '', {
+            fontSize: `${otherCategoryFontSize}px`,
+            color: '#5a6c7d',
+            fontStyle: 'italic'
+        }).setOrigin(0.5).setAlpha(0.5);
+        
+        // Current category (center)
+        this.categoryLabel = this.add.text(centerX, currentCategoryY, '', {
+            fontSize: `${currentCategoryFontSize}px`,
+            color: '#4ecdc4',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        
+        // Next category (below)
+        this.categoryLabelBelow = this.add.text(centerX, nextCategoryY, '', {
+            fontSize: `${otherCategoryFontSize}px`,
+            color: '#5a6c7d',
+            fontStyle: 'italic'
+        }).setOrigin(0.5).setAlpha(0.5);
+        
+        this.downArrow = this.add.triangle(
+            centerX, downArrowY,
+            0, 0, 15, 0, 7.5, 15,
+            0x4ecdc4, 0.6
+        ).setInteractive();
+        
+        // Arrow click handlers for categories
+        this.upArrow.on('pointerup', () => {
+            this.navigateCategory(-1);
+        });
+        
+        this.downArrow.on('pointerup', () => {
+            this.navigateCategory(1);
+        });
+        
+        this.upArrow.on('pointerover', () => {
+            this.upArrow.setAlpha(0.8);
+        });
+        
+        this.upArrow.on('pointerout', () => {
+            this.upArrow.setAlpha(0.6);
+        });
+        
+        this.downArrow.on('pointerover', () => {
+            this.downArrow.setAlpha(0.8);
+        });
+        
+        this.downArrow.on('pointerout', () => {
+            this.downArrow.setAlpha(0.6);
+        });
+        
+        // Create carousel container
+        this.mapCarousel = this.add.container(centerX, carouselY);
+        
+        // Create left/right arrows for map navigation
+        this.leftArrow = this.add.triangle(
+            centerX - cardWidth * 0.6, carouselY,
+            20, 0, 20, 40, 0, 20,
+            0x4ecdc4, 0.8
+        ).setInteractive();
+        
+        this.rightArrow = this.add.triangle(
+            centerX + cardWidth * 0.6, carouselY,
+            0, 0, 20, 20, 0, 40,
+            0x4ecdc4, 0.8
+        ).setInteractive();
+        
+        // Arrow click handlers for maps
+        this.leftArrow.on('pointerup', () => {
+            this.navigateMap(-1);
+        });
+        
+        this.rightArrow.on('pointerup', () => {
+            this.navigateMap(1);
+        });
+        
+        this.leftArrow.on('pointerover', () => {
+            this.leftArrow.setAlpha(1);
+        });
+        
+        this.leftArrow.on('pointerout', () => {
+            this.leftArrow.setAlpha(0.8);
+        });
+        
+        this.rightArrow.on('pointerover', () => {
+            this.rightArrow.setAlpha(1);
+        });
+        
+        this.rightArrow.on('pointerout', () => {
+            this.rightArrow.setAlpha(0.8);
+        });
+        
+        // Create map cards (3 visible at a time)
+        for (let i = -1; i <= 1; i++) {
+            const x = i * (cardWidth + 20);
+            
+            // Create a container for each card
+            const cardContainer = this.add.container(x, 0);
+            
+            // Card background
+            const cardBg = this.add.rectangle(0, 0, cardWidth, cardHeight, 0x2c3e50, 0.9);
+            cardBg.setStrokeStyle(3, 0x34495e, 1);
+            
+            // Card title
+            const titleText = this.add.text(0, -60, '', {
+                fontSize: '20px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+            
+            // Card description
+            const descText = this.add.text(0, -20, '', {
+                fontSize: '14px',
+                color: '#95a5a6',
+                wordWrap: { width: cardWidth - 40 }
+            }).setOrigin(0.5);
+            
+            // Best time
+            const timeText = this.add.text(0, 35, '', {
+                fontSize: '16px',
+                color: '#4ecdc4'
+            }).setOrigin(0.5);
+            
+            // Play button
+            const playButton = this.add.rectangle(0, 65, 100, 30, 0x27ae60, 1);
+            playButton.setStrokeStyle(2, 0x2ecc71, 1);
+            playButton.setInteractive();
+            
+            const playText = this.add.text(0, 65, 'PLAY', {
+                fontSize: '18px',
+                color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+            
+            // Status icon - large checkmark for completed levels (centered)
+            const statusIcon = this.add.text(40, -15, '', {
+                fontSize: '72px',
+                color: '#2ecc71'
+            }).setOrigin(-1, 1).setAlpha(0.8);
+            
+            // Add all elements to the card container
+            cardContainer.add([cardBg, statusIcon, titleText, descText, timeText, playButton, playText]);
+            
+            // Add card container to carousel
+            this.mapCarousel.add(cardContainer);
+            
+            // Store card reference
+            this.mapCards.push({
+                container: cardContainer,
+                background: cardBg,
+                title: titleText,
+                description: descText,
+                time: timeText,
+                status: statusIcon,
+                playButton: playButton,
+                playText: playText,
+                position: i // -1 = left, 0 = center, 1 = right
+            });
+            
+            // Play button handler
+            playButton.on('pointerup', () => {
+                if (i === 0) { // Only center card can be played
+                    this.playCurrentMap();
+                }
+            });
+            
+            playButton.on('pointerover', () => {
+                if (i === 0) {
+                    playButton.setFillStyle(0x27ae60, 1);
+                }
+            });
+            
+            playButton.on('pointerout', () => {
+                playButton.setFillStyle(0x27ae60, 0.9);
+            });
         }
         
-        const mapsPerRow = 3;
-        const currentRow = Math.floor(this.selectedMapIndex / mapsPerRow);
-        const currentCol = this.selectedMapIndex % mapsPerRow;
+        // Map counter
+        this.mapCounter = this.add.text(centerX, carouselY + 120, '', {
+            fontSize: '16px',
+            color: '#95a5a6'
+        }).setOrigin(0.5);
+    }
+    
+    createUIButtons() {
+        // Progress summary
+        // const stats = this.stateManager.getCompletionStats();
         
-        let newRow = currentRow + deltaY;
-        let newCol = currentCol + deltaX;
+        // View Recordings button (top left)
+        const recordingsButton = this.add.text(20, 20, 'Floppy Worm', {
+            fontSize: '16px',
+            color: '#9b59b6',
+            backgroundColor: 'rgba(155, 89, 182, 0.2)',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0, 0)
+        //
+        // recordingsButton.on('pointerup', () => {
+        //     if (window.location.hostname === 'localhost' && window.location.port === '8080') {
+        //         window.location.href = '/recordings';
+        //     } else {
+        //         window.open('/recordings', '_blank');
+        //     }
+        // });
+        //
+        // recordingsButton.on('pointerover', () => {
+        //     recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.4)');
+        // });
+        //
+        // recordingsButton.on('pointerout', () => {
+        //     recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.2)');
+        // });
         
-        // Clamp to valid ranges
-        const maxRow = Math.floor((this.maps.length - 1) / mapsPerRow);
-        newRow = Phaser.Math.Clamp(newRow, 0, maxRow);
+        // Reset progress button (top right)
+        // const resetButton = this.add.text(this.scale.width - 20, 20, 'Reset Progress', {
+        //     fontSize: '16px',
+        //     color: '#e74c3c',
+        //     backgroundColor: 'rgba(231, 76, 60, 0.2)',
+        //     padding: { x: 10, y: 5 }
+        // }).setOrigin(1, 0).setInteractive();
+        //
+        // resetButton.on('pointerup', () => {
+        //     this.resetProgress();
+        // });
+        //
+        // resetButton.on('pointerover', () => {
+        //     resetButton.setBackgroundColor('rgba(231, 76, 60, 0.4)');
+        // });
+        //
+        // resetButton.on('pointerout', () => {
+        //     resetButton.setBackgroundColor('rgba(231, 76, 60, 0.2)');
+        // });
+    }
+    
+    selectCategory(index) {
+        if (index < 0 || index >= this.categories.length) return;
         
-        const mapsInRow = newRow === maxRow ? (this.maps.length % mapsPerRow || mapsPerRow) : mapsPerRow;
-        newCol = Phaser.Math.Clamp(newCol, 0, mapsInRow - 1);
+        this.selectedCategoryIndex = index;
+        this.currentCategory = this.categories[index];
+        this.currentMaps = this.currentCategory.getMaps();
+        this.selectedMapIndex = 0;
         
-        const newIndex = newRow * mapsPerRow + newCol;
-        if (newIndex < this.maps.length) {
-            this.selectedMapIndex = newIndex;
-            this.updateSelection();
+        // Update category labels
+        this.updateCategoryLabels();
+        
+        // Update carousel
+        this.updateCarousel();
+    }
+    
+    updateCategoryLabels() {
+        // Current category
+        this.categoryLabel.setText(this.currentCategory.displayName);
+        
+        // Previous category
+        if (this.selectedCategoryIndex > 0) {
+            const prevCategory = this.categories[this.selectedCategoryIndex - 1];
+            this.categoryLabelAbove.setText('↑ ' + prevCategory.displayName);
+            this.categoryLabelAbove.setVisible(true);
+            this.upArrow.setAlpha(0.6);
+        } else {
+            this.categoryLabelAbove.setVisible(false);
+            this.upArrow.setAlpha(0.2);
+        }
+        
+        // Next category
+        if (this.selectedCategoryIndex < this.categories.length - 1) {
+            const nextCategory = this.categories[this.selectedCategoryIndex + 1];
+            this.categoryLabelBelow.setText('↓ ' + nextCategory.displayName);
+            this.categoryLabelBelow.setVisible(true);
+            this.downArrow.setAlpha(0.6);
+        } else {
+            this.categoryLabelBelow.setVisible(false);
+            this.downArrow.setAlpha(0.2);
         }
     }
     
-    selectMap() {
-        // Only allow selection if focused and valid index
-        if (!this.isFocused || this.selectedMapIndex < 0) {
+    updateCarousel() {
+        if (!this.currentMaps || this.currentMaps.length === 0) {
+            // Hide carousel if no maps
+            this.mapCards.forEach(card => {
+                card.container.setVisible(false);
+            });
+            this.leftArrow.setVisible(false);
+            this.rightArrow.setVisible(false);
+            this.mapCounter.setVisible(false);
             return;
         }
         
-        // Prevent selection if we're already transitioning
-        if (this.isTransitioning) {
-            return;
+        // Show carousel elements
+        this.leftArrow.setVisible(true);
+        this.rightArrow.setVisible(true);
+        this.mapCounter.setVisible(true);
+        
+        // Update each card
+        this.mapCards.forEach((card, cardIndex) => {
+            const mapIndex = this.selectedMapIndex + card.position;
+            
+            if (mapIndex >= 0 && mapIndex < this.currentMaps.length) {
+                const map = this.currentMaps[mapIndex];
+                const progress = this.stateManager.getMapProgress(map.key);
+                
+                // Show card container
+                card.container.setVisible(true);
+                
+                // Show/hide status checkmark based on completion
+                card.status.setVisible(progress.completed);
+                
+                // Update content
+                card.title.setText(map.title);
+                card.description.setText(map.description || 'No description');
+                
+                // Best time
+                if (progress.bestTime) {
+                    card.time.setText(`Best: ${this.formatTime(progress.bestTime)}`);
+                } else {
+                    card.time.setText('Not completed');
+                }
+                
+                // Status icon checkmark
+                card.status.setText(progress.completed ? '✓' : '');
+                
+                // Card styling based on position
+                if (card.position === 0) {
+                    // Center card (selected)
+                    card.container.setScale(1.05);
+                    card.background.setStrokeStyle(4, 0xffffff, 1);
+                    card.playButton.setInteractive();
+                    card.playButton.setAlpha(1);
+                } else {
+                    // Side cards
+                    card.container.setScale(0.85);
+                    card.background.setStrokeStyle(3, 0x34495e, 0.7);
+                    card.playButton.disableInteractive();
+                    card.playButton.setAlpha(0.5);
+                }
+                
+                // Keep consistent background color
+                card.background.setFillStyle(0x2c3e50, 0.9);
+            } else {
+                // Hide card if out of range
+                card.container.setVisible(false);
+            }
+        });
+        
+        // Update arrow visibility
+        this.leftArrow.setAlpha(this.selectedMapIndex > 0 ? 0.8 : 0.2);
+        this.rightArrow.setAlpha(this.selectedMapIndex < this.currentMaps.length - 1 ? 0.8 : 0.2);
+        
+        // Update map counter
+        if (this.currentMaps.length > 0) {
+            this.mapCounter.setText(`Map ${this.selectedMapIndex + 1} of ${this.currentMaps.length}`);
+        }
+    }
+    
+    playMenuSound(type) {
+        if (!this.menuWhoosh) return;
+        
+        // Start the whoosh if not playing
+        if (!this.menuWhoosh.isPlaying) {
+            this.menuWhoosh.start();
         }
         
-        const selectedButton = this.mapButtons[this.selectedMapIndex];
-        
-        if (selectedButton) {
-            const mapKey = selectedButton.mapKey;
-            
-            // Set transitioning flag to prevent multiple selections
-            this.isTransitioning = true;
-            
-            // All maps are unlocked, so just start the map
-            // Clear focus state before transitioning
-            this.isFocused = false;
-            this.selectedMapIndex = -1;
-            this.updateSelection();
-            
-            // Add a simple fade transition
-            this.cameras.main.fadeOut(250, 0, 0, 0);
-            
-            this.cameras.main.once('camerafadeoutcomplete', async () => {
-                // Use the unified loader to start the map
-                try {
-                    await MapLoader.loadAndStart(this, mapKey, {
-                        returnScene: 'MapSelectScene'
-                    });
-                } catch (error) {
-                    console.error('Failed to load map:', error);
-                    // Restart map select scene on error
-                    this.scene.restart();
+        // Quick swish effect
+        if (type === 'map') {
+            // Navigation sound - quick swish
+            this.menuWhoosh.update(0.7, 0.6);
+            this.time.delayedCall(50, () => {
+                if (this.menuWhoosh) {
+                    this.menuWhoosh.update(0, 0);
                 }
             });
+        } else if (type === 'category') {
+            // Selection sound - stronger swish
+            this.menuWhoosh.update(0.7, 0.3);
+            this.time.delayedCall(100, () => {
+                if (this.menuWhoosh) {
+                    this.menuWhoosh.update(0, 0);
+                }
+            });
+        } else if (type === 'select') {
+            // Selection sound - stronger swish
+            this.menuWhoosh.update(0.9, 1.0);
+            this.time.delayedCall(100, () => {
+                if (this.menuWhoosh) {
+                    this.menuWhoosh.update(0, 0);
+                }
+            });
+        }
+    }
+    
+    navigateCategory(direction) {
+        const newIndex = this.selectedCategoryIndex + direction;
+        if (newIndex >= 0 && newIndex < this.categories.length) {
+            this.playMenuSound('category');
+            this.selectCategory(newIndex);
+        }
+    }
+    
+    navigateMap(direction) {
+        const newIndex = this.selectedMapIndex + direction;
+        if (newIndex >= 0 && newIndex < this.currentMaps.length) {
+            this.playMenuSound('map');
+            this.selectedMapIndex = newIndex;
+            this.updateCarousel();
+        }
+    }
+    
+    playCurrentMap() {
+        if (this.isTransitioning) return;
+        if (!this.currentMaps || this.selectedMapIndex >= this.currentMaps.length) return;
+        
+        this.playMenuSound('select');
+        const map = this.currentMaps[this.selectedMapIndex];
+        this.isTransitioning = true;
+        
+        // Fade out and load map
+        this.cameras.main.fadeOut(250, 0, 0, 0);
+        
+        this.cameras.main.once('camerafadeoutcomplete', async () => {
+            try {
+                await MapLoader.loadAndStart(this, map.key, {
+                    returnScene: 'MapSelectScene'
+                });
+            } catch (error) {
+                console.error('Failed to load map:', error);
+                this.scene.restart();
+            }
+        });
+    }
+    
+    update(time, delta) {
+        if (this.isTransitioning) return;
+        
+        // Apply input cooldown to prevent input from previous scenes
+        if (this.inputCooldown > 0) {
+            this.inputCooldown -= delta;
+            
+            // Reset keyboard state during cooldown
+            if (this.inputCooldown > 0) {
+                // Track gamepad state but don't act on it
+                const pad = this.input.gamepad ? this.input.gamepad.getPad(0) : null;
+                if (pad) {
+                    this.upWasPressed = pad.up || (pad.leftStick && pad.leftStick.y < -0.5);
+                    this.downWasPressed = pad.down || (pad.leftStick && pad.leftStick.y > 0.5);
+                    this.leftWasPressed = pad.left || (pad.leftStick && pad.leftStick.x < -0.5);
+                    this.rightWasPressed = pad.right || (pad.leftStick && pad.leftStick.x > 0.5);
+                    this.aWasPressed = pad.A;
+                    this.bWasPressed = pad.B;
+                }
+                return;
+            }
+        }
+        
+        // Get gamepad if available
+        const pad = this.input.gamepad ? this.input.gamepad.getPad(0) : null;
+        
+        // Vertical navigation (categories)
+        const moveUp = Phaser.Input.Keyboard.JustDown(this.cursors.up) || 
+                      Phaser.Input.Keyboard.JustDown(this.wasd.W) ||
+                      (pad && (pad.up || (pad.leftStick && pad.leftStick.y < -0.5)));
+        const moveDown = Phaser.Input.Keyboard.JustDown(this.cursors.down) || 
+                        Phaser.Input.Keyboard.JustDown(this.wasd.S) ||
+                        (pad && (pad.down || (pad.leftStick && pad.leftStick.y > 0.5)));
+        
+        if (moveUp && !this.upWasPressed) {
+            this.navigateCategory(-1);
+        }
+        if (moveDown && !this.downWasPressed) {
+            this.navigateCategory(1);
+        }
+        
+        // Horizontal navigation (maps)
+        const moveLeft = Phaser.Input.Keyboard.JustDown(this.cursors.left) || 
+                        Phaser.Input.Keyboard.JustDown(this.wasd.A) ||
+                        (pad && (pad.left || (pad.leftStick && pad.leftStick.x < -0.5)));
+        const moveRight = Phaser.Input.Keyboard.JustDown(this.cursors.right) || 
+                         Phaser.Input.Keyboard.JustDown(this.wasd.D) ||
+                         (pad && (pad.right || (pad.leftStick && pad.leftStick.x > 0.5)));
+        
+        if (moveLeft && !this.leftWasPressed) {
+            this.navigateMap(-1);
+        }
+        if (moveRight && !this.rightWasPressed) {
+            this.navigateMap(1);
+        }
+        
+        // Play map
+        const playPressed = Phaser.Input.Keyboard.JustDown(this.enterKey) || 
+                           Phaser.Input.Keyboard.JustDown(this.spaceKey) ||
+                           (pad && pad.A && !this.aWasPressed);
+        if (playPressed) {
+            this.playCurrentMap();
+        }
+        
+        // B button or ESC to refresh
+        const refreshPressed = Phaser.Input.Keyboard.JustDown(this.escKey) ||
+                              (pad && pad.B && !this.bWasPressed);
+        if (refreshPressed) {
+            this.scene.restart();
+        }
+        
+        // Track gamepad state
+        if (pad) {
+            this.upWasPressed = pad.up || (pad.leftStick && pad.leftStick.y < -0.5);
+            this.downWasPressed = pad.down || (pad.leftStick && pad.leftStick.y > 0.5);
+            this.leftWasPressed = pad.left || (pad.leftStick && pad.leftStick.x < -0.5);
+            this.rightWasPressed = pad.right || (pad.leftStick && pad.leftStick.x > 0.5);
+            this.aWasPressed = pad.A;
+            this.bWasPressed = pad.B;
+        } else {
+            // Reset states when no gamepad
+            this.upWasPressed = false;
+            this.downWasPressed = false;
+            this.leftWasPressed = false;
+            this.rightWasPressed = false;
+            this.aWasPressed = false;
+            this.bWasPressed = false;
         }
     }
     
@@ -654,108 +728,31 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     resetProgress() {
-        // Confirm reset
         if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
             this.stateManager.resetProgress();
             this.scene.restart();
         }
     }
     
-    // New scroll helper methods
-    scrollContent(deltaY) {
-        if (!this.scrollContainer) return;
-        
-        // Calculate max scroll bounds
-        const maxScroll = Math.max(0, this.totalContentHeight - this.scale.height + 100);
-        
-        // Update target scroll position
-        this.targetScrollY = Phaser.Math.Clamp(this.targetScrollY + deltaY, 0, maxScroll);
+    onProgressUpdated(progress) {
+        // Refresh when progress is updated
+        this.scene.restart();
     }
     
-    scrollToButton(button) {
-        if (!this.scrollContainer) return;
+    cleanup() {
+        // Remove event listeners
+        this.registry.events.off(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
         
-        const viewportHeight = this.scale.height;
-        const buttonTop = button.y - button.height/2 - this.currentScrollY;
-        const buttonBottom = button.y + button.height/2 - this.currentScrollY;
-        
-        // Define visible area (leave some margin at top and bottom)
-        const marginTop = 200;
-        const marginBottom = 100;
-        
-        if (buttonTop < marginTop) {
-            // Button is above visible area, scroll up
-            this.targetScrollY = button.y - button.height/2 - marginTop;
-        } else if (buttonBottom > viewportHeight - marginBottom) {
-            // Button is below visible area, scroll down
-            this.targetScrollY = button.y + button.height/2 - viewportHeight + marginBottom;
-        }
-        
-        // Clamp to valid range
-        const maxScroll = Math.max(0, this.totalContentHeight - viewportHeight + 100);
-        this.targetScrollY = Phaser.Math.Clamp(this.targetScrollY, 0, maxScroll);
-    }
-    
-    createScrollIndicators() {
-        // Create up arrow indicator
-        this.scrollUpIndicator = this.add.triangle(
-            this.scale.width / 2, 180,
-            0, 15, 15, 15, 7.5, 0,
-            0x4ecdc4, 0.8
-        );
-        this.scrollUpIndicator.setDepth(100);
-        
-        // Create down arrow indicator
-        this.scrollDownIndicator = this.add.triangle(
-            this.scale.width / 2, this.scale.height - 80,
-            0, 0, 15, 0, 7.5, 15,
-            0x4ecdc4, 0.8
-        );
-        this.scrollDownIndicator.setDepth(100);
-        
-        // Create scroll bar on the right
-        const scrollBarBg = this.add.rectangle(
-            this.scale.width - 20, this.scale.height / 2,
-            4, this.scale.height - 300,
-            0x333333, 0.5
-        );
-        scrollBarBg.setDepth(100);
-        
-        // Create scroll thumb
-        this.scrollThumb = this.add.rectangle(
-            this.scale.width - 20, 300,
-            8, 50,
-            0x4ecdc4, 0.8
-        );
-        this.scrollThumb.setDepth(101);
-        
-        this.updateScrollIndicators();
-    }
-    
-    updateScrollIndicators() {
-        if (!this.scrollUpIndicator || !this.scrollDownIndicator) return;
-        
-        const maxScroll = Math.max(0, this.totalContentHeight - this.scale.height + 100);
-        
-        // Show/hide scroll indicators
-        this.scrollUpIndicator.setAlpha(this.currentScrollY > 10 ? 0.8 : 0.2);
-        this.scrollDownIndicator.setAlpha(this.currentScrollY < maxScroll - 10 ? 0.8 : 0.2);
-        
-        // Update scroll thumb position
-        if (this.scrollThumb && maxScroll > 0) {
-            const scrollPercentage = this.currentScrollY / maxScroll;
-            const thumbRange = this.scale.height - 350;
-            this.scrollThumb.y = 300 + (scrollPercentage * thumbRange);
+        // Clean up audio
+        if (this.menuWhoosh) {
+            this.menuWhoosh.stop();
+            this.menuWhoosh = null;
         }
     }
 }
 
 // Export function to be called when a map is completed
-// This function is designed to work even if the MapSelectScene isn't currently active
 export function completeMap(mapKey, scene) {
-    // Get the state manager from any scene's registry
     const stateManager = GameStateManager.getFromScene(scene);
-    
-    // Mark the map as completed
     stateManager.completeMap(mapKey);
 }
