@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { getMenuAudio } from '../audio/MenuAudio';
 
 /**
  * Pause menu overlay scene
@@ -22,6 +23,9 @@ export default class PauseMenu extends Phaser.Scene {
         this.selectedButton = 0;
         this.buttons = [];
         this.buttonCallbacks = [];
+        
+        // Initialize menu audio from registry
+        this.menuAudio = getMenuAudio(this);
     }
     
     create() {
@@ -237,7 +241,15 @@ export default class PauseMenu extends Phaser.Scene {
     }
     
     navigate(direction) {
+        const oldSelection = this.selectedButton;
         this.selectedButton = (this.selectedButton + direction + this.buttons.length) % this.buttons.length;
+        
+        // Play sound only if selection actually changed
+        if (oldSelection !== this.selectedButton && this.menuAudio) {
+            // Use 'navigate' type which has proper fade-out
+            this.menuAudio.play('navigate');
+        }
+        
         this.updateSelection();
     }
     
@@ -257,6 +269,10 @@ export default class PauseMenu extends Phaser.Scene {
         if (this.selectedButton >= 0 && this.selectedButton < this.buttonCallbacks.length) {
             const callback = this.buttonCallbacks[this.selectedButton];
             if (callback) {
+                if (this.menuAudio) {
+                    this.menuAudio.play('select');
+                }
+                // No delay needed - audio tweens run at game level now
                 callback();
             }
         }

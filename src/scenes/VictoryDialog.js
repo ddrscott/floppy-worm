@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getCachedBuildMode } from '../utils/buildMode';
 import MapLoader from '../services/MapLoader';
+import { getMenuAudio } from '../audio/MenuAudio';
 
 /**
  * Victory dialog scene for both static and server modes
@@ -27,6 +28,9 @@ export default class VictoryDialog extends Phaser.Scene {
         this.selectedButton = 0;
         this.buttons = [];
         this.buttonCallbacks = [];
+        
+        // Initialize menu audio from registry
+        this.menuAudio = getMenuAudio(this);
         
         // Ensure this scene renders on top
         this.scene.bringToTop();
@@ -390,6 +394,8 @@ export default class VictoryDialog extends Phaser.Scene {
     navigate(deltaX, deltaY) {
         if (this.buttons.length === 0) return;
         
+        const oldSelection = this.selectedButton;
+        
         // All buttons are now in a horizontal row
         // Left/right arrows navigate between buttons
         if (deltaX !== 0) {
@@ -400,6 +406,11 @@ export default class VictoryDialog extends Phaser.Scene {
             // Down goes right, up goes left
             const direction = deltaY > 0 ? 1 : -1;
             this.selectedButton = (this.selectedButton + direction + this.buttons.length) % this.buttons.length;
+        }
+        
+        // Play sound if selection changed
+        if (oldSelection !== this.selectedButton && this.menuAudio) {
+            this.menuAudio.play('navigate');
         }
         
         this.updateSelection();
@@ -421,6 +432,9 @@ export default class VictoryDialog extends Phaser.Scene {
         if (this.selectedButton >= 0 && this.selectedButton < this.buttonCallbacks.length) {
             const callback = this.buttonCallbacks[this.selectedButton];
             if (callback) {
+                if (this.menuAudio) {
+                    this.menuAudio.play('select');
+                }
                 callback();
             }
         }

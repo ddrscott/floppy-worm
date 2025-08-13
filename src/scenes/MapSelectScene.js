@@ -4,7 +4,7 @@ import MapLoader from '../services/MapLoader';
 import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
-import WhooshSynthesizer from '../audio/WhooshSynthesizer';
+import { getMenuAudio } from '../audio/MenuAudio';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -38,7 +38,7 @@ export default class MapSelectScene extends Phaser.Scene {
         this.bWasPressed = false;
         
         // Audio
-        this.menuWhoosh = null;
+        this.menuAudio = null;
     }
     
     init() {
@@ -87,15 +87,8 @@ export default class MapSelectScene extends Phaser.Scene {
         // Clear any lingering keyboard state from previous scenes
         this.input.keyboard.resetKeys();
         
-        // Initialize menu sound
-        this.menuWhoosh = new WhooshSynthesizer({
-            pitch: 0.4,
-            filterBase: 900,
-            resonance: 16.0,
-            lowBoost: 1,
-            reverb: 0.03,
-            swishFactor: 0.8
-        });
+        // Initialize menu audio from registry
+        this.menuAudio = getMenuAudio(this);
         
         // Load categories
         this.categories = getCategories();
@@ -582,72 +575,8 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     playMenuSound(type) {
-        if (!this.menuWhoosh) return;
-        
-        // Start the whoosh if not playing
-        if (!this.menuWhoosh.isPlaying) {
-            this.menuWhoosh.start();
-        }
-        
-        // Kill any existing audio tween
-        if (this.audioTween) {
-            this.audioTween.stop();
-        }
-        
-        // Create an object to tween for smooth audio fade
-        const audioParams = { volume: 0, frequency: 0 };
-        
-        if (type === 'map') {
-            // Navigation sound - quick swish with fade
-            audioParams.volume = 0.7;
-            audioParams.frequency = 0.5;
-            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-            
-            this.audioTween = this.tweens.add({
-                targets: audioParams,
-                volume: 0,
-                duration: 200,
-                ease: 'Sine.easeOut',
-                onUpdate: () => {
-                    if (this.menuWhoosh) {
-                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-                    }
-                }
-            });
-        } else if (type === 'category') {
-            // Category change - different pitch with smooth fade
-            audioParams.volume = 0.7;
-            audioParams.frequency = 0.3;
-            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-            
-            this.audioTween = this.tweens.add({
-                targets: audioParams,
-                volume: 0,
-                duration: 200,
-                ease: 'Sine.easeOut',
-                onUpdate: () => {
-                    if (this.menuWhoosh) {
-                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-                    }
-                }
-            });
-        } else if (type === 'select') {
-            // Selection sound - stronger swish with longer fade
-            audioParams.volume = 0.7;
-            audioParams.frequency = 1.0;
-            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-            
-            this.audioTween = this.tweens.add({
-                targets: audioParams,
-                volume: 0,
-                duration: 200,
-                ease: 'Sine.easeOut',
-                onUpdate: () => {
-                    if (this.menuWhoosh) {
-                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
-                    }
-                }
-            });
+        if (this.menuAudio) {
+            this.menuAudio.play(type);
         }
     }
     
@@ -806,11 +735,7 @@ export default class MapSelectScene extends Phaser.Scene {
         // Remove event listeners
         this.registry.events.off(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
         
-        // Clean up audio
-        if (this.menuWhoosh) {
-            this.menuWhoosh.stop();
-            this.menuWhoosh = null;
-        }
+        // Note: We don't destroy menuAudio here as it's shared across scenes
     }
 }
 
