@@ -3,35 +3,38 @@
     "name": "Swing",
     "difficulty": 1,
     "description": "Can you swing it?",
-    "modified": "2025-07-24T13:23:05.389Z"
+    "modified": "2025-08-13T21:52:15.630Z"
   },
   "dimensions": {
     "width": 768,
-    "height": 800
+    "height": 1200
   },
   "entities": {
     "wormStart": {
-      "x": 192,
-      "y": 96
+      "x": 336,
+      "y": 240
     },
     "goal": {
-      "x": 133,
-      "y": 488
+      "x": 252,
+      "y": 852
     }
   },
   "platforms": [
     {
       "id": "platform_1",
       "type": "rectangle",
-      "x": 192,
-      "y": 416,
-      "width": 385,
-      "height": 38,
+      "x": 216,
+      "y": 660,
+      "width": 516,
+      "height": 120,
       "color": "#ff6b6b",
       "physics": {
         "friction": 0.8,
         "frictionStatic": 1,
         "restitution": 0
+      },
+      "chamfer": {
+        "radius": 60
       }
     },
     {
@@ -39,7 +42,7 @@
       "type": "rectangle",
       "platformType": "electric",
       "x": 384,
-      "y": 790,
+      "y": 1190,
       "width": 768,
       "height": 60,
       "color": "#f8ff00",
@@ -49,5 +52,6 @@
         "restitution": 0
       }
     }
-  ]
+  ],
+  "constraints": []
 }
