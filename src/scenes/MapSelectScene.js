@@ -18,6 +18,9 @@ export default class MapSelectScene extends Phaser.Scene {
         this.stateManager = null;
         this.isTransitioning = false;
         
+        // Remember map positions for each category
+        this.categoryMapPositions = {};
+        
         // UI elements
         this.mapCarousel = null;
         this.mapCards = [];
@@ -45,8 +48,18 @@ export default class MapSelectScene extends Phaser.Scene {
         // Reset random seed for consistent behavior
         Random.setSeed(12345); // Fixed seed for menu scene
         
+        // Load saved category positions from registry
+        const savedPositions = this.registry.get('categoryMapPositions');
+        if (savedPositions) {
+            this.categoryMapPositions = savedPositions;
+        } else {
+            this.categoryMapPositions = {};
+        }
+        
+        // Load saved category index
+        this.selectedCategoryIndex = this.registry.get('selectedCategoryIndex') || 0;
+        
         // Reset state
-        this.selectedCategoryIndex = 0;
         this.selectedMapIndex = 0;
         this.isTransitioning = false;
         this.mapCards = [];
@@ -116,9 +129,13 @@ export default class MapSelectScene extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setOrigin(0.5).setDepth(100);
         
-        // Load the first category
+        // Load the saved category or first category
         if (this.categories.length > 0) {
-            this.selectCategory(0);
+            // Ensure saved index is valid
+            if (this.selectedCategoryIndex >= this.categories.length) {
+                this.selectedCategoryIndex = 0;
+            }
+            this.selectCategory(this.selectedCategoryIndex);
         }
         
         // Clean up events on shutdown
@@ -365,10 +382,27 @@ export default class MapSelectScene extends Phaser.Scene {
     selectCategory(index) {
         if (index < 0 || index >= this.categories.length) return;
         
+        // Save current map position for the current category before switching
+        if (this.currentCategory) {
+            this.categoryMapPositions[this.currentCategory.name] = this.selectedMapIndex;
+            // Save to registry for persistence
+            this.registry.set('categoryMapPositions', this.categoryMapPositions);
+        }
+        
         this.selectedCategoryIndex = index;
         this.currentCategory = this.categories[index];
         this.currentMaps = this.currentCategory.getMaps();
-        this.selectedMapIndex = 0;
+        
+        // Save the selected category index to registry
+        this.registry.set('selectedCategoryIndex', this.selectedCategoryIndex);
+        
+        // Restore the saved map position for this category, or start at 0
+        this.selectedMapIndex = this.categoryMapPositions[this.currentCategory.name] || 0;
+        
+        // Ensure the restored position is valid for the current maps
+        if (this.selectedMapIndex >= this.currentMaps.length) {
+            this.selectedMapIndex = 0;
+        }
         
         // Update category labels
         this.updateCategoryLabels();
@@ -519,47 +553,64 @@ export default class MapSelectScene extends Phaser.Scene {
             });
         });
         
-        // Update initial state
-        this.updateCarousel();
+        // Update initial state without animation (instant positioning)
+        this.updateCarousel(true);
     }
     
-    updateCarousel() {
+    updateCarousel(instant = false) {
         if (!this.mapCards || this.mapCards.length === 0) return;
         
         // Calculate target position for carousel
         const targetX = -this.selectedMapIndex * (this.cardWidth + this.cardSpacing);
         
-        // Animate carousel to center selected card
-        this.tweens.add({
-            targets: this.mapCarousel,
-            x: targetX,
-            duration: 200,
-            ease: 'Power2'
-        });
+        if (instant) {
+            // Instant positioning without animation (for category switches)
+            this.mapCarousel.x = targetX;
+        } else {
+            // Animate carousel to center selected card (for horizontal navigation)
+            this.tweens.add({
+                targets: this.mapCarousel,
+                x: targetX,
+                duration: 200,
+                ease: 'Power2'
+            });
+        }
         
         // Update each card's appearance based on selection
         this.mapCards.forEach((card, index) => {
             if (index === this.selectedMapIndex) {
                 // Selected card
-                this.tweens.add({
-                    targets: card.container,
-                    scaleX: 1.05,
-                    scaleY: 1.05,
-                    duration: 150,
-                    ease: 'Back.easeOut'
-                });
+                if (instant) {
+                    // Set scale instantly
+                    card.container.setScale(1.05);
+                } else {
+                    // Animate scale
+                    this.tweens.add({
+                        targets: card.container,
+                        scaleX: 1.05,
+                        scaleY: 1.05,
+                        duration: 150,
+                        ease: 'Back.easeOut'
+                    });
+                }
                 card.background.setStrokeStyle(4, 0xffffff, 1);
                 card.playButton.setInteractive();
                 card.playButton.setAlpha(1);
             } else {
                 // Non-selected cards
-                this.tweens.add({
-                    targets: card.container,
-                    scaleX: 0.85,
-                    scaleY: 0.85,
-                    duration: 150,
-                    ease: 'Power2'
-                });
+                if (instant) {
+                    // Set scale instantly
+                    card.container.setScale(0.85);
+                } else {
+                    // Animate scale
+                    this.tweens.add({
+                        targets: card.container,
+                        scaleX: 0.85,
+                        scaleY: 0.85,
+                        duration: 150,
+                        ease: 'Power2'
+                    });
+                }
                 card.background.setStrokeStyle(3, 0x34495e, 0.7);
                 card.playButton.disableInteractive();
                 card.playButton.setAlpha(0.5);
@@ -593,6 +644,14 @@ export default class MapSelectScene extends Phaser.Scene {
         if (newIndex >= 0 && newIndex < this.currentMaps.length) {
             this.playMenuSound('map');
             this.selectedMapIndex = newIndex;
+            
+            // Save the new position for this category
+            if (this.currentCategory) {
+                this.categoryMapPositions[this.currentCategory.name] = this.selectedMapIndex;
+                // Save to registry for persistence
+                this.registry.set('categoryMapPositions', this.categoryMapPositions);
+            }
+            
             this.updateCarousel();
         }
     }
