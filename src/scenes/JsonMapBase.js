@@ -1370,6 +1370,11 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // IMPORTANT: Main camera should ignore it, but minimap should see it
         this.cameras.main.ignore(this.viewportIndicator);
+        
+        // Also make sure the UI overlay camera ignores it (if it exists)
+        if (this.uiOverlayCamera) {
+            this.uiOverlayCamera.ignore(this.viewportIndicator);
+        }
     }
     
     handleResize() {
@@ -1626,6 +1631,13 @@ export default class JsonMapBase extends Phaser.Scene {
             }
             if (this.viewportIndicator) {
                 this.viewportIndicator.setVisible(this.miniMapConfig.visible);
+                // Ensure cameras still ignore it after visibility change
+                if (this.miniMapConfig.visible) {
+                    this.cameras.main.ignore(this.viewportIndicator);
+                    if (this.uiOverlayCamera) {
+                        this.uiOverlayCamera.ignore(this.viewportIndicator);
+                    }
+                }
             }
             
             const text = this.add.text(this.scale.width / 2, 50, 
