@@ -89,7 +89,7 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Initialize menu sound
         this.menuWhoosh = new WhooshSynthesizer({
-            pitch: 1.3,
+            pitch: 0.4,
             filterBase: 900,
             resonance: 16.0,
             lowBoost: 1,
@@ -171,8 +171,9 @@ export default class MapSelectScene extends Phaser.Scene {
     createStackedCarousel() {
         const centerX = this.scale.width / 2;
         const carouselY = this.scale.height / 2;
-        const cardWidth = 280;
-        const cardHeight = 180;
+        this.cardWidth = 280;
+        this.cardHeight = 180;
+        this.cardSpacing = 20;
         
         // Font sizes for category labels
         const currentCategoryFontSize = 24;
@@ -187,7 +188,7 @@ export default class MapSelectScene extends Phaser.Scene {
         const currentCategoryY = carouselY - carouselFromCategorySpacing;
         const upArrowY = currentCategoryY - arrowFromCategorySpacing;
         const prevCategoryY = currentCategoryY - categoryLabelSpacing;
-        const downArrowY = carouselY + cardHeight/2 + otherCategoryFontSize * 4;
+        const downArrowY = carouselY + this.cardHeight/2 + otherCategoryFontSize * 4;
         const nextCategoryY = downArrowY + otherCategoryFontSize * 3;
         
         // Create category labels
@@ -196,7 +197,10 @@ export default class MapSelectScene extends Phaser.Scene {
             centerX, upArrowY,
             0, 15, 15, 15, 7.5, 0,
             0x4ecdc4, 0.6
-        ).setInteractive();
+        );
+        // Add larger invisible hit area for mobile
+        const upHitArea = this.add.rectangle(centerX, upArrowY, 80, 50, 0xffffff, 0)
+            .setInteractive();
         
         // Previous category (above)
         this.categoryLabelAbove = this.add.text(centerX, prevCategoryY, '', {
@@ -223,158 +227,91 @@ export default class MapSelectScene extends Phaser.Scene {
             centerX, downArrowY,
             0, 0, 15, 0, 7.5, 15,
             0x4ecdc4, 0.6
-        ).setInteractive();
+        );
+        // Add larger invisible hit area for mobile
+        const downHitArea = this.add.rectangle(centerX, downArrowY, 80, 50, 0xffffff, 0)
+            .setInteractive();
         
-        // Arrow click handlers for categories
-        this.upArrow.on('pointerup', () => {
+        // Arrow click handlers for categories (use hit areas)
+        upHitArea.on('pointerup', () => {
             this.navigateCategory(-1);
         });
         
-        this.downArrow.on('pointerup', () => {
+        downHitArea.on('pointerup', () => {
             this.navigateCategory(1);
         });
         
-        this.upArrow.on('pointerover', () => {
+        upHitArea.on('pointerover', () => {
             this.upArrow.setAlpha(0.8);
         });
         
-        this.upArrow.on('pointerout', () => {
+        upHitArea.on('pointerout', () => {
             this.upArrow.setAlpha(0.6);
         });
         
-        this.downArrow.on('pointerover', () => {
+        downHitArea.on('pointerover', () => {
             this.downArrow.setAlpha(0.8);
         });
         
-        this.downArrow.on('pointerout', () => {
+        downHitArea.on('pointerout', () => {
             this.downArrow.setAlpha(0.6);
         });
         
-        // Create carousel container
-        this.mapCarousel = this.add.container(centerX, carouselY);
+        // Create carousel viewport container (for masking)
+        this.carouselViewport = this.add.container(centerX, carouselY);
+        
+        // Create scrollable carousel container inside viewport
+        this.mapCarousel = this.add.container(0, 0);
+        this.carouselViewport.add(this.mapCarousel);
         
         // Create left/right arrows for map navigation
         this.leftArrow = this.add.triangle(
-            centerX - cardWidth * 0.6, carouselY,
+            centerX - this.cardWidth * 0.6, carouselY,
             20, 0, 20, 40, 0, 20,
             0x4ecdc4, 0.8
+        );
+        // Add larger invisible hit area for mobile
+        const leftHitArea = this.add.rectangle(
+            centerX - this.cardWidth * 0.6, carouselY, 60, 100, 0xffffff, 0
         ).setInteractive();
         
         this.rightArrow = this.add.triangle(
-            centerX + cardWidth * 0.6, carouselY,
+            centerX + this.cardWidth * 0.6, carouselY,
             0, 0, 20, 20, 0, 40,
             0x4ecdc4, 0.8
+        );
+        // Add larger invisible hit area for mobile
+        const rightHitArea = this.add.rectangle(
+            centerX + this.cardWidth * 0.6, carouselY, 60, 100, 0xffffff, 0
         ).setInteractive();
         
-        // Arrow click handlers for maps
-        this.leftArrow.on('pointerup', () => {
+        // Arrow click handlers for maps (use hit areas)
+        leftHitArea.on('pointerup', () => {
             this.navigateMap(-1);
         });
         
-        this.rightArrow.on('pointerup', () => {
+        rightHitArea.on('pointerup', () => {
             this.navigateMap(1);
         });
         
-        this.leftArrow.on('pointerover', () => {
+        leftHitArea.on('pointerover', () => {
             this.leftArrow.setAlpha(1);
         });
         
-        this.leftArrow.on('pointerout', () => {
+        leftHitArea.on('pointerout', () => {
             this.leftArrow.setAlpha(0.8);
         });
         
-        this.rightArrow.on('pointerover', () => {
+        rightHitArea.on('pointerover', () => {
             this.rightArrow.setAlpha(1);
         });
         
-        this.rightArrow.on('pointerout', () => {
+        rightHitArea.on('pointerout', () => {
             this.rightArrow.setAlpha(0.8);
         });
         
-        // Create map cards (3 visible at a time)
-        for (let i = -1; i <= 1; i++) {
-            const x = i * (cardWidth + 20);
-            
-            // Create a container for each card
-            const cardContainer = this.add.container(x, 0);
-            
-            // Card background
-            const cardBg = this.add.rectangle(0, 0, cardWidth, cardHeight, 0x2c3e50, 0.9);
-            cardBg.setStrokeStyle(3, 0x34495e, 1);
-            
-            // Card title
-            const titleText = this.add.text(0, -60, '', {
-                fontSize: '20px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
-            
-            // Card description
-            const descText = this.add.text(0, -20, '', {
-                fontSize: '14px',
-                color: '#95a5a6',
-                wordWrap: { width: cardWidth - 40 }
-            }).setOrigin(0.5);
-            
-            // Best time
-            const timeText = this.add.text(0, 35, '', {
-                fontSize: '16px',
-                color: '#4ecdc4'
-            }).setOrigin(0.5);
-            
-            // Play button
-            const playButton = this.add.rectangle(0, 65, 100, 30, 0x27ae60, 1);
-            playButton.setStrokeStyle(2, 0x2ecc71, 1);
-            playButton.setInteractive();
-            
-            const playText = this.add.text(0, 65, 'PLAY', {
-                fontSize: '18px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
-            
-            // Status icon - large checkmark for completed levels (centered)
-            const statusIcon = this.add.text(40, -15, '', {
-                fontSize: '72px',
-                color: '#2ecc71'
-            }).setOrigin(-1, 1).setAlpha(0.8);
-            
-            // Add all elements to the card container
-            cardContainer.add([cardBg, statusIcon, titleText, descText, timeText, playButton, playText]);
-            
-            // Add card container to carousel
-            this.mapCarousel.add(cardContainer);
-            
-            // Store card reference
-            this.mapCards.push({
-                container: cardContainer,
-                background: cardBg,
-                title: titleText,
-                description: descText,
-                time: timeText,
-                status: statusIcon,
-                playButton: playButton,
-                playText: playText,
-                position: i // -1 = left, 0 = center, 1 = right
-            });
-            
-            // Play button handler
-            playButton.on('pointerup', () => {
-                if (i === 0) { // Only center card can be played
-                    this.playCurrentMap();
-                }
-            });
-            
-            playButton.on('pointerover', () => {
-                if (i === 0) {
-                    playButton.setFillStyle(0x27ae60, 1);
-                }
-            });
-            
-            playButton.on('pointerout', () => {
-                playButton.setFillStyle(0x27ae60, 0.9);
-            });
-        }
+        // Initialize empty cards array
+        this.mapCards = [];
         
         // Map counter
         this.mapCounter = this.add.text(centerX, carouselY + 120, '', {
@@ -443,8 +380,8 @@ export default class MapSelectScene extends Phaser.Scene {
         // Update category labels
         this.updateCategoryLabels();
         
-        // Update carousel
-        this.updateCarousel();
+        // Recreate carousel with new maps
+        this.recreateCarousel();
     }
     
     updateCategoryLabels() {
@@ -474,71 +411,165 @@ export default class MapSelectScene extends Phaser.Scene {
         }
     }
     
-    updateCarousel() {
+    createCard(mapData, index) {
+        const x = index * (this.cardWidth + this.cardSpacing);
+        const cardContainer = this.add.container(x, 0);
+        
+        // Card background
+        const cardBg = this.add.rectangle(0, 0, this.cardWidth, this.cardHeight, 0x2c3e50, 0.9);
+        cardBg.setStrokeStyle(3, 0x34495e, 1);
+        
+        // Card title
+        const titleText = this.add.text(0, -60, mapData.title, {
+            fontSize: '20px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        
+        // Card description
+        const descText = this.add.text(0, -20, mapData.description || 'No description', {
+            fontSize: '14px',
+            color: '#95a5a6',
+            wordWrap: { width: this.cardWidth - 40 }
+        }).setOrigin(0.5);
+        
+        // Get progress
+        const progress = this.stateManager.getMapProgress(mapData.key);
+        
+        // Best time
+        const timeText = this.add.text(0, 35, '', {
+            fontSize: '16px',
+            color: '#4ecdc4'
+        }).setOrigin(0.5);
+        
+        if (progress.bestTime) {
+            timeText.setText(`Best: ${this.formatTime(progress.bestTime)}`);
+        } else {
+            timeText.setText('Not completed');
+        }
+        
+        // Play button
+        const playButton = this.add.rectangle(0, 65, 100, 30, 0x27ae60, 1);
+        playButton.setStrokeStyle(2, 0x2ecc71, 1);
+        
+        const playText = this.add.text(0, 65, 'PLAY', {
+            fontSize: '18px',
+            color: '#ffffff',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+        
+        // Status icon - large checkmark for completed levels
+        const statusIcon = this.add.text(40, -15, progress.completed ? '✓' : '', {
+            fontSize: '72px',
+            color: '#2ecc71'
+        }).setOrigin(-1, 1).setAlpha(0.8);
+        statusIcon.setVisible(progress.completed);
+        
+        // Add all elements to the card container
+        cardContainer.add([cardBg, statusIcon, titleText, descText, timeText, playButton, playText]);
+        
+        // Store card reference
+        return {
+            container: cardContainer,
+            background: cardBg,
+            title: titleText,
+            description: descText,
+            time: timeText,
+            status: statusIcon,
+            playButton: playButton,
+            playText: playText,
+            mapKey: mapData.key,
+            index: index
+        };
+    }
+    
+    recreateCarousel() {
+        // Clear existing cards
+        this.mapCards.forEach(card => {
+            card.container.destroy();
+        });
+        this.mapCards = [];
+        
         if (!this.currentMaps || this.currentMaps.length === 0) {
-            // Hide carousel if no maps
-            this.mapCards.forEach(card => {
-                card.container.setVisible(false);
-            });
             this.leftArrow.setVisible(false);
             this.rightArrow.setVisible(false);
             this.mapCounter.setVisible(false);
             return;
         }
         
-        // Show carousel elements
+        // Show navigation elements
         this.leftArrow.setVisible(true);
         this.rightArrow.setVisible(true);
         this.mapCounter.setVisible(true);
         
-        // Update each card
-        this.mapCards.forEach((card, cardIndex) => {
-            const mapIndex = this.selectedMapIndex + card.position;
+        // Create cards for all maps
+        this.currentMaps.forEach((map, index) => {
+            const card = this.createCard(map, index);
+            this.mapCarousel.add(card.container);
+            this.mapCards.push(card);
             
-            if (mapIndex >= 0 && mapIndex < this.currentMaps.length) {
-                const map = this.currentMaps[mapIndex];
-                const progress = this.stateManager.getMapProgress(map.key);
-                
-                // Show card container
-                card.container.setVisible(true);
-                
-                // Show/hide status checkmark based on completion
-                card.status.setVisible(progress.completed);
-                
-                // Update content
-                card.title.setText(map.title);
-                card.description.setText(map.description || 'No description');
-                
-                // Best time
-                if (progress.bestTime) {
-                    card.time.setText(`Best: ${this.formatTime(progress.bestTime)}`);
-                } else {
-                    card.time.setText('Not completed');
+            // Set up play button interaction
+            card.playButton.on('pointerup', () => {
+                if (index === this.selectedMapIndex) {
+                    this.playCurrentMap();
                 }
-                
-                // Status icon checkmark
-                card.status.setText(progress.completed ? '✓' : '');
-                
-                // Card styling based on position
-                if (card.position === 0) {
-                    // Center card (selected)
-                    card.container.setScale(1.05);
-                    card.background.setStrokeStyle(4, 0xffffff, 1);
-                    card.playButton.setInteractive();
-                    card.playButton.setAlpha(1);
-                } else {
-                    // Side cards
-                    card.container.setScale(0.85);
-                    card.background.setStrokeStyle(3, 0x34495e, 0.7);
-                    card.playButton.disableInteractive();
-                    card.playButton.setAlpha(0.5);
+            });
+            
+            card.playButton.on('pointerover', () => {
+                if (index === this.selectedMapIndex) {
+                    card.playButton.setFillStyle(0x27ae60, 1);
                 }
-                
-                // Keep consistent background color
-                card.background.setFillStyle(0x2c3e50, 0.9);
+            });
+            
+            card.playButton.on('pointerout', () => {
+                card.playButton.setFillStyle(0x27ae60, 1);
+            });
+        });
+        
+        // Update initial state
+        this.updateCarousel();
+    }
+    
+    updateCarousel() {
+        if (!this.mapCards || this.mapCards.length === 0) return;
+        
+        // Calculate target position for carousel
+        const targetX = -this.selectedMapIndex * (this.cardWidth + this.cardSpacing);
+        
+        // Animate carousel to center selected card
+        this.tweens.add({
+            targets: this.mapCarousel,
+            x: targetX,
+            duration: 200,
+            ease: 'Power2'
+        });
+        
+        // Update each card's appearance based on selection
+        this.mapCards.forEach((card, index) => {
+            if (index === this.selectedMapIndex) {
+                // Selected card
+                this.tweens.add({
+                    targets: card.container,
+                    scaleX: 1.05,
+                    scaleY: 1.05,
+                    duration: 150,
+                    ease: 'Back.easeOut'
+                });
+                card.background.setStrokeStyle(4, 0xffffff, 1);
+                card.playButton.setInteractive();
+                card.playButton.setAlpha(1);
             } else {
-                // Hide card if out of range
-                card.container.setVisible(false);
+                // Non-selected cards
+                this.tweens.add({
+                    targets: card.container,
+                    scaleX: 0.85,
+                    scaleY: 0.85,
+                    duration: 150,
+                    ease: 'Power2'
+                });
+                card.background.setStrokeStyle(3, 0x34495e, 0.7);
+                card.playButton.disableInteractive();
+                card.playButton.setAlpha(0.5);
             }
         });
         
@@ -547,9 +578,7 @@ export default class MapSelectScene extends Phaser.Scene {
         this.rightArrow.setAlpha(this.selectedMapIndex < this.currentMaps.length - 1 ? 0.8 : 0.2);
         
         // Update map counter
-        if (this.currentMaps.length > 0) {
-            this.mapCounter.setText(`Map ${this.selectedMapIndex + 1} of ${this.currentMaps.length}`);
-        }
+        this.mapCounter.setText(`Map ${this.selectedMapIndex + 1} of ${this.currentMaps.length}`);
     }
     
     playMenuSound(type) {
@@ -560,29 +589,63 @@ export default class MapSelectScene extends Phaser.Scene {
             this.menuWhoosh.start();
         }
         
-        // Quick swish effect
+        // Kill any existing audio tween
+        if (this.audioTween) {
+            this.audioTween.stop();
+        }
+        
+        // Create an object to tween for smooth audio fade
+        const audioParams = { volume: 0, frequency: 0 };
+        
         if (type === 'map') {
-            // Navigation sound - quick swish
-            this.menuWhoosh.update(0.7, 0.7);
-            this.time.delayedCall(50, () => {
-                if (this.menuWhoosh) {
-                    this.menuWhoosh.update(0, 0);
+            // Navigation sound - quick swish with fade
+            audioParams.volume = 0.7;
+            audioParams.frequency = 0.5;
+            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+            
+            this.audioTween = this.tweens.add({
+                targets: audioParams,
+                volume: 0,
+                duration: 200,
+                ease: 'Sine.easeOut',
+                onUpdate: () => {
+                    if (this.menuWhoosh) {
+                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+                    }
                 }
             });
         } else if (type === 'category') {
-            // Selection sound - stronger swish
-            this.menuWhoosh.update(0.7, 0.4);
-            this.time.delayedCall(150, () => {
-                if (this.menuWhoosh) {
-                    this.menuWhoosh.update(0, 0);
+            // Category change - different pitch with smooth fade
+            audioParams.volume = 0.7;
+            audioParams.frequency = 0.3;
+            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+            
+            this.audioTween = this.tweens.add({
+                targets: audioParams,
+                volume: 0,
+                duration: 200,
+                ease: 'Sine.easeOut',
+                onUpdate: () => {
+                    if (this.menuWhoosh) {
+                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+                    }
                 }
             });
         } else if (type === 'select') {
-            // Selection sound - stronger swish
-            this.menuWhoosh.update(0.7, 1.0);
-            this.time.delayedCall(200, () => {
-                if (this.menuWhoosh) {
-                    this.menuWhoosh.update(0, 0);
+            // Selection sound - stronger swish with longer fade
+            audioParams.volume = 0.7;
+            audioParams.frequency = 1.0;
+            this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+            
+            this.audioTween = this.tweens.add({
+                targets: audioParams,
+                volume: 0,
+                duration: 200,
+                ease: 'Sine.easeOut',
+                onUpdate: () => {
+                    if (this.menuWhoosh) {
+                        this.menuWhoosh.update(audioParams.volume, audioParams.frequency);
+                    }
                 }
             });
         }
