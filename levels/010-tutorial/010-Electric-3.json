@@ -1,22 +1,24 @@
 {
   "metadata": {
-    "name": "Electric Slide",
+    "name": "Electric Slide 3x",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-29T16:13:43.375Z"
+    "modified": "2025-08-05T21:23:20.106Z",
+    "category": "tutorial",
+    "order": 12
   },
   "dimensions": {
-    "width": 1920,
-    "height": 800
+    "width": 4416,
+    "height": 1500
   },
   "entities": {
     "wormStart": {
-      "x": 1776,
-      "y": 60
+      "x": 4224,
+      "y": 696
     },
     "goal": {
-      "x": 192,
-      "y": 384
+      "x": 96,
+      "y": 876
     }
   },
   "platforms": [
@@ -24,8 +26,8 @@
       "id": "platform_1753400467415",
       "type": "rectangle",
       "platformType": "electric",
-      "x": 600,
-      "y": 876,
+      "x": 2160,
+      "y": 1608,
       "rotation": 0,
       "color": "#ffff00",
       "physics": {
@@ -33,16 +35,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 1548,
-      "height": 216,
-      "angle": -0.019825503310556547
+      "width": 4584,
+      "height": 252,
+      "angle": 0
     },
     {
       "id": "platform_1753400469182",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 768,
-      "y": 624,
+      "x": 3360,
+      "y": 1356,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -50,15 +52,15 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 384,
+      "width": 500,
       "height": 180
     },
     {
       "id": 1753722484209,
       "type": "rectangle",
       "platformType": "standard",
-      "x": 1728,
-      "y": 696,
+      "x": 4284,
+      "y": 1440,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -71,52 +73,57 @@
       "angle": -0.6108652381980153
     },
     {
-      "id": "platform_1753802576210",
-      "type": "circle",
+      "id": "platform_1754100282686",
+      "type": "rectangle",
       "platformType": "standard",
-      "x": 768,
-      "y": 168,
-      "angle": 0,
+      "x": 2208,
+      "y": 1356,
+      "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
         "friction": 0.8,
-        "frictionStatic": 0.9,
-        "restitution": 0.3
+        "frictionStatic": 1,
+        "restitution": 0
       },
-      "radius": 96
+      "width": 500,
+      "height": 180
     },
     {
-      "id": "platform_1753802627171",
+      "id": "platform_1754100301305",
       "type": "rectangle",
-      "platformType": "ice",
-      "x": 960,
-      "y": -24,
-      "angle": 0,
-      "color": "#b3e5fc",
+      "platformType": "standard",
+      "x": 1056,
+      "y": 1356,
+      "rotation": 0,
+      "color": "#ff6b6b",
       "physics": {
         "friction": 0.8,
-        "frictionStatic": 0.9,
-        "restitution": 0.3
+        "frictionStatic": 1,
+        "restitution": 0
       },
-      "width": 1956,
-      "height": 72
-    },
-    {
-      "id": "platform_1753802662013",
-      "type": "rectangle",
-      "platformType": "ice",
-      "x": -60,
-      "y": 360,
-      "angle": 0,
-      "color": "#b3e5fc",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 0.9,
-        "restitution": 0.3
-      },
-      "width": 156,
-      "height": 876
+      "width": 500,
+      "height": 180
     }
   ],
-  "stickers": []
+  "stickers": [
+    {
+      "id": "sticker_1",
+      "x": 1068,
+      "y": 636,
+      "text": "Last Platform"
+    },
+    {
+      "id": "sticker_1754343279633",
+      "x": 2208,
+      "y": 636,
+      "text": "Again?!"
+    },
+    {
+      "id": "sticker_1754343294220",
+      "x": 3360,
+      "y": 636,
+      "text": "A bit too high."
+    }
+  ],
+  "constraints": []
 }

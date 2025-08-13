@@ -1,0 +1,122 @@
+{
+  "metadata": {
+    "name": "First Tower",
+    "difficulty": 3,
+    "description": "",
+    "modified": "2025-08-13T10:17:55.600Z",
+    "category": "tutorial",
+    "order": 5
+  },
+  "dimensions": {
+    "width": 1600,
+    "height": 3000
+  },
+  "entities": {
+    "wormStart": {
+      "x": 240,
+      "y": 1596
+    },
+    "goal": {
+      "x": 1416,
+      "y": 1512
+    }
+  },
+  "platforms": [
+    {
+      "x": 1356,
+      "y": 2940,
+      "width": 516,
+      "height": 156,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "chamfer": {
+        "radius": 10
+      }
+    },
+    {
+      "x": 192,
+      "y": 2532,
+      "width": 492,
+      "height": 252,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "chamfer": {
+        "radius": 10
+      }
+    },
+    {
+      "x": 1440,
+      "y": 1716,
+      "width": 348,
+      "height": 156,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "chamfer": {
+        "radius": 10
+      }
+    },
+    {
+      "x": 864,
+      "y": 2076,
+      "width": 480,
+      "height": 180,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "chamfer": {
+        "radius": 10
+      }
+    },
+    {
+      "x": -108,
+      "y": 1548,
+      "width": 228,
+      "height": 3144,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "id": 1753666749580,
+      "platformType": "ice"
+    },
+    {
+      "x": 1704,
+      "y": 1548,
+      "width": 240,
+      "height": 3120,
+      "type": "rectangle",
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 1,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "id": 1753666773690,
+      "platformType": "ice"
+    }
+  ],
+  "stickers": [],
+  "constraints": []
+}

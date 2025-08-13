@@ -1,22 +1,24 @@
 {
   "metadata": {
-    "name": "Electric Slide EZ",
+    "name": "Electric Slide Medium",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-29T16:13:43.375Z"
+    "modified": "2025-08-13T09:38:41.245Z",
+    "category": "tutorial",
+    "order": 11
   },
   "dimensions": {
     "width": 1920,
-    "height": 800
+    "height": 1500
   },
   "entities": {
     "wormStart": {
       "x": 1776,
-      "y": 60
+      "y": 760
     },
     "goal": {
       "x": 192,
-      "y": 384
+      "y": 1084
     }
   },
   "platforms": [
@@ -25,7 +27,7 @@
       "type": "rectangle",
       "platformType": "electric",
       "x": 600,
-      "y": 876,
+      "y": 1576,
       "rotation": 0,
       "color": "#ffff00",
       "physics": {
@@ -42,7 +44,7 @@
       "type": "rectangle",
       "platformType": "standard",
       "x": 768,
-      "y": 624,
+      "y": 1324,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -50,7 +52,7 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 384,
+      "width": 500,
       "height": 180
     },
     {
@@ -58,7 +60,7 @@
       "type": "rectangle",
       "platformType": "standard",
       "x": 1728,
-      "y": 696,
+      "y": 1396,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -71,11 +73,26 @@
       "angle": -0.6108652381980153
     },
     {
+      "id": "platform_1753802576210",
+      "type": "circle",
+      "platformType": "standard",
+      "x": 768,
+      "y": 868,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "radius": 96
+    },
+    {
       "id": "platform_1753802627171",
       "type": "rectangle",
       "platformType": "ice",
-      "x": 960,
-      "y": -24,
+      "x": 924,
+      "y": 36,
       "angle": 0,
       "color": "#b3e5fc",
       "physics": {
@@ -83,15 +100,15 @@
         "frictionStatic": 0.9,
         "restitution": 0.3
       },
-      "width": 1956,
-      "height": 72
+      "width": 2040,
+      "height": 84
     },
     {
       "id": "platform_1753802662013",
       "type": "rectangle",
       "platformType": "ice",
-      "x": -60,
-      "y": 360,
+      "x": -36,
+      "y": 744,
       "angle": 0,
       "color": "#b3e5fc",
       "physics": {
@@ -99,9 +116,10 @@
         "frictionStatic": 0.9,
         "restitution": 0.3
       },
-      "width": 156,
-      "height": 876
+      "width": 120,
+      "height": 1500
     }
   ],
-  "stickers": []
+  "stickers": [],
+  "constraints": []
 }

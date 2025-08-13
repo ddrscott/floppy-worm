@@ -3,7 +3,9 @@
     "name": "You Will Rage! (by Morgan)",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-08-02T01:54:58.075Z"
+    "modified": "2025-08-02T01:54:58.075Z",
+    "category": "test",
+    "order": 5
   },
   "dimensions": {
     "width": 2880,

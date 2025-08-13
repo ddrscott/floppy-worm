@@ -3,7 +3,10 @@
     "name": "Simple Moves",
     "difficulty": 2,
     "description": "Test map for moving platforms",
-    "modified": "2025-07-30T23:51:17.392Z"
+    "modified": "2025-07-30T23:51:17.392Z",
+    "category": "test",
+    "order": 1
+
   },
   "dimensions": {
     "width": 1920,

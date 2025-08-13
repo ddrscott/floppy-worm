@@ -3,7 +3,9 @@
     "name": "Left",
     "difficulty": 1,
     "description": "Learn the basics of worm movement",
-    "modified": "2025-08-06T18:55:35.375Z"
+    "modified": "2025-08-06T18:55:35.375Z",
+    "category": "tutorial",
+    "order": 1
   },
   "dimensions": {
     "width": 1024,

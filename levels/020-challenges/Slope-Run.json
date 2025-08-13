@@ -3,7 +3,9 @@
     "name": "Slope Run",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-08-01T22:20:22.907Z"
+    "modified": "2025-08-01T22:20:22.907Z",
+    "category": "challenge",
+    "order": 1
   },
   "dimensions": {
     "width": 1000,

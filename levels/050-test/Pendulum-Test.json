@@ -3,7 +3,10 @@
     "name": "Hang In There",
     "difficulty": 2,
     "description": "Don't get squished.",
-    "modified": "2025-07-30T05:38:44.618Z"
+    "modified": "2025-07-30T05:38:44.618Z",
+    "category": "test",
+    "order": 1
+
   },
   "dimensions": {
     "width": 1920,

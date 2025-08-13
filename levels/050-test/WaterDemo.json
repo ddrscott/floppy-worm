@@ -3,7 +3,10 @@
     "name": "Water Flow Demo",
     "difficulty": 2,
     "description": "Experience water physics with flowing pools and waterfalls",
-    "modified": "2025-07-31T18:44:30.229Z"
+    "modified": "2025-07-31T18:44:30.229Z",
+    "category": "test",
+    "order": 1
+
   },
   "dimensions": {
     "width": 1920,

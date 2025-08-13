@@ -3,7 +3,9 @@
     "name": "Right",
     "difficulty": 1,
     "description": "To the Right",
-    "modified": "2025-07-28T22:00:29.151Z"
+    "modified": "2025-07-28T22:00:29.151Z",
+    "category": "tutorial",
+    "order": 2
   },
   "dimensions": {
     "width": 1024,

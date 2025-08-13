@@ -3,7 +3,9 @@
     "name": "A little higher",
     "difficulty": 1,
     "description": "Thought that was hard?",
-    "modified": "2025-07-28T16:37:36.167Z"
+    "modified": "2025-07-28T16:37:36.167Z",
+    "category": "tutorial",
+    "order": 4
   },
   "dimensions": {
     "width": 1024,

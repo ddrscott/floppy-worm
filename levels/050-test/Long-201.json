@@ -3,7 +3,9 @@
     "name": "Journey 201",
     "difficulty": 1,
     "description": "Learn the basics of worm movement",
-    "modified": "2025-08-04T21:10:32.617Z"
+    "modified": "2025-08-04T21:10:32.617Z",
+    "category": "test",
+    "order": 12
   },
   "dimensions": {
     "width": 4800,

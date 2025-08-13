@@ -3,7 +3,9 @@
     "name": "Try Angles",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-25T22:56:10.622Z"
+    "modified": "2025-07-25T22:56:10.622Z",
+    "category": "test",
+    "order": 1
   },
   "dimensions": {
     "width": 1000,

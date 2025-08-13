@@ -1,0 +1,88 @@
+{
+    "metadata": {
+        "name": "Blackhole Test",
+        "difficulty": 2,
+        "description": "Test map for blackhole platform",
+        "modified": "2025-07-30T18:07:13.637Z",
+        "category": "test",
+        "order": 50
+    },
+    "dimensions": {
+        "width": 1920,
+        "height": 1600
+    },
+    "entities": {
+        "wormStart": {
+            "x": 156,
+            "y": 348
+        },
+        "goal": {
+            "x": 1056,
+            "y": 564
+        }
+    },
+    "platforms": [
+        {
+            "type": "rectangle",
+            "x": 204,
+            "y": 1056,
+            "width": 432,
+            "height": 408,
+            "color": "#666666",
+            "physics": {}
+        },
+        {
+            "id": "blackhole_1",
+            "type": "circle",
+            "platformType": "blackhole",
+            "x": 864,
+            "y": 132,
+            "radius": 30,
+            "physics": {
+                "attractionStrength": 0.15,
+                "attractionRadius": 450,
+                "rotationSpeed": 0.02
+            }
+        },
+        {
+            "id": "blackhole_2",
+            "type": "circle",
+            "platformType": "blackhole",
+            "x": 864,
+            "y": 912,
+            "radius": 20,
+            "physics": {
+                "attractionStrength": 0.15,
+                "attractionRadius": 250,
+                "rotationSpeed": 0.02
+            }
+        },
+        {
+            "type": "rectangle",
+            "x": 1632,
+            "y": 1056,
+            "width": 400,
+            "height": 400,
+            "color": "#666666",
+            "physics": {}
+        },
+        {
+            "id": "platform_1753894347123",
+            "type": "rectangle",
+            "platformType": "electric",
+            "x": 912,
+            "y": 1296,
+            "angle": 0,
+            "color": "#ffff00",
+            "physics": {
+                "friction": 0.8,
+                "frictionStatic": 0.9,
+                "restitution": 0.3
+            },
+            "width": 1104,
+            "height": 72
+        }
+    ],
+    "stickers": [],
+    "constraints": []
+}

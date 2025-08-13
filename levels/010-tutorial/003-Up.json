@@ -3,7 +3,9 @@
     "name": "Hurdle",
     "difficulty": 1,
     "description": "Get over the first hurdle",
-    "modified": "2025-07-28T16:03:14.894Z"
+    "modified": "2025-07-28T16:03:14.894Z",
+    "category": "tutorial",
+    "order": 3
   },
   "dimensions": {
     "width": 1024,

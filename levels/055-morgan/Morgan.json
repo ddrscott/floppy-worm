@@ -3,7 +3,9 @@
     "name": "Morgan",
     "difficulty": 3,
     "description": "Because it was too easy",
-    "modified": "2025-07-25T22:50:34.533Z"
+    "modified": "2025-07-25T22:50:34.533Z",
+    "category": "test",
+    "order": 5
   },
   "dimensions": {
     "width": 1600,

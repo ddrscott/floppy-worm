@@ -3,7 +3,9 @@
     "name": "Baller - Electric",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-07-30T06:08:26.767Z"
+    "modified": "2025-07-30T06:08:26.767Z",
+    "category": "test",
+    "order": 50
   },
   "dimensions": {
     "width": 10000,

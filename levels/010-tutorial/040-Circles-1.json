@@ -1,9 +1,11 @@
 {
   "metadata": {
-    "name": "Mini Tower",
+    "name": "Big Ball",
     "difficulty": 1,
-    "description": "My First Tower",
-    "modified": "2025-07-29T20:25:52.572Z"
+    "description": "Get on the ball",
+    "modified": "2025-07-29T20:25:52.572Z",
+    "category": "tutorial",
+    "order": 50
   },
   "dimensions": {
     "width": 1600,

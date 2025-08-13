@@ -3,7 +3,7 @@
 
 // Use Vite's glob import to get all map JSON files at build time
 // This creates a single bundle with all maps included
-const mapModules = import.meta.glob('./data/*.json', { 
+const mapModules = import.meta.glob('/src/../levels/**/*.json', { 
     eager: true,  // Load all modules immediately
     import: 'default'  // Import the default export
 });
