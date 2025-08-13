@@ -59,8 +59,21 @@ export default class MapSelectScene extends Phaser.Scene {
         // Load saved category index
         this.selectedCategoryIndex = this.registry.get('selectedCategoryIndex') || 0;
         
-        // Reset state
-        this.selectedMapIndex = 0;
+        // Check if we're returning from a game and restore the exact position
+        const lastSelectedCategory = this.registry.get('lastSelectedCategory');
+        const lastSelectedMapIndex = this.registry.get('lastSelectedMapIndex');
+        
+        if (lastSelectedCategory !== undefined && lastSelectedMapIndex !== undefined) {
+            // We're returning from a game, use the last selected map index
+            this.selectedMapIndex = lastSelectedMapIndex;
+            // Clear the temporary storage
+            this.registry.remove('lastSelectedCategory');
+            this.registry.remove('lastSelectedMapIndex');
+        } else {
+            // Normal initialization
+            this.selectedMapIndex = 0;
+        }
+        
         this.isTransitioning = false;
         this.mapCards = [];
         
@@ -135,7 +148,9 @@ export default class MapSelectScene extends Phaser.Scene {
             if (this.selectedCategoryIndex >= this.categories.length) {
                 this.selectedCategoryIndex = 0;
             }
-            this.selectCategory(this.selectedCategoryIndex);
+            // Check if we have a preserved map index (returning from game)
+            const hasPreservedMapIndex = this.selectedMapIndex > 0;
+            this.selectCategory(this.selectedCategoryIndex, hasPreservedMapIndex);
         }
         
         // Clean up events on shutdown
@@ -379,11 +394,11 @@ export default class MapSelectScene extends Phaser.Scene {
         // });
     }
     
-    selectCategory(index) {
+    selectCategory(index, preserveCurrentMapIndex = false) {
         if (index < 0 || index >= this.categories.length) return;
         
         // Save current map position for the current category before switching
-        if (this.currentCategory) {
+        if (this.currentCategory && !preserveCurrentMapIndex) {
             this.categoryMapPositions[this.currentCategory.name] = this.selectedMapIndex;
             // Save to registry for persistence
             this.registry.set('categoryMapPositions', this.categoryMapPositions);
@@ -396,8 +411,11 @@ export default class MapSelectScene extends Phaser.Scene {
         // Save the selected category index to registry
         this.registry.set('selectedCategoryIndex', this.selectedCategoryIndex);
         
-        // Restore the saved map position for this category, or start at 0
-        this.selectedMapIndex = this.categoryMapPositions[this.currentCategory.name] || 0;
+        // If preserveCurrentMapIndex is true (returning from game), use the already set selectedMapIndex
+        // Otherwise, restore the saved map position for this category
+        if (!preserveCurrentMapIndex) {
+            this.selectedMapIndex = this.categoryMapPositions[this.currentCategory.name] || 0;
+        }
         
         // Ensure the restored position is valid for the current maps
         if (this.selectedMapIndex >= this.currentMaps.length) {
@@ -486,10 +504,11 @@ export default class MapSelectScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Status icon - large checkmark for completed levels
-        const statusIcon = this.add.text(40, -15, progress.completed ? '✓' : '', {
-            fontSize: '72px',
-            color: '#2ecc71'
-        }).setOrigin(-1, 1).setAlpha(0.8);
+        const statusIcon = this.add.text(this.cardWidth/2 - 30, -this.cardHeight/2 + 30, progress.completed ? '✓' : '', {
+            fontSize: '48px',
+            color: '#2ecc71',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setAlpha(0.9);
         statusIcon.setVisible(progress.completed);
         
         // Add all elements to the card container
@@ -664,6 +683,16 @@ export default class MapSelectScene extends Phaser.Scene {
         const map = this.currentMaps[this.selectedMapIndex];
         this.isTransitioning = true;
         
+        // Save current map position for this category before playing
+        if (this.currentCategory) {
+            this.categoryMapPositions[this.currentCategory.name] = this.selectedMapIndex;
+            this.registry.set('categoryMapPositions', this.categoryMapPositions);
+            
+            // Also save the selected map index globally for when we return
+            this.registry.set('lastSelectedMapIndex', this.selectedMapIndex);
+            this.registry.set('lastSelectedCategory', this.currentCategory.name);
+        }
+        
         // Fade out and load map
         this.cameras.main.fadeOut(250, 0, 0, 0);
         
@@ -786,8 +815,19 @@ export default class MapSelectScene extends Phaser.Scene {
     }
     
     onProgressUpdated(progress) {
-        // Refresh when progress is updated
-        this.scene.restart();
+        // Update the checkmark for the completed map without restarting the scene
+        if (this.mapCards && progress && progress.mapKey) {
+            // Find the card for the updated map
+            const card = this.mapCards.find(c => c.mapKey === progress.mapKey);
+            if (card && progress.completed) {
+                // Update the checkmark visibility
+                card.status.setVisible(true);
+                // Update the time text
+                if (progress.bestTime) {
+                    card.time.setText(`Best: ${this.formatTime(progress.bestTime)}`);
+                }
+            }
+        }
     }
     
     cleanup() {
