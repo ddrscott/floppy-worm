@@ -171,7 +171,7 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
               const formData = new FormData();
               formData.append("mapData", JSON.stringify(currentMapData));
               
-              const response = await fetch(`/api/maps/${filename}`, {
+              const response = await fetch(`/api/maps/${encodeURIComponent(filename)}`, {
                 method: 'POST',
                 body: formData
               });
@@ -353,14 +353,14 @@ function MapEditorClient({ mapData, filename }: { mapData: any, filename: string
                 const formData = new FormData();
                 formData.append("mapData", JSON.stringify(mapData));
                 
-                const response = await fetch(`/api/maps/${newMapData.filename}.json`, {
+                const response = await fetch(`/api/maps/${encodeURIComponent(newMapData.filename)}.json`, {
                   method: 'POST',
                   body: formData
                 });
                 
                 if (response.ok) {
                   // Navigate to the new map editor
-                  window.location.href = `/maps/${newMapData.filename}.json/edit`;
+                  window.location.href = `/maps/${encodeURIComponent(newMapData.filename)}.json/edit`;
                 } else {
                   alert('Failed to create new map');
                 }
@@ -424,7 +424,8 @@ export default function MapEdit() {
 
       try {
         // Always load from the server API
-        const response = await fetch(`/api/maps/${filename}`);
+        // Encode the filename to handle paths with slashes (e.g., "010-tutorial/001-Left.json")
+        const response = await fetch(`/api/maps/${encodeURIComponent(filename)}`);
         
         if (response.ok) {
           const result = await response.json();
@@ -435,8 +436,10 @@ export default function MapEdit() {
           }
         } else {
           // Fallback: create empty map
+          // Extract just the filename from path for the title
+          const justFilename = filename.split('/').pop() || filename;
           setMapData({
-            title: filename.replace('.json', ''),
+            title: justFilename.replace('.json', ''),
             difficulty: 1,
             platforms: [],
             entities: {

@@ -3,9 +3,12 @@ import { useEffect, useState } from "react";
 
 interface MapData {
   filename: string;
+  category: string;
+  categoryOrder: string;
   title: string;
   difficulty: number;
   lastModified: string;
+  relativePath: string;
   error?: string;
 }
 
@@ -15,6 +18,7 @@ export default function MapsIndex() {
   const [error, setError] = useState<string | null>(null);
   const [showNewMapModal, setShowNewMapModal] = useState(false);
   const [newMapData, setNewMapData] = useState({
+    category: '010-tutorial',
     filename: '',
     name: '',
     difficulty: 1,
@@ -22,6 +26,14 @@ export default function MapsIndex() {
     width: 1920,
     height: 1152
   });
+  
+  // Extract unique categories from loaded maps
+  const categories = Array.from(new Set(maps.map(m => m.category)))
+    .sort((a, b) => {
+      const aOrder = maps.find(m => m.category === a)?.categoryOrder || "999";
+      const bOrder = maps.find(m => m.category === b)?.categoryOrder || "999";
+      return aOrder.localeCompare(bOrder);
+    });
 
   useEffect(() => {
     // Load maps data directly from the filesystem via API
@@ -32,14 +44,8 @@ export default function MapsIndex() {
         if (response.ok) {
           const result = await response.json();
           if (result.maps) {
-            // Sort maps using the same logic as MapDataRegistry
-            const sortedMaps = result.maps.sort((a: MapData, b: MapData) => {
-              // Extract numeric part for proper sorting (Map001, Map002, etc.)
-              const numA = parseInt(a.filename.replace(/\D/g, '')) || 999;
-              const numB = parseInt(b.filename.replace(/\D/g, '')) || 999;
-              return numA - numB;
-            });
-            setMaps(sortedMaps);
+            // Maps are already sorted by the API
+            setMaps(result.maps);
           } else if (result.error) {
             setError(result.error);
           }
@@ -110,6 +116,9 @@ export default function MapsIndex() {
           <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Map
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -128,7 +137,12 @@ export default function MapsIndex() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {maps.map((map) => (
-              <tr key={map.filename} className="hover:bg-gray-50">
+              <tr key={map.relativePath} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                  <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                    {map.category.replace(/-/g, ' ')}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {map.filename}
                 </td>
@@ -146,19 +160,19 @@ export default function MapsIndex() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <a
-                    href={`/maps/${encodeURIComponent(map.filename)}/edit`}
+                    href={`/maps/${encodeURIComponent(map.relativePath)}/edit`}
                     className="text-indigo-600 hover:text-indigo-900 mr-4"
                   >
                     Edit
                   </a>
                   <a
-                    href={`/maps/${encodeURIComponent(map.filename)}`}
+                    href={`/maps/${encodeURIComponent(map.relativePath)}`}
                     className="text-green-600 hover:text-green-900 mr-4"
                   >
                     View
                   </a>
                   <a
-                    href={`/test/${map.filename.replace('.json', '')}`}
+                    href={`/test/${encodeURIComponent(map.relativePath.replace('.json', ''))}`}
                     className="text-orange-600 hover:text-orange-900"
                   >
                     Test
@@ -185,14 +199,32 @@ export default function MapsIndex() {
             
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={newMapData.category}
+                  onChange={(e) => setNewMapData({ ...newMapData, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>
+                      {cat.replace(/-/g, ' ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Filename (without .json)</label>
                 <input
                   type="text"
                   value={newMapData.filename}
                   onChange={(e) => setNewMapData({ ...newMapData, filename: e.target.value })}
-                  placeholder="e.g. MyAwesomeMap"
+                  placeholder="e.g. 050-MyAwesomeMap"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Tip: Use numeric prefix for ordering (e.g., 050-MapName)
+                </p>
               </div>
               
               <div>
@@ -275,18 +307,23 @@ export default function MapsIndex() {
                         platforms: []
                       };
                       
-                      // Save the new map
+                      // Save the new map with category path
+                      const categoryFolder = maps.find(m => m.category === newMapData.category)?.categoryOrder 
+                        ? `${maps.find(m => m.category === newMapData.category)?.categoryOrder}-${newMapData.category}`
+                        : newMapData.category;
+                      const relativePath = `${categoryFolder}/${newMapData.filename}.json`;
+                      
                       const formData = new FormData();
                       formData.append("mapData", JSON.stringify(mapData));
                       
-                      const response = await fetch(`/api/maps/${newMapData.filename}.json`, {
+                      const response = await fetch(`/api/maps/${encodeURIComponent(relativePath)}`, {
                         method: 'POST',
                         body: formData
                       });
                       
                       if (response.ok) {
                         // Navigate to the new map editor
-                        window.location.href = `/maps/${newMapData.filename}.json/edit`;
+                        window.location.href = `/maps/${encodeURIComponent(relativePath)}/edit`;
                       } else {
                         alert('Failed to create new map');
                       }
@@ -305,6 +342,7 @@ export default function MapsIndex() {
                 onClick={() => {
                   setShowNewMapModal(false);
                   setNewMapData({
+                    category: '010-tutorial',
                     filename: '',
                     name: '',
                     difficulty: 1,

@@ -1,7 +1,8 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { readFile, writeFile } from "fs/promises";
-import { join } from "path";
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { join, dirname } from "path";
+import { existsSync } from "fs";
 
 export async function loader({ params }: LoaderFunctionArgs) {
   const { filename } = params;
@@ -10,17 +11,27 @@ export async function loader({ params }: LoaderFunctionArgs) {
     throw new Response("Filename is required", { status: 400 });
   }
   
+  // Handle paths with category folders (e.g., "010-tutorial/001-Left.json")
+  // The filename parameter will be URL encoded, so decode it
+  const decodedPath = decodeURIComponent(filename);
+  
   // Ensure filename has .json extension
-  const fileWithExt = filename.endsWith('.json') ? filename : `${filename}.json`;
-  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", fileWithExt);
+  const fileWithExt = decodedPath.endsWith('.json') ? decodedPath : `${decodedPath}.json`;
+  
+  // Support both old path (src/scenes/maps/data) and new path (levels)
+  const newPath = join(process.cwd(), "levels", fileWithExt);
+  const oldPath = join(process.cwd(), "src", "scenes", "maps", "data", fileWithExt);
+  
+  // Try new path first, then fall back to old path
+  let mapPath = existsSync(newPath) ? newPath : oldPath;
   
   try {
     const content = await readFile(mapPath, 'utf-8');
     const mapData = JSON.parse(content);
     
-    return json({ mapData, filename });
+    return json({ mapData, filename: decodedPath });
   } catch (error) {
-    console.error(`Failed to load map ${filename}:`, error);
+    console.error(`Failed to load map ${decodedPath}:`, error);
     return json({ error: "Map not found" }, { status: 404 });
   }
 }
@@ -36,9 +47,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
     throw new Response("Method not allowed", { status: 405 });
   }
   
+  // Handle paths with category folders
+  const decodedPath = decodeURIComponent(filename);
+  
   // Ensure filename has .json extension
-  const fileWithExt = filename.endsWith('.json') ? filename : `${filename}.json`;
-  const mapPath = join(process.cwd(), "src", "scenes", "maps", "data", fileWithExt);
+  const fileWithExt = decodedPath.endsWith('.json') ? decodedPath : `${decodedPath}.json`;
+  
+  // Always save to new levels directory
+  const mapPath = join(process.cwd(), "levels", fileWithExt);
   
   try {
     const formData = await request.formData();
@@ -51,12 +67,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     // Validate JSON
     const mapData = JSON.parse(mapDataString);
     
+    // Ensure directory exists
+    const dir = dirname(mapPath);
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+    
     // Write the file with pretty formatting
     await writeFile(mapPath, JSON.stringify(mapData, null, 2), 'utf-8');
     
-    return json({ success: true, filename });
+    return json({ success: true, filename: decodedPath });
   } catch (error) {
-    console.error(`Failed to save map ${filename}:`, error);
+    console.error(`Failed to save map ${decodedPath}:`, error);
     if (error instanceof SyntaxError) {
       return json({ error: "Invalid JSON data" }, { status: 400 });
     }

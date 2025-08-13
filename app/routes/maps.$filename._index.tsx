@@ -17,7 +17,8 @@ export default function MapView() {
 
       try {
         // Always load from the server API
-        const response = await fetch(`/api/maps/${filename}`);
+        // Encode the filename to handle paths with slashes (e.g., "010-tutorial/001-Left.json")
+        const response = await fetch(`/api/maps/${encodeURIComponent(filename)}`);
         
         if (response.ok) {
           const result = await response.json();
