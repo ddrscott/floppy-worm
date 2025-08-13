@@ -382,23 +382,20 @@ export default class MovementAbility extends BaseAbility {
             anchorData.rangeGraphics.strokeCircle(centerX, centerY, this.anchorRadius);
             
             const stick = type === 'head' ? this.leftStickState : this.rightStickState;
-            const stickMagnitude = Math.sqrt(stick.x * stick.x + stick.y * stick.y);
             
             anchorData.stickIndicator.clear();
-            if (stickMagnitude > this.stickDeadzone) {
-                anchorData.stickIndicator.fillStyle(anchorData.color, 0.8);
-                anchorData.stickIndicator.lineStyle(2, anchorData.strokeColor, 1);
-                anchorData.stickIndicator.fillCircle(
-                    centerX + stick.x * this.anchorRadius,
-                    centerY + stick.y * this.anchorRadius,
-                    this.stickIndicatorRadius
-                );
-                anchorData.stickIndicator.strokeCircle(
-                    centerX + stick.x * this.anchorRadius,
-                    centerY + stick.y * this.anchorRadius,
-                    this.stickIndicatorRadius
-                );
-            }
+            anchorData.stickIndicator.fillStyle(anchorData.color, 0.8);
+            anchorData.stickIndicator.lineStyle(2, anchorData.strokeColor, 1);
+            anchorData.stickIndicator.fillCircle(
+                centerX + stick.x * this.anchorRadius,
+                centerY + stick.y * this.anchorRadius,
+                this.stickIndicatorRadius
+            );
+            anchorData.stickIndicator.strokeCircle(
+                centerX + stick.x * this.anchorRadius,
+                centerY + stick.y * this.anchorRadius,
+                this.stickIndicatorRadius
+            );
         });
     }
     
