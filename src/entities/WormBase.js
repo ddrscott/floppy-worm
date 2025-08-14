@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import WhooshSynthesizer from '../audio/WhooshSynthesizer.js';
+import ZzfxSplatWrapper from '../audio/ZzfxSplatWrapper.js';
 import Tick from '../utils/Tick.js';
 import Random from '../utils/Random.js';
 
@@ -36,8 +37,8 @@ export default class WormBase {
                 }
             },
             surfaceConstraint: {
-                stiffness: 0.005,
-                damping: 0.1,
+                stiffness: 0.01,
+                damping: 0.2,
                 length: 2,
                 render: {
                     visible: true,
@@ -52,6 +53,12 @@ export default class WormBase {
                 // Maximum stretch factor before breaking constraint (e.g., 3.0 = break at 3x original length)
                 maxStretchFactor: 5.0
             },
+            // Audio configuration
+            splatSound: {
+                minVelocityThreshold: 10,    // Minimum velocity before playing splat sounds
+                maxVelocityThreshold: 40,    // Maximum velocity for volume scaling
+                cooldownMs: 50               // Minimum ms between splat sounds
+            },
             showDebug: false,
             ...config
         };
@@ -62,11 +69,11 @@ export default class WormBase {
         // Track surface constraints for better friction
         this.surfaceConstraints = new Map(); // segment -> constraint
         
-        // Initialize sound effects for constraints
-        this.initializeConstraintSounds();
-        
         // Initialize audio system
         this.initializeAudio();
+        
+        // Initialize splat synthesizer for collision sounds
+        this.initializeSplatSynthesizer();
         
         // Create the worm structure
         this.create(x, y);
@@ -319,103 +326,47 @@ export default class WormBase {
         };
     }
     
-    initializeConstraintSounds() {
-        // Initialize sound effects for constraint creation/destruction
-        this.constraintSounds = {
-            squishStart: null,
-            squishEnd: null
-        };
-        
-        // Load the sound effects if they haven't been loaded yet
-        if (!this.scene.cache.audio.exists('constraint-squish-start')) {
-            this.scene.load.audio('constraint-squish-start', '/audio/squish-start.wav');
-        }
-        if (!this.scene.cache.audio.exists('constraint-squish-end')) {
-            this.scene.load.audio('constraint-squish-end', '/audio/squish-end.wav');
+    initializeSplatSynthesizer() {
+        // Initialize splat synthesizer for collision sounds
+        this.splatSynthesizer = null;
+        this.lastSplatTime = 0;
+    }
+    
+    playSplatSound(velocity = 10, mass = 0.1, surfaceHardness = 0.5) {
+        // Use config values for minimum velocity and cooldown
+        if (velocity < this.config.splatSound.minVelocityThreshold) {
+            return;
         }
         
-        // Start loading if needed
-        if (!this.scene.load.isLoading() && !this.scene.load.hasLoaded) {
-            this.scene.load.start();
+        // Check cooldown to prevent overwhelming mobile devices
+        const now = Date.now();
+        if (now - this.lastSplatTime < this.config.splatSound.cooldownMs) {
+            return;
         }
+        this.lastSplatTime = now;
         
-        // Create sound objects when loaded
-        this.scene.load.once('complete', () => {
-            if (this.scene.cache.audio.exists('constraint-squish-start')) {
-                this.constraintSounds.squishStart = this.scene.sound.add('constraint-squish-start', { volume: 0.4 });
+        // Initialize synthesizer on first use
+        if (!this.splatSynthesizer) {
+            try {
+                this.splatSynthesizer = new ZzfxSplatWrapper();
+            } catch (error) {
+                // Audio not available
+                return;
             }
-            if (this.scene.cache.audio.exists('constraint-squish-end')) {
-                this.constraintSounds.squishEnd = this.scene.sound.add('constraint-squish-end', { volume: 0.4 });
-            }
-        });
-        
-        // If already loaded, create sound objects immediately
-        if (this.scene.cache.audio.exists('constraint-squish-start')) {
-            this.constraintSounds.squishStart = this.scene.sound.add('constraint-squish-start', { volume: 0.4 });
         }
-        if (this.scene.cache.audio.exists('constraint-squish-end')) {
-            this.constraintSounds.squishEnd = this.scene.sound.add('constraint-squish-end', { volume: 0.4 });
+        
+        if (this.splatSynthesizer) {
+            // Map velocity to volume multiplier (0.3 to 1.5 range)
+            const velocityRange = this.config.splatSound.maxVelocityThreshold - this.config.splatSound.minVelocityThreshold;
+            const normalizedVelocity = Math.min(1, Math.max(0, 
+                (velocity - this.config.splatSound.minVelocityThreshold) / velocityRange
+            ));
+            const volumeMultiplier = 0.3 + normalizedVelocity * 1.2;
+            
+            this.splatSynthesizer.playSplat(volumeMultiplier);
         }
     }
     
-    playConstraintStartSound(velocity = 10) {
-        if (this.constraintSounds && this.constraintSounds.squishStart) {
-            // Scale volume based on collision velocity
-            // Velocity typically ranges from 0 to 30+
-            // Map to volume range 0.1 to 0.6
-            const minVelocity = 2;   // Minimum velocity for audible sound
-            const maxVelocity = 25;  // Velocity for maximum volume
-            const minVolume = 0.1;
-            const maxVolume = 0.4;
-            
-            // Calculate base volume from velocity
-            const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
-            const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
-            
-            // Add small random variation (±10%)
-            const volumeVariation = (Random.random() - 0.5) * 0.1;
-            const finalVolume = Math.max(0.05, Math.min(0.7, baseVolume + volumeVariation));
-            
-            // Playback rate also slightly affected by velocity (harder = higher pitch)
-            const baseRate = 0.9 + normalizedVelocity * 0.2; // 0.9 to 1.1
-            const rateVariation = (Random.random() - 0.5) * 0.1; // ±0.05
-            const finalRate = baseRate + rateVariation;
-            
-            this.constraintSounds.squishStart.play({
-                volume: finalVolume,
-                rate: finalRate
-            });
-        }
-    }
-    
-    playConstraintEndSound(velocity = 5) {
-        if (this.constraintSounds && this.constraintSounds.squishEnd) {
-            // For end sound, velocity represents how stretched the constraint was
-            // or the separation velocity
-            const minVelocity = 1;
-            const maxVelocity = 20;
-            const minVolume = 0.15;
-            const maxVolume = 0.4;
-            
-            // Calculate base volume from velocity
-            const normalizedVelocity = Math.min(1, Math.max(0, (velocity - minVelocity) / (maxVelocity - minVelocity)));
-            const baseVolume = minVolume + normalizedVelocity * (maxVolume - minVolume);
-            
-            // Add random variation (±15%)
-            const volumeVariation = (Random.random() - 0.5) * 0.15;
-            const finalVolume = Math.max(0.05, Math.min(0.6, baseVolume + volumeVariation));
-            
-            // Playback rate varies more for end sound
-            const baseRate = 0.85 + normalizedVelocity * 0.3; // 0.85 to 1.15
-            const rateVariation = (Random.random() - 0.5) * 0.15; // ±0.075
-            const finalRate = baseRate + rateVariation;
-            
-            this.constraintSounds.squishEnd.play({
-                volume: finalVolume,
-                rate: finalRate
-            });
-        }
-    }
     
     stopAudio() {
         if (this.whooshSynthesizer) {
@@ -533,6 +484,12 @@ export default class WormBase {
         // Clean up audio
         this.stopAudio();
         
+        // Clean up splat synthesizer
+        if (this.splatSynthesizer) {
+            this.splatSynthesizer.stopAll();
+            this.splatSynthesizer = null;
+        }
+        
         // Clean up Tick helper
         Tick.clearAll();
     }
@@ -639,12 +596,14 @@ export default class WormBase {
                     
                     this.surfaceConstraints.set(segment, constraint);
                     
-                    // Calculate collision velocity for volume scaling
+                    // Calculate collision properties for sound
                     const segmentVelocity = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
+                    const segmentMass = segment.mass || 0.1;
+                    const surfaceHardness = otherBody.surfaceHardness || 0.5; // Can be set on platforms
                     
-                    // Play sound effect when constraint is created with velocity-based volume
-                    // FIXME this is too slow on mobile
-                    this.playConstraintStartSound(segmentVelocity);
+                    Tick.push('segment velocity', segmentVelocity, 0xff6b6b);
+                    // Play splat sound with collision properties
+                    this.playSplatSound(segmentVelocity, segmentMass, surfaceHardness);
                 }
             }
         });
@@ -676,15 +635,10 @@ export default class WormBase {
             // Remove surface constraint when collision ends
             const constraint = this.surfaceConstraints.get(segment);
             if (constraint) {
-                // Calculate separation velocity for volume
-                const segmentVelocity = Math.sqrt(segment.velocity.x ** 2 + segment.velocity.y ** 2);
-                
                 this.scene.matter.world.remove(constraint);
                 this.surfaceConstraints.delete(segment);
                 
-                // Play sound effect when constraint is removed with velocity-based volume
-                // FIXME this is too slow on mobile
-                // this.playConstraintEndSound(segmentVelocity);
+                // No sound on constraint removal to keep it minimal for mobile
             }
             
             // Clear collision data
@@ -757,11 +711,9 @@ export default class WormBase {
             
             this.surfaceConstraints.delete(segment);
             
-            // Play sound effect when constraint breaks due to overstretching
-            // Use the stretch distance as a proxy for break intensity
-            const breakIntensity = Math.min(30, distance * 2); // Scale distance to velocity-like range
-            // FIXME this is too slow on mobile
-            // this.playConstraintEndSound(breakIntensity);
+            // Small splat sound when constraint breaks
+            const breakIntensity = Math.min(30, distance * 2);
+            this.playSplatSound(breakIntensity * 0.5, 0.05, 0.2); // Softer, wetter sound for breaks
             
             // Also clear collision data for this segment
             const segmentIndex = this.segments.indexOf(segment);

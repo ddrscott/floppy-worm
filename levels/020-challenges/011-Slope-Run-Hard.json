@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "name": "Slope Run",
+    "name": "Slope Run Hard",
     "difficulty": 1,
     "description": "",
-    "modified": "2025-08-01T22:20:22.907Z",
+    "modified": "2025-08-14T17:10:13.558Z",
     "category": "challenge",
     "order": 1
   },
@@ -13,7 +13,7 @@
   },
   "entities": {
     "wormStart": {
-      "x": 492,
+      "x": 516,
       "y": 2952
     },
     "goal": {
@@ -26,8 +26,8 @@
       "id": "platform_1753376366495",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 840,
-      "y": 372,
+      "x": 876,
+      "y": 588,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -35,50 +35,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 670,
-      "height": 110,
-      "angle": -0.8167008387322117
-    },
-    {
-      "id": 1753483906711,
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 156,
-      "y": 156,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
-    },
-    {
-      "id": "platform_1754085950938",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 840,
-      "y": 888,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 670,
-      "height": 110,
+      "width": 840,
+      "height": 168,
       "angle": -0.8167008387322117
     },
     {
       "id": "platform_1754085977747",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 840,
-      "y": 1416,
+      "x": 468,
+      "y": 1980,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -86,33 +52,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 670,
-      "height": 110,
-      "angle": -0.8167008387322117
-    },
-    {
-      "id": "platform_1754086183066",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 840,
-      "y": 1944,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 670,
-      "height": 110,
+      "width": 192,
+      "height": 288,
       "angle": -0.8167008387322117
     },
     {
       "id": "platform_1754086205527",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 840,
-      "y": 2484,
+      "x": 816,
+      "y": 2472,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -142,11 +91,79 @@
       "angle": -0.8167008387322117
     },
     {
-      "id": "platform_1754086278995",
+      "id": "platform_1755190088723",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 924,
+      "y": 84,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 816,
+      "height": 180,
+      "angle": -0.8167008387322117
+    },
+    {
+      "id": "platform_1755190132428",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 120,
+      "y": 2688,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 120,
+      "height": 828,
+      "angle": -0.8167008387322117
+    },
+    {
+      "id": "platform_1755190208517",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 132,
+      "y": 2196,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 120,
+      "height": 828,
+      "angle": -0.8167008387322117
+    },
+    {
+      "id": "platform_1755190279564",
+      "type": "rectangle",
+      "platformType": "standard",
+      "x": 828,
+      "y": 1788,
+      "rotation": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 1,
+        "restitution": 0
+      },
+      "width": 960,
+      "height": 348,
+      "angle": -0.8167008387322117
+    },
+    {
+      "id": "platform_1755190350674",
       "type": "rectangle",
       "platformType": "standard",
       "x": 156,
-      "y": 672,
+      "y": 936,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -154,16 +171,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
+      "width": 216,
+      "height": 864,
+      "angle": -0.8167008387322117
     },
     {
-      "id": "platform_1754086288749",
+      "id": "platform_1755190388231",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 156,
-      "y": 1188,
+      "x": 216,
+      "y": 324,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -171,16 +188,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
+      "width": 312,
+      "height": 888,
+      "angle": -0.8167008387322117
     },
     {
-      "id": "platform_1754086297298",
+      "id": "platform_1755190493662",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 156,
-      "y": 1728,
+      "x": 504,
+      "y": 3852,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -188,16 +205,16 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
+      "width": 660,
+      "height": 348,
+      "angle": -0.8167008387322117
     },
     {
-      "id": "platform_1754086306062",
+      "id": "platform_1755190513478",
       "type": "rectangle",
       "platformType": "standard",
-      "x": 168,
-      "y": 2256,
+      "x": 120,
+      "y": 3504,
       "rotation": 0,
       "color": "#ff6b6b",
       "physics": {
@@ -205,60 +222,9 @@
         "frictionStatic": 1,
         "restitution": 0
       },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
-    },
-    {
-      "id": "platform_1754086603939",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 168,
-      "y": 2808,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 624,
-      "height": 96,
-      "angle": 0.6808707331966737
-    },
-    {
-      "id": "platform_1754086612116",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 192,
-      "y": 3408,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 624,
-      "height": 168,
-      "angle": 0.6808707331966737
-    },
-    {
-      "id": "platform_1754086661291",
-      "type": "rectangle",
-      "platformType": "standard",
-      "x": 612,
-      "y": 3636,
-      "rotation": 0,
-      "color": "#ff6b6b",
-      "physics": {
-        "friction": 0.8,
-        "frictionStatic": 1,
-        "restitution": 0
-      },
-      "width": 300,
-      "height": 324,
-      "angle": -0.8726646259971648
+      "width": 396,
+      "height": 708,
+      "angle": -0.8167008387322117
     }
   ],
   "stickers": [],
