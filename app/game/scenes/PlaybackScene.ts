@@ -332,7 +332,7 @@ export default class PlaybackScene extends JsonMapBase {
         
         // Create camera target that we'll update manually
         this.cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0);
-        this.cameraTarget.setVisible(false);
+        this.cameraTarget.setVisible(true);
         
         // Create goal at pixel coordinates (visual only)
         if (goal) {

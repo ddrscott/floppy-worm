@@ -82,6 +82,21 @@ export default class JsonMapBase extends Phaser.Scene {
         // Track pause menu state
         this.isPaused = false;
         this.optionButtonWasPressed = false;
+        
+        // Predictive camera system using angular velocity
+        this.predictiveCameraConfig = {
+            enabled: true,          // Enable predictive camera
+            showTarget: false,       // Show camera target for debugging
+            // maxOffset: 10300,         // Maximum predictive offset in pixels
+            smoothing: 0.1,         // Lerp factor for smooth transitions
+            angularWeight: 0,     // Weight of angular velocity in prediction
+            linearWeight: 13.0,      // Weight of linear velocity in prediction
+            historySize: 60,         // Number of frames to average for smoothing
+            history: []             // Store recent predictions
+        };
+        
+        // Initialize UI elements array
+        this.uiElements = [];
     }
     
     getDefaultMapData() {
@@ -275,6 +290,24 @@ export default class JsonMapBase extends Phaser.Scene {
             this.ghostPlayer.destroy(); // This destroys the graphics objects
             this.ghostPlayer = null;
         }
+        
+        // Cleanup minimap
+        if (this.minimap) {
+            this.cameras.remove(this.minimap);
+            this.minimap = null;
+        }
+        
+        // Cleanup UI overlay camera
+        if (this.uiOverlayCamera) {
+            this.cameras.remove(this.uiOverlayCamera);
+            this.uiOverlayCamera = null;
+        }
+        
+        // Cleanup UI camera
+        if (this.uiCamera) {
+            this.cameras.remove(this.uiCamera);
+            this.uiCamera = null;
+        }
     }
 
     init(data) {
@@ -305,6 +338,11 @@ export default class JsonMapBase extends Phaser.Scene {
         this.ghostRecorder = null;
         this.ghostPlayer = null;
         this.ghostVisible = true;
+        
+        // Reset camera references
+        this.uiOverlayCamera = null;
+        this.uiCamera = null;
+        this.minimap = null;
         
         // Initialize state manager
         this.stateManager = GameStateManager.getFromScene(this);
@@ -1042,8 +1080,9 @@ export default class JsonMapBase extends Phaser.Scene {
 
         // Initial impulse is now handled automatically in WormBase
         
-        // Create camera target
-        this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 0);
+        // Create camera target - make it visible for debugging if predictive camera is enabled
+        this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 
+            this.predictiveCameraConfig?.showTarget ? 0.5 : 0);
         
         // Create goal at pixel coordinates
         const goalX = goal.x;
@@ -1216,6 +1255,12 @@ export default class JsonMapBase extends Phaser.Scene {
         // Ghost toggle
         this.gKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G);
         
+        // Camera leading toggle
+        this.lKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.L);
+        
+        // Predictive camera toggle
+        this.pKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+        
         // Fullscreen toggle
         this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
         
@@ -1233,29 +1278,41 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createUI() {
+        const emSize = 20;
+        // Create a fixed UI camera that doesn't zoom or scroll
+        this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
+        this.uiCamera.setName('ui');
+        this.uiCamera.setScroll(0, 0);
+        this.uiCamera.setZoom(1);
+        
+        // Store UI elements in an array for easy management
+        this.uiElements = [];
+        
         // Title
-        const title = this.add.text(70, 20, this.sceneTitle, {
+        const title = this.add.text(emSize, emSize, this.sceneTitle, {
             fontSize: '24px',
             color: '#ffffff',
             backgroundColor: 'rgba(0,0,0,0.7)',
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0);
         
+        this.uiElements.push(title);
         this.minimapIgnoreList.push(title);
         
         
         // Pause hint (small text in top right)
-        const pauseHint = this.add.text(this.scale.width - 20, 20, 'ESC: Pause', {
+        const pauseHint = this.add.text(this.scale.width - emSize, emSize, 'ESC: Pause', {
             fontSize: '14px',
             color: '#95a5a6',
             backgroundColor: 'rgba(0,0,0,0.5)',
             padding: { x: 5, y: 2 }
         }).setOrigin(1, 0).setScrollFactor(0);
         
+        this.uiElements.push(pauseHint);
         this.minimapIgnoreList.push(pauseHint);
         
         // Create stopwatch in top center with pause functionality
-        this.stopwatch = new Stopwatch(this, this.scale.width / 2, 20, {
+        this.stopwatch = new Stopwatch(this, this.scale.width / 2, emSize, {
             onPause: () => this.showPauseMenu()
         });
         // Load best time from state manager
@@ -1263,13 +1320,31 @@ export default class JsonMapBase extends Phaser.Scene {
         if (bestTime !== null) {
             this.stopwatch.setBestTime(bestTime);
         }
+        this.uiElements.push(this.stopwatch.timerText);
         this.minimapIgnoreList.push(this.stopwatch.timerText);
         if (this.stopwatch.bestTimeText) {
+            this.uiElements.push(this.stopwatch.bestTimeText);
             this.minimapIgnoreList.push(this.stopwatch.bestTimeText);
         }
         
         // Ghost indicator (will be shown when ghost is loaded)
         this.ghostIndicator = null;
+        
+        // Make the main camera and minimap ignore UI elements
+        this.uiElements.forEach(element => {
+            this.cameras.main.ignore(element);
+            if (this.minimap) {
+                this.minimap.ignore(element);
+            }
+        });
+        
+        // Make the UI camera ignore everything else
+        const allObjects = this.children.list;
+        allObjects.forEach(obj => {
+            if (!this.uiElements.includes(obj)) {
+                this.uiCamera.ignore(obj);
+            }
+        });
     }
     
     createMiniMap(levelHeight) {
@@ -1345,9 +1420,26 @@ export default class JsonMapBase extends Phaser.Scene {
             padding: { x: 4, y: 2 }
         }).setScrollFactor(0).setDepth(1001);
         
+        // Add to UI elements
+        this.uiElements.push(this.miniMapBorder);
+        this.uiElements.push(this.miniMapLabel);
+        
+        // Make main camera and minimap ignore these UI elements
+        this.cameras.main.ignore(this.miniMapBorder);
+        this.cameras.main.ignore(this.miniMapLabel);
         if (this.minimap) {
             this.minimap.ignore(this.miniMapBorder);
             this.minimap.ignore(this.miniMapLabel);
+        }
+        
+        // Update UI camera to render these
+        if (this.uiCamera) {
+            const allObjects = this.children.list;
+            allObjects.forEach(obj => {
+                if (!this.uiElements.includes(obj)) {
+                    this.uiCamera.ignore(obj);
+                }
+            });
         }
     }
     
@@ -1380,12 +1472,21 @@ export default class JsonMapBase extends Phaser.Scene {
     handleResize() {
         const width = this.scale.width;
         const height = this.scale.height;
+        const minWidth = 720;
+        const minHeight = 720;
         
         // Safety check for camera existence
         if (this.cameras && this.cameras.main && this.cameraTarget) {
             this.cameras.main.startFollow(this.cameraTarget, true);
-            this.cameras.main.setZoom(1);
-            this.cameras.main.setDeadzone(100, 100);
+            if (this.scale.isPortrait && width < minWidth) {
+                this.cameras.main.setZoom(width / minWidth);
+            }
+            if (this.scale.isLandscape && height < minHeight) {
+                this.cameras.main.setZoom(height / minHeight);
+
+            }
+            // No deadzone needed since cameraTarget is predictive and lerped
+            //this.cameras.main.setDeadzone(0, 0);
         }
         
         if (this.minimap) {
@@ -1395,6 +1496,11 @@ export default class JsonMapBase extends Phaser.Scene {
             this.updateMiniMapBorder(mapX, mapY);
             // Don't update viewport indicator during initial setup
             // It will be created and updated later in createMiniMap
+        }
+        
+        // Update UI camera if it exists
+        if (this.uiCamera) {
+            this.uiCamera.setSize(width, height);
         }
         
         // Update UI overlay camera if it exists
@@ -1412,6 +1518,117 @@ export default class JsonMapBase extends Phaser.Scene {
         
         if (this.miniMapLabel) {
             this.miniMapLabel.setPosition(x + 5, y - 20);
+        }
+    }
+    
+    calculateWormVelocityVector() {
+        if (!this.worm || !this.worm.segments) return { x: 0, y: 0, magnitude: 0 };
+        
+        // Calculate average velocity vector of all segments
+        let totalVelX = 0;
+        let totalVelY = 0;
+        let segmentCount = 0;
+        
+        for (let segment of this.worm.segments) {
+            if (segment && segment.velocity) {
+                totalVelX += segment.velocity.x;
+                totalVelY += segment.velocity.y;
+                segmentCount++;
+            }
+        }
+        
+        if (segmentCount === 0) return { x: 0, y: 0, magnitude: 0 };
+        
+        // Average velocity vector
+        const avgVelX = totalVelX / segmentCount;
+        const avgVelY = totalVelY / segmentCount;
+        const magnitude = Math.sqrt(avgVelX * avgVelX + avgVelY * avgVelY);
+        
+        return { x: avgVelX, y: avgVelY, magnitude };
+    }
+    
+    updatePredictiveCamera(delta) {
+        if (!this.worm || !this.cameraTarget) return;
+        
+        const head = this.worm.getHead();
+        const tail = this.worm.getTail();
+        if (!head || !tail) return;
+        
+        // Calculate midpoint (base position)
+        const midX = (head.position.x + tail.position.x) / 2;
+        const midY = (head.position.y + tail.position.y) / 2;
+        
+        // Calculate angular velocities
+        const headAngularVel = head.angularVelocity || 0;
+        const tailAngularVel = tail.angularVelocity || 0;
+        const avgAngularVel = (headAngularVel + tailAngularVel) / 2;
+        
+        // Calculate linear velocities
+        const headVelX = head.velocity?.x || 0;
+        const headVelY = head.velocity?.y || 0;
+        const tailVelX = tail.velocity?.x || 0;
+        const tailVelY = tail.velocity?.y || 0;
+        
+        // Average linear velocity
+        const avgVelX = (headVelX + tailVelX) / 2;
+        const avgVelY = (headVelY + tailVelY) / 2;
+        const linearMagnitude = Math.sqrt(avgVelX * avgVelX + avgVelY * avgVelY);
+        
+        // Calculate predictive offset based on angular velocity
+        // Angular velocity contributes to perpendicular movement prediction
+        const wormAngle = Math.atan2(head.position.y - tail.position.y, head.position.x - tail.position.x);
+        const perpAngle = wormAngle + Math.PI / 2; // Perpendicular to worm direction
+        
+        // Angular prediction: predict where the worm will rotate
+        const angularOffsetX = Math.cos(perpAngle) * avgAngularVel * this.predictiveCameraConfig.angularWeight;
+        const angularOffsetY = Math.sin(perpAngle) * avgAngularVel * this.predictiveCameraConfig.angularWeight;
+        
+        // Linear prediction: predict where the worm will move
+        const linearOffsetX = avgVelX * this.predictiveCameraConfig.linearWeight;
+        const linearOffsetY = avgVelY * this.predictiveCameraConfig.linearWeight;
+        
+        // Combine predictions
+        let predictedOffsetX = angularOffsetX + linearOffsetX;
+        let predictedOffsetY = angularOffsetY + linearOffsetY;
+        
+        // // Clamp to max offset
+        // const offsetMagnitude = Math.sqrt(predictedOffsetX * predictedOffsetX + predictedOffsetY * predictedOffsetY);
+        // if (offsetMagnitude > this.predictiveCameraConfig.maxOffset) {
+        //     const scale = this.predictiveCameraConfig.maxOffset / offsetMagnitude;
+        //     predictedOffsetX *= scale;
+        //     predictedOffsetY *= scale;
+        // }
+        
+        // Add to history for smoothing
+        this.predictiveCameraConfig.history.push({ x: predictedOffsetX, y: predictedOffsetY });
+        if (this.predictiveCameraConfig.history.length > this.predictiveCameraConfig.historySize) {
+            this.predictiveCameraConfig.history.shift();
+        }
+        
+        // Calculate smoothed prediction
+        let smoothedX = 0, smoothedY = 0;
+        for (let pred of this.predictiveCameraConfig.history) {
+            smoothedX += pred.x;
+            smoothedY += pred.y;
+        }
+        smoothedX /= this.predictiveCameraConfig.history.length;
+        smoothedY /= this.predictiveCameraConfig.history.length;
+        
+        // Apply smoothed prediction to camera target
+        const targetX = midX + smoothedX;
+        const targetY = midY + smoothedY;
+        
+        // Lerp camera target to predicted position
+        this.cameraTarget.x += (targetX - this.cameraTarget.x) * this.predictiveCameraConfig.smoothing;
+        this.cameraTarget.y += (targetY - this.cameraTarget.y) * this.predictiveCameraConfig.smoothing;
+        
+        // Update visibility of camera target for debugging
+        if (this.predictiveCameraConfig.showTarget) {
+            this.cameraTarget.alpha = 0.5;
+            // Make it bigger for better visibility
+            this.cameraTarget.setSize(20, 20);
+        } else {
+            this.cameraTarget.alpha = 0;
         }
     }
     
@@ -1548,19 +1765,29 @@ export default class JsonMapBase extends Phaser.Scene {
             this.toggleGhost();
         }
         
+        // Check for P key to toggle predictive camera
+        if (Phaser.Input.Keyboard.JustDown(this.pKey)) {
+            this.togglePredictiveCamera();
+        }
+        
         // Check for gamepad button M to toggle mini-map
         if (pad && pad.buttons[2] && pad.buttons[2].pressed && !this.buttonMWasPressed) {
             this.toggleMiniMap();
         }
         this.buttonMWasPressed = pad && pad.buttons[2] && pad.buttons[2].pressed;
         
-        // Update camera target to follow worm
+        // Update camera target with predictive system
         if (this.cameraTarget && this.worm) {
-            const head = this.worm.getHead();
-            const tail = this.worm.getTail();
-            if (head && tail) {
-                this.cameraTarget.x = (head.position.x + tail.position.x) / 2;
-                this.cameraTarget.y = (head.position.y + tail.position.y) / 2;
+            if (this.predictiveCameraConfig.enabled) {
+                this.updatePredictiveCamera(delta);
+            } else {
+                // Simple midpoint following
+                const head = this.worm.getHead();
+                const tail = this.worm.getTail();
+                if (head && tail) {
+                    this.cameraTarget.x = (head.position.x + tail.position.x) / 2;
+                    this.cameraTarget.y = (head.position.y + tail.position.y) / 2;
+                }
             }
         }
         
@@ -1752,6 +1979,9 @@ export default class JsonMapBase extends Phaser.Scene {
             padding: { x: 10, y: 5 }
         }).setScrollFactor(0).setDepth(1000);
         
+        // Add to UI elements
+        this.uiElements.push(this.ghostIndicator);
+        
         // Add pulsing effect to indicator
         this.tweens.add({
             targets: this.ghostIndicator,
@@ -1761,8 +1991,20 @@ export default class JsonMapBase extends Phaser.Scene {
             repeat: -1
         });
         
+        // Make cameras ignore it properly
+        this.cameras.main.ignore(this.ghostIndicator);
         if (this.minimap) {
             this.minimap.ignore(this.ghostIndicator);
+        }
+        
+        // Make UI camera render it
+        if (this.uiCamera) {
+            const allObjects = this.children.list;
+            allObjects.forEach(obj => {
+                if (obj !== this.ghostIndicator && !this.uiElements.includes(obj)) {
+                    this.uiCamera.ignore(obj);
+                }
+            });
         }
     }
     
@@ -2042,6 +2284,43 @@ export default class JsonMapBase extends Phaser.Scene {
             this.ghostVisible ? 'Ghost ON' : 'Ghost OFF', {
             fontSize: '20px',
             color: this.ghostVisible ? '#9b59b6' : '#e74c3c',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        if (this.minimap) {
+            this.minimap.ignore(text);
+        }
+        
+        this.tweens.add({
+            targets: text,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => text.destroy()
+        });
+    }
+    
+    togglePredictiveCamera() {
+        this.predictiveCameraConfig.enabled = !this.predictiveCameraConfig.enabled;
+        
+        // If disabling, clear history
+        if (!this.predictiveCameraConfig.enabled) {
+            this.predictiveCameraConfig.history = [];
+            // Hide the camera target
+            if (this.cameraTarget) {
+                this.cameraTarget.alpha = 0;
+            }
+        } else if (this.predictiveCameraConfig.showTarget && this.cameraTarget) {
+            // Show the camera target if debugging is on
+            this.cameraTarget.alpha = 0.5;
+            this.cameraTarget.setSize(20, 20);
+        }
+        
+        // Show feedback
+        const text = this.add.text(this.scale.width / 2, 140, 
+            this.predictiveCameraConfig.enabled ? 'Predictive Camera ON' : 'Predictive Camera OFF', {
+            fontSize: '20px',
+            color: this.predictiveCameraConfig.enabled ? '#3498db' : '#e74c3c',
             backgroundColor: 'rgba(0,0,0,0.8)',
             padding: { x: 15, y: 8 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);

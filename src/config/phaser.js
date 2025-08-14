@@ -7,8 +7,6 @@ export const BaseGameConfig = {
     render: {
         preserveDrawingBuffer: true, // This allows screenshots to work properly
     },
-    width: 1024,
-    height: 768,
     scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
