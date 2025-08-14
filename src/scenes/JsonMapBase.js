@@ -85,7 +85,7 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Predictive camera system using angular velocity
         this.predictiveCameraConfig = {
-            enabled: true,          // Enable predictive camera
+            enabled: false,          // Enable predictive camera
             showTarget: false,       // Show camera target for debugging
             // maxOffset: 10300,         // Maximum predictive offset in pixels
             smoothing: 0.1,         // Lerp factor for smooth transitions
@@ -1485,8 +1485,7 @@ export default class JsonMapBase extends Phaser.Scene {
                 this.cameras.main.setZoom(height / minHeight);
 
             }
-            // No deadzone needed since cameraTarget is predictive and lerped
-            //this.cameras.main.setDeadzone(0, 0);
+            this.cameras.main.setDeadzone(60, 60);
         }
         
         if (this.minimap) {
