@@ -42,10 +42,11 @@ export default class TouchControlsOverlay {
             
             // Button stacking above joysticks
             buttonStackSpacing: 10, // Space between stacked buttons
-            buttonJoystickSpacing: 40, // Space between joystick and first button
+            buttonJoystickSpacing: 20, // Space between joystick and first button (reduced for closer placement)
             
-            // Roll button position
-            rollButtonTopOffset: 40, // Distance from top for roll button
+            // Roll button position (relative to right stick at 11 o'clock)
+            rollButtonAngle: -50, // degrees (11 o'clock position: -150 degrees from right)
+            rollButtonDistance: 140, // Distance from right joystick center
             
             // Override defaults
             ...config
@@ -98,9 +99,9 @@ export default class TouchControlsOverlay {
         this.createJoystick('right');
         
         // Create buttons (jump buttons removed - use tap on joysticks instead)
-        this.createButton('leftShoulder', 'LB');
-        this.createButton('rightShoulder', 'RB');
-        // this.createButton('roll', 'ROLL');
+        this.createButton('leftShoulder', 'G');
+        this.createButton('rightShoulder', 'G');
+        this.createButton('roll', 'ROLL');
         
         // Don't create menu button here - it will be added by the game scene
         
@@ -242,7 +243,7 @@ export default class TouchControlsOverlay {
             switch(id) {
                 case 'leftShoulder':
                     x = leftJoystickX - this.config.padding * 2;
-                    // Stack above joystick
+                    // Stack above joystick (closer now)
                     y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
                     break;
                 case 'rightShoulder':
@@ -250,8 +251,10 @@ export default class TouchControlsOverlay {
                     y = joystickY - this.config.joystickRadius - this.config.buttonJoystickSpacing - this.config.buttonSize;
                     break;
                 case 'roll':
-                    x = width / 2;
-                    y = this.config.rollButtonTopOffset;
+                    // Position at 11 o'clock relative to right joystick
+                    const angleRad = (this.config.rollButtonAngle * Math.PI) / 180;
+                    x = rightJoystickX + Math.cos(angleRad) * this.config.rollButtonDistance;
+                    y = joystickY + Math.sin(angleRad) * this.config.rollButtonDistance;
                     break;
             }
             
