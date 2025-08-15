@@ -68,11 +68,15 @@ function RecordingPlayer({ recording }: { recording: Recording }) {
                 });
                 
                 const Phaser = (await import('phaser')).default;
-                const { default: PlaybackScene } = await import('~/game/scenes/PlaybackScene');
+                const { createPlaybackScene } = await import('~/game/scenes/PlaybackScene');
 
                 console.log('Phaser loaded:', !!Phaser);
-                console.log('PlaybackScene loaded:', !!PlaybackScene);
+                console.log('createPlaybackScene loaded:', !!createPlaybackScene);
                 setLoadingState('creating-game');
+
+                // Create the appropriate PlaybackScene class based on the recording's map type
+                const PlaybackScene = createPlaybackScene(recording);
+                console.log('PlaybackScene created for map:', recording.mapKey);
 
                 const config = {
                     type: Phaser.AUTO,
