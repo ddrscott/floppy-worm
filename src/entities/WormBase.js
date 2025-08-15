@@ -601,7 +601,7 @@ export default class WormBase {
                     const segmentMass = segment.mass || 0.1;
                     const surfaceHardness = otherBody.surfaceHardness || 0.5; // Can be set on platforms
                     
-                    Tick.push('segment velocity', segmentVelocity, 0xff6b6b);
+                    // Tick.push('segment velocity', segmentVelocity, 0xff6b6b);
                     // Play splat sound with collision properties
                     this.playSplatSound(segmentVelocity, segmentMass, surfaceHardness);
                 }
