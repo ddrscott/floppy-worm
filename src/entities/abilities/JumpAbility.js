@@ -351,6 +351,11 @@ export default class JumpAbility extends BaseAbility {
         laser.setDepth(100);
         laser.alpha = 1;
         
+        // Hide laser indicator from minimap to prevent double rendering
+        if (this.scene.minimap) {
+            this.scene.minimap.ignore(laser);
+        }
+        
         // Calculate direction vector
         const dx = toSegment.position.x - fromSegment.position.x;
         const dy = toSegment.position.y - fromSegment.position.y;
