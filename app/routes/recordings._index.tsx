@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@remix-run/react';
 import RecordingDatabase from '/src/storage/RecordingDatabase';
+import { LazyImage } from '~/components/LazyImage';
 
 interface Recording {
     id: number;
@@ -31,6 +32,14 @@ export default function RecordingsIndex() {
     const [selectedMap, setSelectedMap] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [storageInfo, setStorageInfo] = useState<any>(null);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [recordingsPerPage] = useState(12); // Show 12 recordings per page
+    const [allRecordings, setAllRecordings] = useState<Recording[]>([]);
+    
+    // Filter state
+    const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed'>('all');
 
     useEffect(() => {
         // Override the body overflow style for this page
@@ -51,15 +60,16 @@ export default function RecordingsIndex() {
         const db = new RecordingDatabase();
         
         try {
-            const [allRecordings, summaryData, storage] = await Promise.all([
+            const [recordings, summaryData, storage] = await Promise.all([
                 db.getAllRecordings(selectedMap),
                 db.getRecordingsSummary(),
                 db.getStorageSize()
             ]);
             
-            setRecordings(allRecordings);
+            setAllRecordings(recordings);
             setSummary(summaryData);
             setStorageInfo(storage);
+            setCurrentPage(1); // Reset to first page when filter changes
         } catch (error) {
             console.error('Failed to load recordings:', error);
         } finally {
@@ -73,6 +83,30 @@ export default function RecordingsIndex() {
             await db.deleteRecording(id);
             loadRecordings();
         }
+    };
+    
+    // Apply filters
+    const filteredRecordings = allRecordings.filter(recording => {
+        if (statusFilter === 'success') return recording.success;
+        if (statusFilter === 'failed') return !recording.success;
+        return true; // 'all'
+    });
+    
+    // Calculate pagination
+    const indexOfLastRecording = currentPage * recordingsPerPage;
+    const indexOfFirstRecording = indexOfLastRecording - recordingsPerPage;
+    const currentRecordings = filteredRecordings.slice(indexOfFirstRecording, indexOfLastRecording);
+    const totalPages = Math.ceil(filteredRecordings.length / recordingsPerPage);
+    
+    // Reset to page 1 when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [statusFilter]);
+    
+    const paginate = (pageNumber: number) => {
+        setCurrentPage(pageNumber);
+        // Scroll to top of recordings grid
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleDeleteAll = async () => {
@@ -126,21 +160,61 @@ export default function RecordingsIndex() {
                     </div>
                 )}
 
-                {/* Map Filter */}
-                <div className="mb-6">
-                    <label className="block text-sm text-gray-400 mb-2">Filter by Map:</label>
-                    <select 
-                        value={selectedMap || ''} 
-                        onChange={(e) => setSelectedMap(e.target.value || null)}
-                        className="px-4 py-2 bg-gray-800 rounded border border-gray-700 text-white"
-                    >
-                        <option value="">All Maps</option>
-                        {Object.keys(summary).map(mapKey => (
-                            <option key={mapKey} value={mapKey}>
-                                {mapKey} ({summary[mapKey].total} recordings)
-                            </option>
-                        ))}
-                    </select>
+                {/* Filters */}
+                <div className="mb-6 flex flex-wrap gap-4">
+                    {/* Map Filter */}
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-2">Filter by Map:</label>
+                        <select 
+                            value={selectedMap || ''} 
+                            onChange={(e) => setSelectedMap(e.target.value || null)}
+                            className="px-4 py-2 bg-gray-800 rounded border border-gray-700 text-white"
+                        >
+                            <option value="">All Maps</option>
+                            {Object.keys(summary).map(mapKey => (
+                                <option key={mapKey} value={mapKey}>
+                                    {mapKey} ({summary[mapKey].total} recordings)
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Status Filter */}
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-2">Filter by Status:</label>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setStatusFilter('all')}
+                                className={`px-4 py-2 rounded transition-colors ${
+                                    statusFilter === 'all' 
+                                        ? 'bg-blue-600 text-white' 
+                                        : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                                }`}
+                            >
+                                All ({allRecordings.length})
+                            </button>
+                            <button
+                                onClick={() => setStatusFilter('success')}
+                                className={`px-4 py-2 rounded transition-colors ${
+                                    statusFilter === 'success' 
+                                        ? 'bg-green-600 text-white' 
+                                        : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                                }`}
+                            >
+                                ✓ Success ({allRecordings.filter(r => r.success).length})
+                            </button>
+                            <button
+                                onClick={() => setStatusFilter('failed')}
+                                className={`px-4 py-2 rounded transition-colors ${
+                                    statusFilter === 'failed' 
+                                        ? 'bg-red-600 text-white' 
+                                        : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                                }`}
+                            >
+                                ✗ Failed ({allRecordings.filter(r => !r.success).length})
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Summary Stats */}
@@ -165,15 +239,77 @@ export default function RecordingsIndex() {
                     </div>
                 )}
 
+                {/* Pagination Controls - Top */}
+                {totalPages > 1 && (
+                    <div className="mb-6 flex justify-center items-center gap-2">
+                        <button
+                            onClick={() => paginate(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            ← Previous
+                        </button>
+                        
+                        <div className="flex gap-1">
+                            {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                                let pageNum;
+                                if (totalPages <= 5) {
+                                    pageNum = index + 1;
+                                } else if (currentPage <= 3) {
+                                    pageNum = index + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + index;
+                                } else {
+                                    pageNum = currentPage - 2 + index;
+                                }
+                                
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => paginate(pageNum)}
+                                        className={`px-3 py-1 rounded transition-colors ${
+                                            currentPage === pageNum
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-800 hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        <button
+                            onClick={() => paginate(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Next →
+                        </button>
+                        
+                        <span className="ml-4 text-gray-400 text-sm">
+                            Page {currentPage} of {totalPages} ({filteredRecordings.length} filtered, {allRecordings.length} total)
+                        </span>
+                    </div>
+                )}
+                
                 {/* Recordings Grid */}
-                {recordings.length === 0 ? (
+                {filteredRecordings.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
-                        <p className="text-xl">No recordings found</p>
-                        <p className="mt-2">Play some levels to see your recordings here!</p>
+                        <p className="text-xl">
+                            {allRecordings.length === 0 
+                                ? 'No recordings found' 
+                                : `No ${statusFilter === 'all' ? '' : statusFilter} recordings found`}
+                        </p>
+                        <p className="mt-2">
+                            {allRecordings.length === 0 
+                                ? 'Play some levels to see your recordings here!'
+                                : 'Try adjusting your filters to see more recordings.'}
+                        </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {recordings.map(recording => (
+                        {currentRecordings.map(recording => (
                             <div 
                                 key={recording.id} 
                                 className={`bg-gray-800 rounded-lg overflow-hidden ${
@@ -182,7 +318,7 @@ export default function RecordingsIndex() {
                             >
                                 {/* Screenshot */}
                                 <div className="aspect-video bg-gray-900 relative">
-                                    <img 
+                                    <LazyImage 
                                         src={recording.screenshot} 
                                         alt="Recording screenshot"
                                         className="w-full h-full object-contain"
@@ -232,8 +368,58 @@ export default function RecordingsIndex() {
                     </div>
                 )}
                 
+                {/* Pagination Controls - Bottom */}
+                {totalPages > 1 && (
+                    <div className="mt-8 flex justify-center items-center gap-2">
+                        <button
+                            onClick={() => paginate(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            ← Previous
+                        </button>
+                        
+                        <div className="flex gap-1">
+                            {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                                let pageNum;
+                                if (totalPages <= 5) {
+                                    pageNum = index + 1;
+                                } else if (currentPage <= 3) {
+                                    pageNum = index + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + index;
+                                } else {
+                                    pageNum = currentPage - 2 + index;
+                                }
+                                
+                                return (
+                                    <button
+                                        key={index}
+                                        onClick={() => paginate(pageNum)}
+                                        className={`px-3 py-1 rounded transition-colors ${
+                                            currentPage === pageNum
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-800 hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        <button
+                            onClick={() => paginate(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Next →
+                        </button>
+                    </div>
+                )}
+                
                 {/* Delete All Button - Moved to bottom for safety */}
-                {recordings.length > 0 && (
+                {allRecordings.length > 0 && (
                     <div className="mt-12 pt-8 border-t border-gray-700">
                         <div className="flex flex-col items-center gap-4">
                             <p className="text-gray-400 text-sm">Danger Zone</p>
