@@ -1059,6 +1059,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createEntitiesFromJSON(entitiesData) {
+        console.log('createEntitiesFromJSON received:', entitiesData);
         const { wormStart, goal } = entitiesData;
         
         // Use pixel coordinates directly for entity placement
@@ -1084,20 +1085,65 @@ export default class JsonMapBase extends Phaser.Scene {
         this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 
             this.predictiveCameraConfig?.showTarget ? 0.5 : 0);
         
-        // Create goal at pixel coordinates
-        const goalX = goal.x;
-        const goalY = goal.y;
-        
-        this.goal = this.add.star(goalX, goalY, 5, 15, 25, 0xffd700);
-        this.add.star(goalX, goalY, 5, 10, 20, 0xffed4e).setDepth(1);
-        
-        // Rotate the goal
-        this.tweens.add({
-            targets: this.goal,
-            rotation: Math.PI * 2,
-            duration: 3000,
-            repeat: -1
-        });
+        // Create goal(s) at pixel coordinates
+        // Support both single goal and multiple goals
+        if (entitiesData.goals && entitiesData.goals.length > 0) {
+            // Multiple goals - must collect ALL to win
+            this.goals = [];
+            this.collectedGoals = new Set();
+            
+            entitiesData.goals.forEach((goalData, index) => {
+                const goalX = goalData.x;
+                const goalY = goalData.y;
+                
+                // All goals use the same golden color
+                const starColor = 0xffd700;
+                const innerColor = 0xffed4e;
+                
+                const goal = this.add.star(goalX, goalY, 5, 15, 25, starColor);
+                const innerStar = this.add.star(goalX, goalY, 5, 10, 20, innerColor).setDepth(1);
+                
+                // Store reference to both visual elements
+                goal.innerStar = innerStar;
+                goal.id = `goal_${index}`;
+                goal.collected = false;
+                
+                // Rotate the goal
+                this.tweens.add({
+                    targets: [goal, innerStar],
+                    rotation: Math.PI * 2,
+                    duration: 3000,
+                    repeat: -1
+                });
+                
+                this.goals.push(goal);
+            });
+            
+            // For backward compatibility, set this.goal to the first goal
+            this.goal = this.goals[0];
+        } else {
+            // Single goal (backward compatibility)
+            const goalX = goal.x;
+            const goalY = goal.y;
+            
+            this.goal = this.add.star(goalX, goalY, 5, 15, 25, 0xffd700);
+            const innerStar = this.add.star(goalX, goalY, 5, 10, 20, 0xffed4e).setDepth(1);
+            
+            // For consistency, treat single goal as an array with one element
+            this.goals = [this.goal];
+            this.collectedGoals = new Set();
+            this.goal.innerStar = innerStar;
+            this.goal.id = 'goal_0';
+            this.goal.collected = false;
+            
+            // Rotate the goal
+            this.tweens.add({
+                targets: [this.goal, innerStar],
+                rotation: Math.PI * 2,
+                duration: 3000,
+                repeat: -1
+            });
+        }
         
         // Set up camera
         this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelHeight);
@@ -1325,6 +1371,11 @@ export default class JsonMapBase extends Phaser.Scene {
         if (this.stopwatch.bestTimeText) {
             this.uiElements.push(this.stopwatch.bestTimeText);
             this.minimapIgnoreList.push(this.stopwatch.bestTimeText);
+        }
+        
+        // Create star counter for all maps with goals
+        if (this.goals && this.goals.length > 0) {
+            this.createStarCounter(emSize);
         }
         
         // Ghost indicator (will be shown when ghost is loaded)
@@ -1805,22 +1856,47 @@ export default class JsonMapBase extends Phaser.Scene {
         // Check if worm has fallen off the map
         this.checkWormFallOff();
         
-        // Check victory condition - any part of worm touching goal
-        if (this.goal && this.worm && this.worm.segments) {
-            for (let i = 0; i < this.worm.segments.length; i++) {
-                const segment = this.worm.segments[i];
-                const distance = Phaser.Math.Distance.Between(
-                    segment.position.x, segment.position.y,
-                    this.goal.x, this.goal.y
-                );
+        // Check goal collection - need to collect ALL goals to win
+        if (this.goals && this.worm && this.worm.segments) {
+            // Check each uncollected goal for collision
+            for (let goalIndex = 0; goalIndex < this.goals.length; goalIndex++) {
+                const goal = this.goals[goalIndex];
                 
-                const segmentRadius = this.worm.segmentRadii[i] || 15;
-                const goalRadius = 20;
-                const collisionDistance = segmentRadius + goalRadius;
+                // Skip already collected goals
+                if (goal.collected) continue;
                 
-                if (distance < collisionDistance) {
-                    this.victory();
-                    return;
+                // Check if any worm segment is touching this goal
+                for (let i = 0; i < this.worm.segments.length; i++) {
+                    const segment = this.worm.segments[i];
+                    const distance = Phaser.Math.Distance.Between(
+                        segment.position.x, segment.position.y,
+                        goal.x, goal.y
+                    );
+                    
+                    const segmentRadius = this.worm.segmentRadii[i] || 15;
+                    const goalRadius = 20;
+                    const collisionDistance = segmentRadius + goalRadius;
+                    
+                    if (distance < collisionDistance && !goal.collected) {
+                        // Mark goal as collected
+                        goal.collected = true;
+                        this.collectedGoals.add(goal.id);
+                        
+                        // Visual feedback for collection
+                        this.collectGoalEffect(goal);
+                        
+                        // Check if all goals are collected
+                        if (this.collectedGoals.size === this.goals.length) {
+                            // All goals collected - victory!
+                            this.victory();
+                            return;
+                        } else {
+                            // Show progress
+                            this.showGoalProgress();
+                        }
+                        
+                        break; // Move to next goal after collecting this one
+                    }
                 }
             }
         }
@@ -2360,5 +2436,203 @@ export default class JsonMapBase extends Phaser.Scene {
             gameScene: this,
             mapKey: this.mapKey || this.scene.key
         });
+    }
+    
+    // Goal collection effect - visual feedback when a goal is collected
+    collectGoalEffect(goal) {
+        // Stop rotation
+        this.tweens.killTweensOf([goal, goal.innerStar]);
+        
+        // Scale and fade out effect
+        this.tweens.add({
+            targets: [goal, goal.innerStar],
+            scale: 2,
+            alpha: 0.3,
+            duration: 500,
+            ease: 'Power2'
+        });
+        
+        // Create sparkle effect with simple circles
+        for (let i = 0; i < 12; i++) {
+            const angle = (Math.PI * 2 * i) / 12;
+            const speed = 150 + Math.random() * 100;
+            const sparkle = this.add.circle(goal.x, goal.y, 4, 0xffd700);
+            sparkle.setDepth(100);
+            
+            // Animate sparkles outward
+            this.tweens.add({
+                targets: sparkle,
+                x: goal.x + Math.cos(angle) * speed,
+                y: goal.y + Math.sin(angle) * speed,
+                scale: 0,
+                alpha: 0,
+                duration: 600,
+                ease: 'Power2',
+                onComplete: () => sparkle.destroy()
+            });
+        }
+        
+        // Animate a star flying to the counter
+        if (this.starCounter) {
+            this.animateStarToCounter(goal.x, goal.y);
+        }
+        
+        // Play a collection sound if available
+        if (this.sound && this.sound.get('goalCollect')) {
+            this.sound.play('goalCollect');
+        }
+    }
+    
+    // Show progress when collecting multiple goals
+    showGoalProgress() {
+        const remaining = this.goals.length - this.collectedGoals.size;
+        const message = remaining === 1 
+            ? '1 goal remaining!' 
+            : `${remaining} goals remaining!`;
+        
+        // Create progress text
+        const progressText = this.add.text(
+            this.scale.width / 2, 
+            100,
+            message,
+            {
+                fontSize: '32px',
+                color: '#ffd700',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 20, y: 10 }
+            }
+        ).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        // Ensure cameras ignore it for minimap
+        if (this.minimap) {
+            this.minimap.ignore(progressText);
+        }
+        
+        // Animate the text
+        this.tweens.add({
+            targets: progressText,
+            scale: 1.2,
+            duration: 300,
+            yoyo: true,
+            ease: 'Power2'
+        });
+        
+        // Fade out and destroy
+        this.tweens.add({
+            targets: progressText,
+            alpha: 0,
+            duration: 1500,
+            delay: 500,
+            onComplete: () => progressText.destroy()
+        });
+    }
+    
+    // Create the star counter UI element
+    createStarCounter(emSize) {
+        // Position it to the left of the timer
+        const x = this.scale.width / 2 - 150;
+        const y = emSize;
+        
+        // Create star icon
+        this.starIcon = this.add.star(x, y, 5, 8, 12, 0xffd700);
+        this.starIcon.setScrollFactor(0).setDepth(1000);
+        
+        // Create counter text
+        this.starCounter = this.add.text(x + 20, y, `0/${this.goals.length}`, {
+            fontSize: '20px',
+            color: '#ffd700',
+            fontFamily: 'monospace',
+            padding: { x: 5, y: 5 }
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1000);
+        
+        // Add to UI elements
+        this.uiElements.push(this.starIcon, this.starCounter);
+        this.minimapIgnoreList.push(this.starIcon, this.starCounter);
+        
+        // Make cameras ignore them
+        this.cameras.main.ignore([this.starIcon, this.starCounter]);
+        if (this.minimap) {
+            this.minimap.ignore([this.starIcon, this.starCounter]);
+        }
+    }
+    
+    // Update the star counter display
+    updateStarCounter() {
+        if (this.starCounter) {
+            const collected = this.collectedGoals.size;
+            const total = this.goals.length;
+            this.starCounter.setText(`${collected}/${total}`);
+            
+            // Pulse effect when updated
+            this.tweens.add({
+                targets: [this.starIcon, this.starCounter],
+                scale: 1.2,
+                duration: 200,
+                yoyo: true,
+                ease: 'Power2'
+            });
+        }
+    }
+    
+    // Animate a star flying from collection point to counter
+    animateStarToCounter(fromX, fromY) {
+        if (!this.starIcon) return;
+        
+        // Create a star at the collection point in world space
+        const flyingStar = this.add.star(fromX, fromY, 5, 10, 15, 0xffd700);
+        flyingStar.setDepth(1001);
+        
+        // Convert to screen space for the animation endpoint
+        const camera = this.cameras.main;
+        const startScreenX = fromX - camera.scrollX;
+        const startScreenY = fromY - camera.scrollY;
+        
+        // Set star to screen space
+        flyingStar.setScrollFactor(0);
+        flyingStar.setPosition(startScreenX, startScreenY);
+        
+        // Target is the star icon position (already in screen space)
+        const toX = this.starIcon.x;
+        const toY = this.starIcon.y;
+        
+        // Animate the star flying to the counter
+        this.tweens.add({
+            targets: flyingStar,
+            x: toX,
+            y: toY,
+            scale: 0.5,
+            duration: 800,
+            ease: 'Power2',
+            onComplete: () => {
+                flyingStar.destroy();
+                // Update counter when star arrives
+                this.updateStarCounter();
+            }
+        });
+        
+        // Add a trail effect
+        for (let i = 0; i < 5; i++) {
+            this.time.delayedCall(i * 50, () => {
+                if (!flyingStar || !flyingStar.active) return;
+                
+                const trail = this.add.circle(
+                    flyingStar.x, 
+                    flyingStar.y, 
+                    3, 
+                    0xffd700
+                );
+                trail.setScrollFactor(0);
+                trail.setDepth(1000);
+                trail.setAlpha(0.5);
+                
+                this.tweens.add({
+                    targets: trail,
+                    scale: 0,
+                    alpha: 0,
+                    duration: 300,
+                    onComplete: () => trail.destroy()
+                });
+            });
+        }
     }
 }

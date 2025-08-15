@@ -3,6 +3,7 @@ import { json } from "@remix-run/node";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { existsSync } from "fs";
+import { loadMapDataSync } from "/src/scenes/maps/MapDataRegistry";
 
 export async function loader({ params }: LoaderFunctionArgs) {
   const { filename } = params;
@@ -15,6 +16,25 @@ export async function loader({ params }: LoaderFunctionArgs) {
   // The filename parameter will be URL encoded, so decode it
   const decodedPath = decodeURIComponent(filename);
   
+  // First, try to load from MapDataRegistry (includes SVG maps processed at build time)
+  const registryData = loadMapDataSync(decodedPath);
+  if (registryData) {
+    // For SVG maps, the data is already processed
+    if (registryData.type === 'svg') {
+      return json({ 
+        mapData: registryData,
+        filename: decodedPath,
+        isSvg: true 
+      });
+    }
+    // For JSON maps from registry
+    return json({ 
+      mapData: registryData,
+      filename: decodedPath 
+    });
+  }
+  
+  // If not in registry, try loading JSON file directly (backwards compatibility)
   // Ensure filename has .json extension
   const fileWithExt = decodedPath.endsWith('.json') ? decodedPath : `${decodedPath}.json`;
   

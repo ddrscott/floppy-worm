@@ -6,15 +6,45 @@ export default class MapLoader {
     /**
      * Load map data from API or registry
      * @param {string} mapKey - The map identifier (filename without extension)
-     * @returns {Promise<Object>} Map data object
+     * @returns {Promise<Object>} Map data object or SVG path info
      */
     static async loadMapData(mapKey) {
-        // Clean up the map key - remove .json extension if present
-        const cleanMapKey = mapKey.replace(/\.json$/i, '');
+        // Clean up the map key - remove extensions if present
+        const cleanMapKey = mapKey.replace(/\.(json|svg)$/i, '');
+        
+        // Check if this is an SVG map request
+        const isSvgMap = mapKey.endsWith('.svg') || mapKey.includes('/svg/') || mapKey.includes('/vector/');
         
         // Use build-time constant instead of runtime detection
         // @ts-ignore - import.meta.env is defined by Vite
         const hasAPI = import.meta?.env?.HAS_API === true || import.meta?.env?.HAS_API === 'true';
+        
+        if (isSvgMap) {
+            // For SVG maps, return a special marker object
+            // The SvgMapScene will handle the actual loading
+            let svgPath;
+            if (mapKey.endsWith('.svg')) {
+                svgPath = mapKey;
+            } else if (mapKey.includes('/vector/')) {
+                // If it already has the vector path, just add .svg
+                svgPath = `${mapKey}.svg`;
+            } else {
+                // Otherwise, assume it's in levels/vector/
+                svgPath = `/levels/vector/${cleanMapKey}.svg`;
+            }
+            
+            // Extract a clean name for display
+            const displayName = cleanMapKey.split('/').pop().replace(/-/g, ' ');
+            
+            return {
+                type: 'svg',
+                svgPath: svgPath,
+                metadata: {
+                    name: displayName,
+                    category: 'svg'
+                }
+            };
+        }
         
         // Try API endpoint first if available (server/dev mode)
         if (hasAPI) {
@@ -66,23 +96,36 @@ export default class MapLoader {
             mapKey = null  // Allow explicit mapKey to be passed
         } = options;
         
-        // Dynamically import JsonMapBase to avoid circular dependency
-        const { default: JsonMapBase } = await import('../scenes/JsonMapBase');
+        // Check if this is an SVG map
+        const isSvgMap = mapData.type === 'svg';
+        
+        // Dynamically import the appropriate base class
+        const BaseClass = isSvgMap 
+            ? (await import('../scenes/SvgMapScene')).default
+            : (await import('../scenes/JsonMapBase')).default;
         
         // Extract clean mapKey - remove prefixes and ensure it's just the basename
         const cleanMapKey = mapKey || sceneKey.replace(/^(test-|editor-)/, '');
         
-        // Create a dynamic scene class that extends JsonMapBase
-        class DynamicMapScene extends JsonMapBase {
+        // Create a dynamic scene class that extends the appropriate base
+        class DynamicMapScene extends BaseClass {
             constructor() {
-                super({
+                const config = {
                     key: sceneKey,
                     mapKey: cleanMapKey,  // Always use the clean map key
                     title: mapData.metadata?.name || sceneKey,
-                    mapData: mapData,
                     returnScene: testMode || editorMode ? null : returnScene,
                     showDebug: showDebug
-                });
+                };
+                
+                // Add SVG-specific config
+                if (isSvgMap) {
+                    config.svgPath = mapData.svgPath;
+                } else {
+                    config.mapData = mapData;
+                }
+                
+                super(config);
                 
                 // Store mode flags
                 this.testMode = testMode;
