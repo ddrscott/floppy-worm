@@ -62,9 +62,10 @@ export default class TouchControlsOverlay {
         this.tapMaxDuration = 300; // milliseconds
         this.tapMaxMovement = 0.15; // normalized movement threshold
         this.tapPowerConfig = {
-            minPower: 0.1,   // Minimum jump power at center
-            maxPower: 1.0,   // Maximum jump power at edge
-            powerCurve: 1.2  // Exponential curve for power mapping
+            minPower: 0.15,  // Minimum jump power at edge
+            maxPower: 1.0,   // Maximum jump power at center
+            powerCurve: 2.0, // Exponential curve (higher = full strength easier to achieve)
+            fullPowerRadius: 0.3 // Within 30% of center radius = full power
         };
         
         this.buttonStates = {
@@ -376,10 +377,23 @@ export default class TouchControlsOverlay {
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const normalizedDistance = Math.min(1, distance / this.config.joystickRadius);
                 
-                // Apply power curve for better control
-                const rawPower = Math.pow(normalizedDistance, this.tapPowerConfig.powerCurve);
-                const power = this.tapPowerConfig.minPower + 
-                             (this.tapPowerConfig.maxPower - this.tapPowerConfig.minPower) * rawPower;
+                // Check if within full power radius
+                let power;
+                if (normalizedDistance <= this.tapPowerConfig.fullPowerRadius) {
+                    // Within center zone - full power
+                    power = this.tapPowerConfig.maxPower;
+                } else {
+                    // Outside center zone - calculate reduced power
+                    // Invert the distance (1 = center, 0 = edge) and map to remaining range
+                    const adjustedDistance = (normalizedDistance - this.tapPowerConfig.fullPowerRadius) / 
+                                            (1 - this.tapPowerConfig.fullPowerRadius);
+                    const invertedDistance = 1 - adjustedDistance;
+                    
+                    // Apply power curve (higher values make it easier to get high power)
+                    const rawPower = Math.pow(invertedDistance, 1 / this.tapPowerConfig.powerCurve);
+                    power = this.tapPowerConfig.minPower + 
+                           (this.tapPowerConfig.maxPower - this.tapPowerConfig.minPower) * rawPower;
+                }
                 
                 // Trigger jump with analog power
                 const triggerButton = side === 'left' ? 'leftTrigger' : 'rightTrigger';
