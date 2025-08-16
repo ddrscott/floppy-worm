@@ -8,7 +8,7 @@
    version="1.1"
    id="svg5"
    inkscape:version="1.3.2 (091e20e, 2023-11-25)"
-   sodipodi:docname="010-tutorial.svg"
+   sodipodi:docname="001-first-time.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -32,8 +32,8 @@
      showgrid="true"
      showborder="true"
      inkscape:zoom="1.0771156"
-     inkscape:cx="773.82597"
-     inkscape:cy="1974.2543"
+     inkscape:cx="771.96914"
+     inkscape:cy="1853.5615"
      inkscape:window-width="1920"
      inkscape:window-height="1547"
      inkscape:window-x="2178"
@@ -120,8 +120,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1248"
-       cy="1152"
+       cx="1198.6927"
+       cy="1344.9283"
        r="16"
        fill="#ffd700"
        id="circle3-4-0-8">
@@ -163,14 +163,47 @@
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="678.71997"
-       y="2116.9648"
+       x="653.66785"
+       y="2107.6807"
        id="text2"
        class="sticker"><tspan
          sodipodi:role="line"
          id="tspan2"
-         x="678.71997"
-         y="2116.9648">Worm 101</tspan></text>
+         x="653.66785"
+         y="2107.6807">Worm 101</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="593.75214"
+       y="1389.2064"
+       id="text2-7"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9"
+         x="593.75214"
+         y="1389.2064">Tap the timer to pause the stage.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="849.94635"
+       y="2362.8879"
+       id="text2-7-2"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9-6"
+         x="849.94635"
+         y="2362.8879">Make circles to game momentum.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="1002.7692"
+       y="1636.8307"
+       id="text2-7-2-9"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9-6-2"
+         x="1002.7692"
+         y="1636.8307">Tap circle/triggers to jump</tspan></text>
   </g>
   <metadata
      id="metadata190">
