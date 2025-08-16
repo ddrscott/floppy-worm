@@ -236,18 +236,18 @@ export default class InputManager {
             touchButtons = this.touchControls.getState().buttons;
         }
         
-        // Combine triggers
+        // Combine triggers (now supporting analog values from touch)
         const leftTrigger = Math.max(
             buttons.jump && !this.config.swapControls ? 1 : 0,
             pad?.buttons[6]?.value || 0,
-            touchButtons.leftTrigger ? 1 : 0
+            typeof touchButtons.leftTrigger === 'number' ? touchButtons.leftTrigger : (touchButtons.leftTrigger ? 1 : 0)
         );
         
         const rightTrigger = Math.max(
             buttons.jumpAlt && !this.config.swapControls ? 1 : 0,
             buttons.jump && this.config.swapControls ? 1 : 0,
             pad?.buttons[7]?.value || 0,
-            touchButtons.rightTrigger ? 1 : 0
+            typeof touchButtons.rightTrigger === 'number' ? touchButtons.rightTrigger : (touchButtons.rightTrigger ? 1 : 0)
         );
         
         const state = {

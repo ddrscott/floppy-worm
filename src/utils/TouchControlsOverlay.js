@@ -58,9 +58,14 @@ export default class TouchControlsOverlay {
             right: { x: 0, y: 0, active: false, pointerId: 0, tapStartTime: 0, tapStartX: 0, tapStartY: 0 }
         };
         
-        // Tap detection thresholds
-        this.tapMaxDuration = 300; // milliseconds (more lenient)
-        this.tapMaxMovement = 0.1; // normalized movement (30% of radius)
+        // Tap detection and power configuration
+        this.tapMaxDuration = 300; // milliseconds
+        this.tapMaxMovement = 0.15; // normalized movement threshold
+        this.tapPowerConfig = {
+            minPower: 0.1,   // Minimum jump power at center
+            maxPower: 1.0,   // Maximum jump power at edge
+            powerCurve: 1.2  // Exponential curve for power mapping
+        };
         
         this.buttonStates = {
             leftTrigger: false,
@@ -98,7 +103,7 @@ export default class TouchControlsOverlay {
         this.createJoystick('left');
         this.createJoystick('right');
         
-        // Create buttons (jump buttons removed - use tap on joysticks instead)
+        // Create buttons
         this.createButton('leftShoulder', 'G');
         this.createButton('rightShoulder', 'G');
         this.createButton('roll', 'ROLL');
@@ -311,14 +316,13 @@ export default class TouchControlsOverlay {
                 const dy = pointer.y - worldY;
                 this.setJoystickPosition(side, dx, dy);
                 
-                // Update tap tracking - check if finger moved too much from initial position
+                // Update tap tracking - check if finger moved too much
                 if (state.tapStartTime > 0) {
-                    // Calculate how far the finger has moved from its starting position
                     const fingerMovement = Math.sqrt(
                         Math.pow(pointer.x - state.tapStartX, 2) + 
                         Math.pow(pointer.y - state.tapStartY, 2)
                     );
-                    // Cancel tap if finger moved too far (more than 30% of joystick radius)
+                    // Cancel tap if finger moved too far
                     if (fingerMovement > this.config.joystickRadius * this.tapMaxMovement) {
                         state.tapStartTime = 0;
                     }
@@ -358,6 +362,34 @@ export default class TouchControlsOverlay {
         }
     }
     
+    handleJoystickRelease(side) {
+        const state = this.joystickStates[side];
+        
+        // Check if this was a tap
+        if (state.tapStartTime > 0) {
+            const duration = Date.now() - state.tapStartTime;
+            
+            if (duration <= this.tapMaxDuration) {
+                // Calculate distance from center for analog power
+                const dx = state.tapStartX - this.joysticks[side].worldX;
+                const dy = state.tapStartY - this.joysticks[side].worldY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const normalizedDistance = Math.min(1, distance / this.config.joystickRadius);
+                
+                // Apply power curve for better control
+                const rawPower = Math.pow(normalizedDistance, this.tapPowerConfig.powerCurve);
+                const power = this.tapPowerConfig.minPower + 
+                             (this.tapPowerConfig.maxPower - this.tapPowerConfig.minPower) * rawPower;
+                
+                // Trigger jump with analog power
+                const triggerButton = side === 'left' ? 'leftTrigger' : 'rightTrigger';
+                this.simulateButtonPress(triggerButton, power);
+            }
+        }
+        
+        this.resetJoystick(side);
+    }
+    
     setJoystickPosition(side, dx, dy) {
         const joystick = this.joysticks[side];
         const state = this.joystickStates[side];
@@ -382,24 +414,6 @@ export default class TouchControlsOverlay {
         state.y = knobY / this.config.joystickRadius;
     }
     
-    handleJoystickRelease(side) {
-        const state = this.joystickStates[side];
-        
-        // Check if this was a tap (tapStartTime > 0 means tap detection wasn't cancelled)
-        if (state.tapStartTime > 0) {
-            const duration = Date.now() - state.tapStartTime;
-            
-            // A tap is a quick touch and release anywhere in the joystick area
-            if (duration <= this.tapMaxDuration) {
-                // Trigger the corresponding trigger button for jump
-                const triggerButton = side === 'left' ? 'leftTrigger' : 'rightTrigger';
-                this.simulateButtonPress(triggerButton);
-            }
-        }
-        
-        this.resetJoystick(side);
-    }
-    
     resetJoystick(side) {
         const joystick = this.joysticks[side];
         const state = this.joystickStates[side];
@@ -420,14 +434,14 @@ export default class TouchControlsOverlay {
         state.tapStartY = 0;
     }
     
-    simulateButtonPress(buttonId) {
+    simulateButtonPress(buttonId, analogValue = 1.0) {
         // Don't simulate if already pressed (avoid conflicts with real presses)
         if (this.buttonStates[buttonId]) {
             return;
         }
         
-        // Set the button state to pressed (for jump triggers)
-        this.buttonStates[buttonId] = true;
+        // Set the button state with analog value
+        this.buttonStates[buttonId] = analogValue;
         
         // Note: No visual feedback needed since trigger buttons are not visible
         // Hold the button for 150ms to ensure it's detected by InputManager
