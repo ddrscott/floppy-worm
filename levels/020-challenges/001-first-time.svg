@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1440"
+   height="2400"
+   viewBox="0 0 1440 2400"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   sodipodi:docname="001-first-time.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title2">Be the Worm</title>
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#383838"
+     bordercolor="#cccccc"
+     borderopacity="1"
+     inkscape:showpageshadow="false"
+     inkscape:pageopacity="1"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#ffffff"
+     inkscape:document-units="px"
+     showgrid="true"
+     showborder="true"
+     inkscape:zoom="1.0771156"
+     inkscape:cx="771.96914"
+     inkscape:cy="1853.5615"
+     inkscape:window-width="1920"
+     inkscape:window-height="1547"
+     inkscape:window-x="2178"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1"
+     shape-rendering="crispEdges">
+    <sodipodi:guide
+       position="0,2400"
+       orientation="0,800"
+       id="guide182"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="0,1534.3504"
+       orientation="800,0"
+       id="guide184"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="800,2400"
+       orientation="0,-800"
+       id="guide186"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="0,1600"
+       orientation="-800,0"
+       id="guide188"
+       inkscape:locked="false" />
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="0"
+       originy="2400"
+       spacingx="96"
+       spacingy="96"
+       empcolor="#4ecdc4"
+       empopacity="0.30196078"
+       color="#888888"
+       opacity="0.14901961"
+       empspacing="5"
+       dotted="false"
+       gridanglex="30"
+       gridanglez="30"
+       visible="true"
+       snapvisiblegridlinesonly="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <color-profile
+       name="Adobe-RGB-1998"
+       xlink:href="file:///System/Library/ColorSync/Profiles/AdobeRGB1998.icc"
+       id="color-profile2" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <circle
+       class="worm-start"
+       cx="720"
+       cy="1535"
+       r="15"
+       fill="#00ff00"
+       opacity="0.8"
+       id="circle1" />
+    <circle
+       class="goal"
+       cx="434.19766"
+       cy="1824"
+       r="16"
+       fill="#ffd700"
+       id="circle3">
+      <title
+         id="title3">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="720"
+       cy="2358.1711"
+       r="16"
+       fill="#ffd700"
+       id="circle3-4">
+      <title
+         id="title3-3">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1198.6927"
+       cy="1344.9283"
+       r="16"
+       fill="#ffd700"
+       id="circle3-4-0-8">
+      <title
+         id="title3-3-4-7">Hard Route Goal</title>
+    </circle>
+    <rect
+       class="platform"
+       x="480"
+       y="2208.5"
+       width="480"
+       height="102.37901"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="6"
+       id="rect8"
+       rx="8"
+       ry="1.7063169"
+       style="stroke-width:0.999998;stroke-dasharray:none">
+      <title
+         id="title7">Moving Platform</title>
+    </rect>
+    <rect
+       class="platform"
+       x="480"
+       y="1824"
+       width="480"
+       height="197.59448"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="6"
+       id="rect8-5"
+       rx="8"
+       ry="3.2932415"
+       style="stroke-width:0.999998;stroke-dasharray:none">
+      <title
+         id="title7-1">Moving Platform</title>
+    </rect>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="653.66785"
+       y="2107.6807"
+       id="text2"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2"
+         x="653.66785"
+         y="2107.6807">Choose wisely</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="593.75214"
+       y="1389.2064"
+       id="text2-7"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9"
+         x="593.75214"
+         y="1389.2064">Tap the timer to pause the stage.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="849.94635"
+       y="2362.8879"
+       id="text2-7-2"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9-6"
+         x="850"
+         y="2363">Make circles to game momentum.</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="1002.7692"
+       y="1636.8307"
+       id="text2-7-2-9"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan2-9-6-2"
+         x="1000"
+         y="1636">Tap circle/triggers to jump</tspan></text>
+  </g>
+  <metadata
+     id="metadata190">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Scott Pierce &lt;ddrscott@gmail.com&gt;</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:publisher>
+          <cc:Agent>
+            <dc:title>You're Welcome Studios</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <dc:rights>
+          <cc:Agent>
+            <dc:title>Attribution-NonCommerical-ShareAlike 4.0</dc:title>
+          </cc:Agent>
+        </dc:rights>
+        <dc:title>Be the Worm</dc:title>
+        <dc:description>Let's get into shape!</dc:description>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-nc-sa/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-nc-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:prohibits
+           rdf:resource="http://creativecommons.org/ns#CommercialUse" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>

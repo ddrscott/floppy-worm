@@ -2,13 +2,13 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="1440"
+   width="800"
    height="2400"
-   viewBox="0 0 1440 2400"
+   viewBox="0 0 800 2400"
    version="1.1"
    id="svg5"
    inkscape:version="1.3.2 (091e20e, 2023-11-25)"
-   sodipodi:docname="001-first-time.svg"
+   sodipodi:docname="001-Down.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -18,7 +18,7 @@
    xmlns:cc="http://creativecommons.org/ns#"
    xmlns:dc="http://purl.org/dc/elements/1.1/">
   <title
-     id="title2">Be the Worm</title>
+     id="title1">Down</title>
   <sodipodi:namedview
      id="namedview7"
      pagecolor="#383838"
@@ -31,13 +31,13 @@
      inkscape:document-units="px"
      showgrid="true"
      showborder="true"
-     inkscape:zoom="1.0771156"
-     inkscape:cx="771.96914"
-     inkscape:cy="1853.5615"
-     inkscape:window-width="1920"
-     inkscape:window-height="1547"
-     inkscape:window-x="2178"
-     inkscape:window-y="25"
+     inkscape:zoom="0.16706569"
+     inkscape:cx="1394.6609"
+     inkscape:cy="1445.5391"
+     inkscape:window-width="1600"
+     inkscape:window-height="1005"
+     inkscape:window-x="83"
+     inkscape:window-y="38"
      inkscape:window-maximized="0"
      inkscape:current-layer="layer1"
      shape-rendering="crispEdges">
@@ -64,7 +64,7 @@
     <inkscape:grid
        id="grid1"
        units="px"
-       originx="0"
+       originx="400"
        originy="2400"
        spacingx="96"
        spacingy="96"
@@ -92,16 +92,16 @@
      id="layer1">
     <circle
        class="worm-start"
-       cx="720"
-       cy="1535"
+       cx="400"
+       cy="196.17973"
        r="15"
        fill="#00ff00"
        opacity="0.8"
        id="circle1" />
     <circle
        class="goal"
-       cx="434.19766"
-       cy="1824"
+       cx="400"
+       cy="1224.9048"
        r="16"
        fill="#ffd700"
        id="circle3">
@@ -110,100 +110,80 @@
     </circle>
     <circle
        class="goal"
-       cx="720"
-       cy="2358.1711"
+       cx="400"
+       cy="1739.2673"
        r="16"
        fill="#ffd700"
        id="circle3-4">
       <title
          id="title3-3">Hard Route Goal</title>
     </circle>
-    <circle
-       class="goal"
-       cx="1198.6927"
-       cy="1344.9283"
-       r="16"
-       fill="#ffd700"
-       id="circle3-4-0-8">
-      <title
-         id="title3-3-4-7">Hard Route Goal</title>
-    </circle>
     <rect
-       class="platform"
-       x="480"
-       y="2208.5"
-       width="480"
-       height="102.37901"
-       fill="#696969"
-       stroke="#000000"
-       stroke-width="6"
-       id="rect8"
-       rx="8"
-       ry="1.7063169"
-       style="stroke-width:0.999998;stroke-dasharray:none">
-      <title
-         id="title7">Moving Platform</title>
-    </rect>
-    <rect
-       class="platform"
-       x="480"
-       y="1824"
-       width="480"
-       height="197.59448"
+       class="platform electric"
+       x="0.49999949"
+       y="2304.5"
+       width="799"
+       height="95.000008"
        fill="#696969"
        stroke="#000000"
        stroke-width="6"
        id="rect8-5"
        rx="8"
-       ry="3.2932415"
-       style="stroke-width:0.999998;stroke-dasharray:none">
-      <title
-         id="title7-1">Moving Platform</title>
-    </rect>
+       ry="3.2932417"
+       style="fill:#f8db30;stroke-width:0.999998;stroke-dasharray:none" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="653.66785"
-       y="2107.6807"
-       id="text2"
-       class="sticker"><tspan
-         sodipodi:role="line"
-         id="tspan2"
-         x="653.66785"
-         y="2107.6807">Worm 101</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="593.75214"
-       y="1389.2064"
-       id="text2-7"
-       class="sticker"><tspan
-         sodipodi:role="line"
-         id="tspan2-9"
-         x="593.75214"
-         y="1389.2064">Tap the timer to pause the stage.</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="849.94635"
-       y="2362.8879"
+       x="348.48883"
+       y="353.93863"
        id="text2-7-2"
        class="sticker"><tspan
          sodipodi:role="line"
          id="tspan2-9-6"
-         x="849.94635"
-         y="2362.8879">Make circles to game momentum.</tspan></text>
+         x="348.48883"
+         y="353.93863">Hold Steady</tspan></text>
+    <circle
+       class="goal"
+       cx="400"
+       cy="710.5423"
+       r="16"
+       fill="#ffd700"
+       id="circle8">
+      <title
+         id="title8">Hard Route Goal</title>
+    </circle>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="1002.7692"
-       y="1636.8307"
-       id="text2-7-2-9"
+       x="614.50519"
+       y="2273.5898"
+       id="text2-7-2-8"
        class="sticker"><tspan
          sodipodi:role="line"
-         id="tspan2-9-6-2"
-         x="1002.7692"
-         y="1636.8307">Tap circle/triggers to jump</tspan></text>
+         id="tspan2-9-6-1"
+         x="614.50519"
+         y="2273.5898">Don't Touch</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
+       x="111.61311"
+       y="2259.1797"
+       id="text8"
+       class="sticker"><tspan
+         sodipodi:role="line"
+         id="tspan8"
+         x="111.61311"
+         y="2259.1797">Don't Touch</tspan></text>
+    <circle
+       class="goal"
+       cx="400"
+       cy="2253.6299"
+       r="16"
+       fill="#ffd700"
+       id="circle9">
+      <title
+         id="title9">Hard Route Goal</title>
+    </circle>
   </g>
   <metadata
      id="metadata190">
@@ -225,8 +205,8 @@
             <dc:title>Attribution-NonCommerical-ShareAlike 4.0</dc:title>
           </cc:Agent>
         </dc:rights>
-        <dc:title>Be the Worm</dc:title>
-        <dc:description>Let's get into shape!</dc:description>
+        <dc:title>Down</dc:title>
+        <dc:description>Gravity is a downer</dc:description>
         <cc:license
            rdf:resource="http://creativecommons.org/licenses/by-nc-sa/4.0/" />
       </cc:Work>

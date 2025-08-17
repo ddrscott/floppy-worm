@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "name": "Up",
+    "difficulty": 1,
+    "description": "Going Up",
+    "modified": "2025-07-28T22:00:29.151Z",
+    "category": "tutorial",
+    "order": 2
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 800
+  },
+  "entities": {
+    "wormStart": {
+      "x": 240,
+      "y": 432
+    },
+    "goal": {
+      "x": 816,
+      "y": 450
+    }
+  },
+  "platforms": [
+    {
+      "id": "platform_a",
+      "type": "rectangle",
+      "platformType": "ice",
+      "x": 780,
+      "y": 670,
+      "angle": 0,
+      "color": "#ff6b6b",
+      "physics": {
+        "friction": 0.8,
+        "frictionStatic": 0.9,
+        "restitution": 0.3
+      },
+      "width": 500,
+      "height": 250
+    }
+  ],
+  "stickers": []
+}

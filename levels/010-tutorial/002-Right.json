@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "name": "Right",
+    "difficulty": 1,
+    "description": "To the Right",
+    "modified": "2025-07-28T22:00:29.151Z",
+    "category": "tutorial",
+    "order": 2
+  },
+  "dimensions": {
+    "width": 1024,
+    "height": 800
+  },
+  "entities": {
+    "wormStart": {
+      "x": 240,
+      "y": 432
+    },
+    "goal": {
+      "x": 816,
+      "y": 612
+    }
+  },
+  "platforms": [],
+  "stickers": []
+}
