@@ -54,8 +54,11 @@ export default class JumpAbility extends BaseAbility {
             }
         };
         
-        // Track active laser effects (particle-like)
-        this.activeLasers = [];
+        // Track active laser effects (one per spring type)
+        this.activeLasers = {
+            head: null,
+            tail: null
+        };
         
         // Grounding ranges for smart anchoring
         this.groundingRanges = {
@@ -346,14 +349,35 @@ export default class JumpAbility extends BaseAbility {
         const springData = this.jumpSprings[type];
         const config = this.laserConfig;
         
+        // Clear any existing laser for this type
+        if (this.activeLasers[type]) {
+            if (this.activeLasers[type].tween) {
+                this.activeLasers[type].tween.stop();
+            }
+            if (this.activeLasers[type].laser) {
+                this.activeLasers[type].laser.clear();
+                this.activeLasers[type].laser.destroy();
+            }
+            this.activeLasers[type] = null;
+        }
+        
         // Create a new laser graphics object for this effect
         const laser = this.scene.add.graphics();
         laser.setDepth(100);
         laser.alpha = 1;
         
-        // Hide laser indicator from minimap to prevent double rendering
-        if (this.scene.minimap) {
-            this.scene.minimap.ignore(laser);
+        // Make laser only visible to main camera to prevent multiple rendering
+        if (this.scene.cameras) {
+            // Ignore laser on all cameras except main
+            if (this.scene.minimap) {
+                this.scene.minimap.ignore(laser);
+            }
+            if (this.scene.uiCamera) {
+                this.scene.uiCamera.ignore(laser);
+            }
+            if (this.scene.uiOverlayCamera) {
+                this.scene.uiOverlayCamera.ignore(laser);
+            }
         }
         
         // Calculate direction vector
@@ -400,9 +424,9 @@ export default class JumpAbility extends BaseAbility {
             laser.closePath();
             laser.fillPath();
             
-            // Create and track the laser effect
+            // Create and track the laser effect for this type
             const laserData = { laser, tween: null };
-            this.activeLasers.push(laserData);
+            this.activeLasers[type] = laserData;
             
             // Start fade animation immediately
             laserData.tween = this.scene.tweens.add({
@@ -415,10 +439,9 @@ export default class JumpAbility extends BaseAbility {
                     laser.clear();
                     laser.destroy();
                     
-                    // Remove from active lasers array
-                    const index = this.activeLasers.indexOf(laserData);
-                    if (index > -1) {
-                        this.activeLasers.splice(index, 1);
+                    // Clear from active lasers
+                    if (this.activeLasers[type] === laserData) {
+                        this.activeLasers[type] = null;
                     }
                 }
             });
@@ -436,14 +459,21 @@ export default class JumpAbility extends BaseAbility {
     // Clean up everything when the worm is destroyed
     destroy() {
         // Clean up all active laser effects
-        this.activeLasers.forEach(laserData => {
-            if (laserData.tween) {
-                laserData.tween.stop();
-            }
-            if (laserData.laser) {
-                laserData.laser.destroy();
+        ['head', 'tail'].forEach(type => {
+            const laserData = this.activeLasers[type];
+            if (laserData) {
+                if (laserData.tween) {
+                    laserData.tween.stop();
+                }
+                if (laserData.laser) {
+                    laserData.laser.clear();
+                    laserData.laser.destroy();
+                }
             }
         });
-        this.activeLasers = [];
+        this.activeLasers = {
+            head: null,
+            tail: null
+        };
     }
 }

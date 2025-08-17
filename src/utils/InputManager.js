@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import TouchControlsOverlay from './TouchControlsOverlay'; // Using v2 with global pointer tracking
+import TouchControlsScene from '../scenes/TouchControlsScene';
 
 /**
  * InputManager - Centralized input handling with configurable key mappings
@@ -114,9 +114,14 @@ export default class InputManager {
             const pad = this.scene?.input?.gamepad?.getPad(0);
             const gamepadConnected = pad && pad.connected;
             
-            // Create touch controls but show/hide based on gamepad status
-            this.touchControls = new TouchControlsOverlay(this.scene, {
-                ...this.config.touchConfig,
+            // Launch the TouchControlsScene as an overlay
+            if (!this.scene.scene.manager.getScene('TouchControlsScene')) {
+                this.scene.scene.manager.add('TouchControlsScene', TouchControlsScene, false);
+            }
+            
+            // Launch the touch controls scene
+            this.scene.scene.launch('TouchControlsScene', {
+                gameScene: this.scene,
                 onMenuPress: () => {
                     console.log('InputManager: Menu button pressed via callback');
                     // Store reference to the scene for later use
@@ -151,13 +156,16 @@ export default class InputManager {
                 }
             });
             
+            // Get reference to the touch controls scene
+            this.touchControlsScene = this.scene.scene.manager.getScene('TouchControlsScene');
+            
             // Only show touch controls if no gamepad is connected
             if (gamepadConnected) {
                 console.log('InputManager: Gamepad connected, hiding touch controls');
-                this.touchControls.setVisible(false);
+                this.touchControlsScene.setVisible(false);
             } else {
                 console.log('InputManager: No gamepad connected, showing touch controls');
-                this.touchControls.setVisible(true);
+                this.touchControlsScene.setVisible(true);
             }
             
             // Set up gamepad connect/disconnect event handlers
@@ -168,21 +176,21 @@ export default class InputManager {
     }
     
     setupGamepadEventHandlers() {
-        if (!this.touchControls) return;
+        if (!this.touchControlsScene) return;
         
         // Handle gamepad connection
         this.scene.input.gamepad.on('connected', (pad) => {
             console.log('InputManager: Gamepad connected, hiding touch controls');
-            if (this.touchControls) {
-                this.touchControls.setVisible(false);
+            if (this.touchControlsScene) {
+                this.touchControlsScene.setVisible(false);
             }
         });
         
         // Handle gamepad disconnection
         this.scene.input.gamepad.on('disconnected', (pad) => {
             console.log('InputManager: Gamepad disconnected, showing touch controls');
-            if (this.touchControls) {
-                this.touchControls.setVisible(true);
+            if (this.touchControlsScene) {
+                this.touchControlsScene.setVisible(true);
             }
         });
     }
@@ -193,9 +201,9 @@ export default class InputManager {
      * @returns {boolean} True if menu button was just pressed
      */
     isMenuButtonJustPressed() {
-        if (!this.touchControls) return false;
+        if (!this.touchControlsScene) return false;
         
-        const currentState = this.touchControls.getState().buttons.menu;
+        const currentState = this.touchControlsScene.getState().buttons.menu;
         const wasPressed = this.previousMenuButtonState || false;
         
         // Debug logging - log all state changes
@@ -232,8 +240,8 @@ export default class InputManager {
         
         // Get touch button states
         let touchButtons = {};
-        if (this.touchControls) {
-            touchButtons = this.touchControls.getState().buttons;
+        if (this.touchControlsScene) {
+            touchButtons = this.touchControlsScene.getState().buttons;
         }
         
         // Combine triggers (now supporting analog values from touch)
@@ -292,8 +300,8 @@ export default class InputManager {
         
         // Get touch input
         let touchStick = { x: 0, y: 0 };
-        if (this.touchControls) {
-            const touchState = this.touchControls.getState();
+        if (this.touchControlsScene) {
+            const touchState = this.touchControlsScene.getState();
             touchStick = stick === 'left' ? touchState.leftStick : touchState.rightStick;
         }
         
@@ -436,11 +444,11 @@ export default class InputManager {
         ];
         
         // Add touch controls status
-        if (this.touchControls) {
+        if (this.touchControlsScene) {
             lines.push('Touch: ENABLED');
             
             // Show which input source is active
-            const touchState = this.touchControls.getState();
+            const touchState = this.touchControlsScene.getState();
             if (touchState.leftStick.active || touchState.rightStick.active) {
                 lines.push('Touch Active: YES');
             }
@@ -453,8 +461,8 @@ export default class InputManager {
      * Show/hide touch controls
      */
     setTouchControlsVisible(visible) {
-        if (this.touchControls) {
-            this.touchControls.setVisible(visible);
+        if (this.touchControlsScene) {
+            this.touchControlsScene.setVisible(visible);
         }
     }
     
@@ -465,8 +473,9 @@ export default class InputManager {
         if (this.debugText) {
             this.debugText.destroy();
         }
-        if (this.touchControls) {
-            this.touchControls.destroy();
+        if (this.touchControlsScene) {
+            // Stop the touch controls scene
+            this.scene.scene.stop('TouchControlsScene');
         }
         // Remove gamepad event listeners
         if (this.scene?.input?.gamepad) {

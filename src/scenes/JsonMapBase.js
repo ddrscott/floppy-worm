@@ -297,11 +297,7 @@ export default class JsonMapBase extends Phaser.Scene {
             this.minimap = null;
         }
         
-        // Cleanup UI overlay camera
-        if (this.uiOverlayCamera) {
-            this.cameras.remove(this.uiOverlayCamera);
-            this.uiOverlayCamera = null;
-        }
+        // UI overlay camera removed - now using TouchControlsScene
         
         // Cleanup UI camera
         if (this.uiCamera) {
@@ -340,7 +336,6 @@ export default class JsonMapBase extends Phaser.Scene {
         this.ghostVisible = true;
         
         // Reset camera references
-        this.uiOverlayCamera = null;
         this.uiCamera = null;
         this.minimap = null;
         
@@ -1427,28 +1422,7 @@ export default class JsonMapBase extends Phaser.Scene {
             this.minimap.ignore(this.controlsDisplay.elements);
         }
         
-        // Hide touch controls from minimap
-        if (this.worm && this.worm.inputManager && this.worm.inputManager.touchControls && this.worm.inputManager.touchControls.layer) {
-            this.minimap.ignore(this.worm.inputManager.touchControls.layer);
-            
-            // Create a UI overlay camera that renders AFTER the minimap to ensure touch controls are on top
-            if (!this.uiOverlayCamera) {
-                this.uiOverlayCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
-                this.uiOverlayCamera.setName('uiOverlay');
-                // Cameras don't scroll - they're fixed to the viewport
-                
-                // Make the UI camera only render the touch controls layer
-                const allObjects = this.children.list;
-                allObjects.forEach(obj => {
-                    if (obj !== this.worm.inputManager.touchControls.layer) {
-                        this.uiOverlayCamera.ignore(obj);
-                    }
-                });
-                
-                // Make main camera and minimap ignore the touch controls
-                this.cameras.main.ignore(this.worm.inputManager.touchControls.layer);
-            }
-        }
+        // Touch controls are now handled by TouchControlsScene
         
         this.minimapIgnoreList = [];
         
@@ -1514,10 +1488,7 @@ export default class JsonMapBase extends Phaser.Scene {
         // IMPORTANT: Main camera should ignore it, but minimap should see it
         this.cameras.main.ignore(this.viewportIndicator);
         
-        // Also make sure the UI overlay camera ignores it (if it exists)
-        if (this.uiOverlayCamera) {
-            this.uiOverlayCamera.ignore(this.viewportIndicator);
-        }
+        // UI overlay camera removed - viewport indicator only needs main camera to ignore it
     }
     
     handleResize() {
@@ -1553,10 +1524,7 @@ export default class JsonMapBase extends Phaser.Scene {
             this.uiCamera.setSize(width, height);
         }
         
-        // Update UI overlay camera if it exists
-        if (this.uiOverlayCamera) {
-            this.uiOverlayCamera.setSize(width, height);
-        }
+        // UI overlay camera removed - no longer needed
     }
     
     updateMiniMapBorder(x, y) {
@@ -1936,9 +1904,6 @@ export default class JsonMapBase extends Phaser.Scene {
                 // Ensure cameras still ignore it after visibility change
                 if (this.miniMapConfig.visible) {
                     this.cameras.main.ignore(this.viewportIndicator);
-                    if (this.uiOverlayCamera) {
-                        this.uiOverlayCamera.ignore(this.viewportIndicator);
-                    }
                 }
             }
             
