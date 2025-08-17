@@ -31,13 +31,13 @@
      inkscape:document-units="px"
      showgrid="true"
      showborder="true"
-     inkscape:zoom="1.3721028"
-     inkscape:cx="2699.5063"
-     inkscape:cy="1909.8424"
-     inkscape:window-width="1600"
-     inkscape:window-height="1005"
-     inkscape:window-x="63"
-     inkscape:window-y="39"
+     inkscape:zoom="0.37725682"
+     inkscape:cx="1826.3421"
+     inkscape:cy="1239.2089"
+     inkscape:window-width="1920"
+     inkscape:window-height="1293"
+     inkscape:window-x="2212"
+     inkscape:window-y="157"
      inkscape:window-maximized="0"
      inkscape:current-layer="layer1"
      shape-rendering="crispEdges">
@@ -92,16 +92,16 @@
      id="layer1">
     <circle
        class="worm-start"
-       cx="2784"
-       cy="1824"
+       cx="1679.5"
+       cy="477.18109"
        r="15"
        fill="#00ff00"
        opacity="0.8"
        id="circle1" />
     <circle
        class="goal"
-       cx="1440"
-       cy="1440"
+       cx="1200"
+       cy="1344"
        r="16"
        fill="#ffd700"
        id="circle3">
@@ -110,23 +110,13 @@
     </circle>
     <circle
        class="goal"
-       cx="1440"
-       cy="1920"
+       cx="1200"
+       cy="1824"
        r="16"
        fill="#ffd700"
        id="circle3-4">
       <title
          id="title3-3">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1440"
-       cy="960"
-       r="16"
-       fill="#ffd700"
-       id="circle3-4-0-8">
-      <title
-         id="title3-3-4-7">Hard Route Goal</title>
     </circle>
     <circle
        class="goal"
@@ -164,34 +154,6 @@
        transform="rotate(-45.41266)" />
     <rect
        class="platform"
-       x="166.90033"
-       y="3596.6138"
-       width="291.16382"
-       height="287"
-       fill="#696969"
-       stroke="#000000"
-       stroke-width="6"
-       id="rect8-1-3-3-0-8"
-       rx="8"
-       ry="8"
-       style="stroke-width:0.999997;stroke-dasharray:none"
-       transform="rotate(-45.41266)" />
-    <rect
-       class="platform"
-       x="505.04834"
-       y="1888.3752"
-       width="291.16382"
-       height="287"
-       fill="#696969"
-       stroke="#000000"
-       stroke-width="6"
-       id="rect8-1-3-3-0-4"
-       rx="8"
-       ry="8"
-       style="stroke-width:0.999997;stroke-dasharray:none"
-       transform="rotate(-45.41266)" />
-    <rect
-       class="platform"
        x="1201.9216"
        y="2583.416"
        width="291.16382"
@@ -220,28 +182,28 @@
        transform="rotate(-45.41266)" />
     <rect
        class="platform electric"
-       x="-5.6000001e-05"
-       y="2304"
-       width="1626.8362"
-       height="95.5"
+       x="768.5"
+       y="960.00031"
+       width="191.5"
+       height="1151.5"
        fill="#696969"
        stroke="#000000"
        stroke-width="6"
        id="rect8-5"
        rx="8"
        ry="3.2932415"
-       style="stroke-width:0.999999;stroke-dasharray:none" />
+       style="fill:#f8db30;stroke-width:0.999999;stroke-dasharray:none" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:18.6667px;line-height:0.95;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#cccccc"
-       x="659.18079"
-       y="2127.3687"
+       x="503.66275"
+       y="1431.3287"
        id="text2-7-2"
        class="sticker"><tspan
          sodipodi:role="line"
          id="tspan2-9-6"
-         x="659.18079"
-         y="2127.3687">Time to try again :(</tspan></text>
+         x="503.66275"
+         y="1431.3287">Time to try again :(</tspan></text>
     <rect
        class="platform"
        x="-176.11534"
@@ -258,17 +220,17 @@
        transform="rotate(-45.41266)" />
     <rect
        class="platform"
-       x="1627.8362"
-       y="479.5"
-       width="291.16382"
-       height="1920"
+       x="1440"
+       y="960"
+       width="479"
+       height="1166.1683"
        fill="#696969"
        stroke="#000000"
        stroke-width="6"
        id="rect8-1-3-3-7"
        rx="8"
        ry="8"
-       style="stroke-width:0.999998;stroke-dasharray:none" />
+       style="stroke-width:1;stroke-dasharray:none" />
     <circle
        class="goal"
        cx="2400"
@@ -288,6 +250,58 @@
        id="circle4">
       <title
          id="title4">Hard Route Goal</title>
+    </circle>
+    <rect
+       class="platform"
+       x="855.26276"
+       y="2916.4138"
+       width="291.16382"
+       height="287"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="6"
+       id="rect6"
+       rx="8"
+       ry="8"
+       style="stroke-width:0.999997;stroke-dasharray:none"
+       transform="rotate(-45.41266)" />
+    <rect
+       class="platform"
+       x="512.97192"
+       y="3253.8093"
+       width="291.16382"
+       height="287"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="6"
+       id="rect7"
+       rx="8"
+       ry="8"
+       style="stroke-width:0.999997;stroke-dasharray:none"
+       transform="rotate(-45.41266)" />
+    <rect
+       class="platform"
+       x="512.97192"
+       y="3253.8093"
+       width="291.16382"
+       height="287"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="6"
+       id="rect8"
+       rx="8"
+       ry="8"
+       style="stroke-width:0.999997;stroke-dasharray:none"
+       transform="rotate(-45.41266)" />
+    <circle
+       class="goal"
+       cx="1200"
+       cy="864"
+       r="16"
+       fill="#ffd700"
+       id="circle8">
+      <title
+         id="title8">Hard Route Goal</title>
     </circle>
   </g>
   <metadata

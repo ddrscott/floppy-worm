@@ -2443,6 +2443,12 @@ export default class JsonMapBase extends Phaser.Scene {
         // Stop rotation
         this.tweens.killTweensOf([goal, goal.innerStar]);
         
+        // Hide from minimap immediately when collected
+        if (this.minimap) {
+            this.minimap.ignore(goal);
+            this.minimap.ignore(goal.innerStar);
+        }
+        
         // Scale and fade out effect
         this.tweens.add({
             targets: [goal, goal.innerStar],
