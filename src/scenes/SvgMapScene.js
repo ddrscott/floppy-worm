@@ -18,15 +18,23 @@ export default class SvgMapScene extends JsonMapBase {
         super.preload();
         
         if (this.svgPath) {
-            // Load SVG as text
-            this.load.text('mapSvg', this.svgPath);
+            // Create a unique cache key based on the SVG path to avoid caching issues
+            this.svgCacheKey = 'svg_' + this.svgPath.replace(/[^a-zA-Z0-9]/g, '_');
+            
+            // Clear any existing cached version of this SVG
+            if (this.cache.text.exists(this.svgCacheKey)) {
+                this.cache.text.remove(this.svgCacheKey);
+            }
+            
+            // Load SVG as text with unique key
+            this.load.text(this.svgCacheKey, this.svgPath);
         }
     }
     
     create() {
         // If we have an SVG path, load and parse it
-        if (this.svgPath) {
-            const svgText = this.cache.text.get('mapSvg');
+        if (this.svgPath && this.svgCacheKey) {
+            const svgText = this.cache.text.get(this.svgCacheKey);
             if (svgText) {
                 this.parseSvgToMapData(svgText);
             }
@@ -236,7 +244,11 @@ export default class SvgMapScene extends JsonMapBase {
         }
         
         if (platform) {
-            // Add common properties
+            // Store the original position before transformation
+            platform.originalX = platform.x;
+            platform.originalY = platform.y;
+            
+            // Add common properties (including transform handling)
             this.addCommonPlatformProperties(platform, element);
         }
         
@@ -261,7 +273,9 @@ export default class SvgMapScene extends JsonMapBase {
             x: centerX,
             y: centerY,
             width: width,
-            height: height
+            height: height,
+            // Store original SVG rectangle data for transform calculations
+            svgRect: { x, y, width, height }
         };
         
         // Handle rounded corners (rx/ry) as chamfer
@@ -471,9 +485,44 @@ export default class SvgMapScene extends JsonMapBase {
         // Handle transforms
         const transform = element.getAttribute('transform');
         if (transform) {
-            const angle = this.extractRotationFromTransform(transform);
-            if (angle !== 0) {
-                platform.angle = angle;
+            const rotation = this.extractRotationFromTransform(transform);
+            if (rotation && rotation.angle !== 0) {
+                // If rotation center is (0,0) and not explicitly set, 
+                // check if we should use the object's center instead
+                let centerX = rotation.cx;
+                let centerY = rotation.cy;
+                
+                // For rectangles in SVG, if rotate doesn't specify center,
+                // it rotates around (0,0), not the rectangle's center
+                // We need to apply this rotation to both position and angle
+                
+                // Apply rotation around the specified center
+                const dx = platform.x - centerX;
+                const dy = platform.y - centerY;
+                
+                // Rotate the position around the rotation center
+                const cos = Math.cos(rotation.angle);
+                const sin = Math.sin(rotation.angle);
+                const newX = centerX + (dx * cos - dy * sin);
+                const newY = centerY + (dx * sin + dy * cos);
+                
+                // Update platform position
+                platform.x = newX;
+                platform.y = newY;
+                
+                // Set the rotation angle
+                platform.angle = rotation.angle;
+                
+                // If platform has vertices (custom shape), they're already relative to center
+                // so we just rotate them
+                if (platform.vertices) {
+                    platform.vertices = platform.vertices.map(v => ({
+                        x: v.x * cos - v.y * sin,
+                        y: v.x * sin + v.y * cos
+                    }));
+                }
+                
+                console.log(`Rotated platform: center=(${centerX}, ${centerY}), angle=${rotation.angle * 180/Math.PI}°, new pos=(${newX}, ${newY})`);
             }
         }
         
@@ -673,15 +722,32 @@ export default class SvgMapScene extends JsonMapBase {
     }
     
     /**
-     * Extract rotation angle from transform string
+     * Extract rotation angle and center from transform string
      */
     extractRotationFromTransform(transform) {
         // Match rotate(angle) or rotate(angle cx cy)
-        const rotateMatch = transform.match(/rotate\(([^,\)]+)/);
+        const rotateMatch = transform.match(/rotate\(([^)]+)\)/);
         if (rotateMatch) {
-            return parseFloat(rotateMatch[1]) * Math.PI / 180; // Convert to radians
+            const params = rotateMatch[1].split(/[\s,]+/).map(parseFloat);
+            const angle = params[0] * Math.PI / 180; // Convert to radians
+            
+            // If rotation center is specified, return it
+            if (params.length === 3) {
+                return {
+                    angle: angle,
+                    cx: params[1],
+                    cy: params[2]
+                };
+            }
+            
+            // No center specified, SVG defaults to (0,0)
+            return {
+                angle: angle,
+                cx: 0,
+                cy: 0
+            };
         }
-        return 0;
+        return null;
     }
     
     /**
@@ -696,5 +762,17 @@ export default class SvgMapScene extends JsonMapBase {
         }
         
         return SvgPathParser.calculateBounds(points);
+    }
+    
+    /**
+     * Clean up when scene is destroyed
+     */
+    shutdown() {
+        // Clear cached SVG text when scene shuts down
+        if (this.svgCacheKey && this.cache.text.exists(this.svgCacheKey)) {
+            this.cache.text.remove(this.svgCacheKey);
+        }
+        
+        super.shutdown();
     }
 }
