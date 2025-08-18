@@ -1,18 +1,9 @@
 import Phaser from 'phaser';
 import DoubleWorm from '../entities/DoubleWorm';
 import Stopwatch from '../components/Stopwatch';
-import PlatformBase from '../entities/PlatformBase';
-import IcePlatform from '../entities/IcePlatform';
-import BouncyPlatform from '../entities/BouncyPlatform';
-import ElectricPlatform from '../entities/ElectricPlatform';
-import FirePlatform from '../entities/FirePlatform';
-import BlackholePlatform from '../entities/BlackholePlatform';
-import WaterPlatform from '../entities/WaterPlatform';
-import WaterfallPlatform from '../entities/WaterfallPlatform';
+import PlatformFactory from '../factories/PlatformFactory';
 import Sticker from '../entities/Sticker';
-import GhostRecorder from '../components/ghost/GhostRecorder';
-import GhostPlayer from '../components/ghost/GhostPlayer';
-import GhostStorage from '../components/ghost/GhostStorage';
+import GhostSystemManager from '../systems/GhostSystemManager';
 import RecordingDatabase from '../storage/RecordingDatabase';
 import VictoryDialog from './VictoryDialog';
 import PauseMenu from './PauseMenu';
@@ -71,10 +62,10 @@ export default class JsonMapBase extends Phaser.Scene {
         this.button1WasPressed = false;
         
         // Ghost system
-        this.ghostRecorder = null;
-        this.ghostPlayer = null;
-        this.ghostStorage = new GhostStorage();
-        this.ghostVisible = true;
+        this.ghostSystem = null;
+        
+        // Platform factory
+        this.platformFactory = null;
         
         // State manager - will be initialized in init()
         this.stateManager = null;
@@ -281,14 +272,9 @@ export default class JsonMapBase extends Phaser.Scene {
         }
         
         // Cleanup ghost system
-        if (this.ghostRecorder) {
-            this.ghostRecorder.reset();
-            this.ghostRecorder = null;
-        }
-        
-        if (this.ghostPlayer) {
-            this.ghostPlayer.destroy(); // This destroys the graphics objects
-            this.ghostPlayer = null;
+        if (this.ghostSystem) {
+            this.ghostSystem.destroy();
+            this.ghostSystem = null;
         }
         
         // Cleanup minimap
@@ -331,9 +317,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.buttonMWasPressed = false;
         this.button0WasPressed = false;
         this.button1WasPressed = false;
-        this.ghostRecorder = null;
-        this.ghostPlayer = null;
-        this.ghostVisible = true;
+        this.ghostSystem = null;
         
         // Reset camera references
         this.uiCamera = null;
@@ -388,6 +372,9 @@ export default class JsonMapBase extends Phaser.Scene {
         // Set world bounds
         this.matter.world.setBounds(0, 0, levelWidth, levelHeight, 1000);
         
+        // Initialize platform factory (needed for loadMapFromJSON)
+        this.platformFactory = new PlatformFactory(this);
+        
         // Create level elements
         this.createGrid(levelHeight);
         this.createBoundaryWalls(levelHeight);
@@ -402,19 +389,13 @@ export default class JsonMapBase extends Phaser.Scene {
         // Set up controls
         this.setupControls();
         
-        // Initialize ghost system and start timer after it's loaded
-        this.initializeGhostSystem().then(() => {
+        // Initialize ghost system
+        this.ghostSystem = new GhostSystemManager(this, this.mapKey, this.mapData);
+        this.ghostSystem.initialize(this.worm).then(() => {
             // Start the timer and ghost
             if (this.stopwatch) {
                 this.stopwatch.start();
-                
-                // Start ghost playback if loaded
-                if (this.ghostPlayer && this.ghostPlayer.frames.length > 0) {
-                    console.log('Starting ghost player with', this.ghostPlayer.frames.length, 'frames');
-                    this.ghostPlayer.start();
-                } else {
-                    console.log('Ghost not started - player:', !!this.ghostPlayer, 'frames:', this.ghostPlayer?.frames?.length);
-                }
+                this.ghostSystem.startPlayback();
             }
         });
     }
@@ -463,77 +444,23 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     createPlatformFromJSON(platformData) {
-        const { type, platformType = 'standard', physics = {}, motion, color, id } = platformData;
+        const platform = this.platformFactory.createFromJSON(platformData);
         
-        // Check if this is a special platform type or has motion
-        if ((platformType && platformType !== 'standard') || motion) {
-            const platformInstance = this.createSpecialPlatform({
-                ...platformData,
-                platformType: platformType || 'standard'
-            });
-            if (platformInstance) {
-                this.platforms.push({ 
-                    instance: platformInstance,
-                    data: platformData, 
-                    id: id || `platform_${this.platforms.length}`,
-                    isSpecial: true
+        if (platform) {
+            this.platforms.push(platform);
+            
+            // Additional debug for pendulum platform
+            if (platform.id === 'pendulum_platform' && platform.body) {
+                console.log('Pendulum platform created:', {
+                    id: platform.id,
+                    body: platform.body,
+                    isStatic: platform.body.isStatic,
+                    isSensor: platform.body.isSensor,
+                    position: platform.body.position,
+                    bounds: platform.body.bounds,
+                    matter: platformData.matter
                 });
-                return;
             }
-        }
-        
-        // Handle standard platforms (existing logic)
-        let body, visual;
-        
-        switch(type) {
-            case 'rectangle':
-                ({ body, visual } = this.createRectanglePlatform(platformData));
-                break;
-                
-            case 'circle':
-                ({ body, visual } = this.createCirclePlatform(platformData));
-                break;
-                
-            case 'polygon':
-                ({ body, visual } = this.createPolygonPlatform(platformData));
-                break;
-                
-            case 'trapezoid':
-                ({ body, visual } = this.createTrapezoidPlatform(platformData));
-                break;
-                
-            case 'custom':
-                ({ body, visual } = this.createCustomPlatform(platformData));
-                break;
-                
-            default:
-                console.warn(`Unknown platform type: ${type}`);
-                return;
-        }
-        
-        // Apply physics properties from JSON
-        if (physics) {
-            Object.keys(physics).forEach(key => {
-                this.matter.body.set(body, key, physics[key]);
-            });
-        }
-        
-        const platformId = id || platformData.id || `platform_${this.platforms.length}`;
-        this.platforms.push({ 
-            body, visual, data: platformData, id: platformId
-        });
-        
-        // Additional debug for pendulum platform
-        if (platformId === 'pendulum_platform') {
-            console.log('Pendulum platform created:', {
-                id: platformId,
-                body: body,
-                isStatic: body.isStatic,
-                isSensor: body.isSensor,
-                position: body.position,
-                bounds: body.bounds,
-                matter: platformData.matter
-            });
         }
     }
     
@@ -553,77 +480,6 @@ export default class JsonMapBase extends Phaser.Scene {
             console.log(`Created sticker: "${stickerData.text}" at (${stickerData.x}, ${stickerData.y})`);
         } catch (error) {
             console.warn('Failed to create sticker from JSON:', stickerData, error);
-        }
-    }
-    
-    createSpecialPlatform(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color, chamfer } = platformData;
-        
-        // Use the same coordinate transformations as regular platforms
-        const centerX = x;
-        const centerY = y;
-        
-        // Apply physics from JSON with proper defaults
-        // Don't pass color for special platform types as they have their own colors
-        const config = {
-            shape: type, // Pass the shape type (rectangle, circle, etc.)
-            motion: motion, // Pass motion config if present
-            chamfer: chamfer, // Pass chamfer config if present
-            ...physics,
-        };
-        
-        // Determine platform dimensions based on shape type
-        let platformWidth, platformHeight;
-        
-        if (type === 'rectangle') {
-            platformWidth = width;
-            platformHeight = height;
-        } else if (type === 'circle') {
-            // For circles, use diameter as both width and height
-            platformWidth = radius * 2;
-            platformHeight = radius * 2;
-        } else {
-            // For other shapes, use bounding box approach
-            platformWidth = width || radius * 2 || 100;
-            platformHeight = height || radius * 2 || 100;
-        }
-        
-        // Debug logging to understand coordinate issues
-        console.log(`Creating special platform ${platformType} ${type} at (${centerX}, ${centerY}) size: ${platformWidth}x${platformHeight}`);
-        console.log(`Level bounds: ${this.levelWidth}x${this.levelHeight}`);
-        
-        switch(platformType) {
-            case 'ice':
-                return new IcePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'bouncy':
-                return new BouncyPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'electric':
-                return new ElectricPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'fire':
-                return new FirePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'blackhole':
-                return new BlackholePlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'water':
-                return new WaterPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'waterfall':
-                return new WaterfallPlatform(this, centerX, centerY, platformWidth, platformHeight, config);
-                
-            case 'standard':
-                // Standard platform with motion needs to use PlatformBase
-                return new PlatformBase(this, centerX, centerY, platformWidth, platformHeight, {
-                    ...config,
-                    color: parseInt(color?.replace('#', '0x')) || 0x666666
-                });
-                
-            default:
-                console.warn(`Unknown special platform type: ${platformType}`);
-                return null;
         }
     }
     
@@ -808,249 +664,6 @@ export default class JsonMapBase extends Phaser.Scene {
     
     isWormSegment(body) {
         return this.worm && this.worm.segments && this.worm.segments.includes(body);
-    }
-    
-    createRectanglePlatform(platformData) {
-        const { x, y, width, height, color = "#ff6b6b", angle = 0, matter = {}, chamfer } = platformData;
-        
-        // Use pixel coordinates directly - x,y is center position, width/height are in pixels
-        const centerX = x;
-        const centerY = y;
-        const pixelWidth = width;
-        const pixelHeight = height;
-        
-        // Merge matter properties with defaults
-        const bodyOptions = {
-            isStatic: true,
-            // Ensure dynamic bodies have proper collision detection
-            collisionFilter: {
-                category: 0x0002,  // Platform category
-                mask: 0xFFFF       // Collide with everything
-            },
-            ...matter  // This allows matter properties from JSON to override defaults
-        };
-        
-        // Add chamfer if specified
-        if (chamfer) {
-            bodyOptions.chamfer = chamfer;
-        }
-        
-        const body = this.matter.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, {
-            label: platformData.id || 'platform',
-            ...bodyOptions
-        });
-        
-        // Debug logging for dynamic platforms
-        if (!bodyOptions.isStatic) {
-            console.log('Created dynamic platform:', {
-                x: centerX,
-                y: centerY,
-                width: pixelWidth,
-                height: pixelHeight,
-                isStatic: body.isStatic,
-                isSensor: body.isSensor,
-                density: body.density,
-                mass: body.mass,
-                collisionFilter: body.collisionFilter,
-                chamfer: bodyOptions.chamfer
-            });
-            
-            // Ensure the body is definitely not a sensor
-            this.matter.body.set(body, 'isSensor', false);
-        }
-        
-        // Create visual with rounded corners if chamfer is specified
-        let visual;
-        if (chamfer && chamfer.radius) {
-            // Use a graphics object to draw rounded rectangle
-            const graphics = this.add.graphics();
-            const fillColor = parseInt(color.replace('#', '0x'));
-            graphics.fillStyle(fillColor);
-            
-            // Determine corner radius
-            let cornerRadius;
-            if (Array.isArray(chamfer.radius)) {
-                // Use the first value as a uniform radius for visual (Phaser doesn't support individual corner radii)
-                cornerRadius = Math.min(chamfer.radius[0], pixelWidth / 2, pixelHeight / 2);
-            } else {
-                cornerRadius = Math.min(chamfer.radius, pixelWidth / 2, pixelHeight / 2);
-            }
-            
-            graphics.fillRoundedRect(-pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight, cornerRadius);
-            graphics.strokeRoundedRect(-pixelWidth/2, -pixelHeight/2, pixelWidth, pixelHeight, cornerRadius);
-            
-            // Convert graphics to a container positioned at the platform center
-            visual = this.add.container(centerX, centerY, [graphics]);
-        } else {
-            // Regular rectangle without chamfer
-            visual = this.add.rectangle(centerX, centerY, pixelWidth, pixelHeight, parseInt(color.replace('#', '0x')));
-            visual.setStrokeStyle(2, 0x000000, 0.8);
-        }
-        
-        // Apply rotation if specified
-        if (angle !== 0) {
-            this.matter.body.setAngle(body, angle);
-            visual.setRotation(angle);
-        }
-        
-        // Dynamic bodies will be synced manually in the update loop
-        
-        return { body, visual };
-    }
-    
-    createCirclePlatform(platformData) {
-        const { x, y, radius, color = "#4ecdc4", angle = 0, matter = {} } = platformData;
-        
-        // Use pixel coordinates directly - x,y is center position, radius in pixels
-        const centerX = x;
-        const centerY = y;
-        const pixelRadius = radius;
-        
-        // Merge matter properties with defaults
-        const bodyOptions = {
-            isStatic: true,
-            ...matter  // This allows matter properties from JSON to override defaults
-        };
-        
-        const body = this.matter.add.circle(centerX, centerY, pixelRadius, {
-            label: platformData.id || 'platform_circle',
-            ...bodyOptions
-        });
-        
-        const visual = this.add.circle(centerX, centerY, pixelRadius, parseInt(color.replace('#', '0x')));
-        
-        // Apply rotation if specified (though visually irrelevant for circles)
-        if (angle !== 0) {
-            this.matter.body.setAngle(body, angle);
-            visual.setRotation(angle);
-        }
-        
-        return { body, visual };
-    }
-    
-    createPolygonPlatform(platformData) {
-        const { x, y, sides, radius, rotation = 0, angle = 0, color = "#95e1d3", matter = {}, chamfer } = platformData;
-        const actualRotation = rotation || angle; // Support both 'rotation' and 'angle' properties
-        
-        // Use pixel coordinates directly - x,y is center position, radius in pixels
-        const centerX = x;
-        const centerY = y;
-        const pixelRadius = radius;
-        
-        // Create regular polygon vertices
-        const vertices = [];
-        for (let i = 0; i < sides; i++) {
-            const angle = (2 * Math.PI * i / sides) + actualRotation;
-            vertices.push({
-                x: centerX + pixelRadius * Math.cos(angle),
-                y: centerY + pixelRadius * Math.sin(angle)
-            });
-        }
-        
-        // Merge matter properties with defaults
-        const bodyOptions = {
-            isStatic: true,
-            ...matter  // This allows matter properties from JSON to override defaults
-        };
-        
-        // For polygons, we need to use the polygon method with chamfer
-        let body;
-        if (chamfer) {
-            body = this.matter.add.polygon(centerX, centerY, sides, pixelRadius, {
-                label: platformData.id || 'platform_polygon',
-                angle: actualRotation,
-                chamfer: chamfer,
-                ...bodyOptions
-            });
-        } else {
-            body = this.matter.add.fromVertices(centerX, centerY, vertices, {
-                label: platformData.id || 'platform_polygon',
-                ...bodyOptions
-            });
-        }
-        
-        // Create visual polygon
-        const visual = this.add.polygon(centerX, centerY, vertices, parseInt(color.replace('#', '0x')));
-        visual.setStrokeStyle(2, 0x000000, 0.8);
-        
-        return { body, visual };
-    }
-    
-    createTrapezoidPlatform(platformData) {
-        const { x, y, width, height, slope = 0, color = "#feca57", angle = 0, matter = {} } = platformData;
-        
-        // Use pixel coordinates directly - x,y is center position, width/height in pixels
-        const centerX = x;
-        const centerY = y;
-        const pixelWidth = width;
-        const pixelHeight = height;
-        
-        // Calculate trapezoid vertices based on slope
-        const halfWidth = pixelWidth / 2;
-        const halfHeight = pixelHeight / 2;
-        const slopeOffset = slope * halfHeight;
-        
-        const vertices = [
-            { x: centerX - halfWidth + slopeOffset, y: centerY - halfHeight },  // top left
-            { x: centerX + halfWidth - slopeOffset, y: centerY - halfHeight },  // top right
-            { x: centerX + halfWidth, y: centerY + halfHeight },                // bottom right
-            { x: centerX - halfWidth, y: centerY + halfHeight }                 // bottom left
-        ];
-        
-        // Merge matter properties with defaults
-        const bodyOptions = {
-            isStatic: true,
-            ...matter  // This allows matter properties from JSON to override defaults
-        };
-        
-        const body = this.matter.add.fromVertices(centerX, centerY, vertices, {
-            label: platformData.id || 'platform_trapezoid',
-            ...bodyOptions
-        });
-        
-        // Create visual trapezoid
-        const visual = this.add.polygon(centerX, centerY, vertices, parseInt(color.replace('#', '0x')));
-        
-        // Apply rotation if specified
-        if (angle !== 0) {
-            this.matter.body.setAngle(body, angle);
-            visual.setRotation(angle);
-        }
-        
-        return { body, visual };
-    }
-    
-    createCustomPlatform(platformData) {
-        const { vertices, color = "#a29bfe", angle = 0, matter = {} } = platformData;
-        
-        // Use pixel coordinates directly - vertices are already in world coordinates
-        const pixelVertices = vertices;
-        
-        // Calculate center point for body positioning
-        const centerX = pixelVertices.reduce((sum, v) => sum + v.x, 0) / pixelVertices.length;
-        const centerY = pixelVertices.reduce((sum, v) => sum + v.y, 0) / pixelVertices.length;
-        
-        // Merge matter properties with defaults
-        const bodyOptions = {
-            isStatic: true,
-            ...matter  // This allows matter properties from JSON to override defaults
-        };
-        
-        const body = this.matter.add.fromVertices(centerX, centerY, pixelVertices, {
-            label: platformData.id || 'platform_custom',
-            ...bodyOptions
-        });
-        
-        // Create visual polygon
-        const visual = this.add.polygon(centerX, centerY, pixelVertices, parseInt(color.replace('#', '0x')));
-        
-        // Apply rotation if specified
-        if (angle !== 0) {
-            this.matter.body.setAngle(body, angle);
-            visual.setRotation(angle);
-        }
-        
-        return { body, visual };
     }
     
     createEntitiesFromJSON(entitiesData) {
@@ -1373,8 +986,7 @@ export default class JsonMapBase extends Phaser.Scene {
             this.createStarCounter(emSize);
         }
         
-        // Ghost indicator (will be shown when ghost is loaded)
-        this.ghostIndicator = null;
+        // Ghost indicator is now managed by GhostSystemManager
         
         // Make the main camera and minimap ignore UI elements
         this.uiElements.forEach(element => {
@@ -1699,19 +1311,19 @@ export default class JsonMapBase extends Phaser.Scene {
             this.stopwatch.update();
         }
         
-        // Record ghost frame with input state
-        if (this.ghostRecorder && this.ghostRecorder.isRecording && this.worm && this.worm.segments) {
-            // Get current input state from the worm's input manager
-            let inputState = null;
-            if (this.worm.inputManager && this.worm.inputManager.getInputState) {
-                inputState = this.worm.inputManager.getInputState(delta);
+        // Update ghost system
+        if (this.ghostSystem && this.stopwatch) {
+            // Record frame
+            if (this.worm && this.worm.segments) {
+                let inputState = null;
+                if (this.worm.inputManager && this.worm.inputManager.getInputState) {
+                    inputState = this.worm.inputManager.getInputState(delta);
+                }
+                this.ghostSystem.recordFrame(this.worm.segments, this.stopwatch.elapsedTime, inputState);
             }
-            this.ghostRecorder.recordFrame(this.worm.segments, this.stopwatch.elapsedTime, inputState);
-        }
-        
-        // Update ghost playback
-        if (this.ghostPlayer && this.stopwatch) {
-            this.ghostPlayer.update(this.stopwatch.elapsedTime);
+            
+            // Update playback
+            this.ghostSystem.updatePlayback(this.stopwatch.elapsedTime);
         }
         
         // Server mode keyboard shortcuts
@@ -1780,7 +1392,9 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Check for G key to toggle ghost
         if (Phaser.Input.Keyboard.JustDown(this.gKey)) {
-            this.toggleGhost();
+            if (this.ghostSystem) {
+                this.ghostSystem.toggle();
+            }
         }
         
         // Check for P key to toggle predictive camera
@@ -1938,11 +1552,8 @@ export default class JsonMapBase extends Phaser.Scene {
 
             const elapsedTime = this.stopwatch.elapsedTime;
             
-            // Get recording data ONCE
-            if (this.ghostRecorder && this.ghostRecorder.isRecording) {
-                this.ghostRecorder.stopRecording();
-            }
-            const recordingData = this.ghostRecorder ? await this.ghostRecorder.getRecordingData() : null;
+            // Get recording data from ghost system
+            const recordingData = this.ghostSystem ? await this.ghostSystem.stopRecording() : null;
             
             // Save to IndexedDB (all recordings)
             if (recordingData) {
@@ -1951,8 +1562,10 @@ export default class JsonMapBase extends Phaser.Scene {
         
             this.saveBestTime(completionTime);
             
-            // Save ghost if best (localStorage)
-            await this.saveGhostIfBest(completionTime, recordingData);
+            // Save ghost if best
+            if (this.ghostSystem) {
+                await this.ghostSystem.saveIfBest(completionTime, recordingData);
+            }
         }
         
         // NOW clean up worm after screenshot is taken
@@ -1976,76 +1589,6 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Mark map as completed
         this.stateManager.completeMap(this.mapKey, time);
-    }
-    
-    // Ghost system methods
-    async initializeGhostSystem() {
-        // Initialize recorder
-        this.ghostRecorder = new GhostRecorder(this, this.worm ? this.worm.segments.length : 12);
-        this.ghostRecorder.startRecording();
-        
-        // Try to load existing ghost
-        const ghostData = await this.ghostStorage.loadGhost(this.mapKey, this.mapData);
-        if (ghostData) {
-            console.log('Ghost data loaded:', {
-                segmentCount: ghostData.segmentCount,
-                frameCount: ghostData.frameCount,
-                duration: ghostData.duration,
-                completionTime: ghostData.completionTime,
-                dataLength: ghostData.data?.length
-            });
-            const segmentCount = ghostData.segmentCount || 12; // Default to 12 if missing
-            this.ghostPlayer = new GhostPlayer(this, segmentCount);
-            const loaded = await this.ghostPlayer.loadGhostData(ghostData);
-            // Don't start the ghost yet - wait for stopwatch to start
-            
-            if (loaded) {
-                console.log(`Ghost loaded successfully with ${this.ghostPlayer.frames.length} frames, time: ${this.formatTime(ghostData.completionTime)}`);
-            } else {
-                console.error('Failed to load ghost data into player');
-            }
-            
-            // Create ghost indicator UI
-            this.createGhostIndicator(ghostData.completionTime);
-        }
-    }
-    
-    createGhostIndicator(ghostTime) {
-        // Ghost race indicator
-        this.ghostIndicator = this.add.text(20, 60, `Racing ghost! (${this.formatTime(ghostTime)})`, {
-            fontSize: '18px',
-            color: '#9b59b6',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0).setDepth(1000);
-        
-        // Add to UI elements
-        this.uiElements.push(this.ghostIndicator);
-        
-        // Add pulsing effect to indicator
-        this.tweens.add({
-            targets: this.ghostIndicator,
-            alpha: 0.7,
-            duration: 1000,
-            yoyo: true,
-            repeat: -1
-        });
-        
-        // Make cameras ignore it properly
-        this.cameras.main.ignore(this.ghostIndicator);
-        if (this.minimap) {
-            this.minimap.ignore(this.ghostIndicator);
-        }
-        
-        // Make UI camera render it
-        if (this.uiCamera) {
-            const allObjects = this.children.list;
-            allObjects.forEach(obj => {
-                if (obj !== this.ghostIndicator && !this.uiElements.includes(obj)) {
-                    this.uiCamera.ignore(obj);
-                }
-            });
-        }
     }
     
     captureScreenshot() {
@@ -2072,7 +1615,7 @@ export default class JsonMapBase extends Phaser.Scene {
             completionTime,
             deathReason,
             mapKey: this.mapKey,
-            hasRecorder: !!this.ghostRecorder,
+            hasRecorder: !!this.ghostSystem,
             hasDb: !!this.recordingDb,
             hasRecordingData: !!recordingData
         });
@@ -2086,13 +1629,9 @@ export default class JsonMapBase extends Phaser.Scene {
         const screenshot = this.captureScreenshot();
         console.log('📸 Screenshot captured:', screenshot ? `success (${screenshot.length} bytes)` : 'failed');
         
-        // Use provided recording data or get it from recorder
-        if (!recordingData && this.ghostRecorder) {
-            // Only stop and get data if not already provided
-            if (this.ghostRecorder.isRecording) {
-                this.ghostRecorder.stopRecording();
-            }
-            recordingData = await this.ghostRecorder.getRecordingData();
+        // Use provided recording data or get it from ghost system
+        if (!recordingData && this.ghostSystem) {
+            recordingData = await this.ghostSystem.stopRecording();
         }
         
         if (!recordingData) {
@@ -2162,13 +1701,13 @@ export default class JsonMapBase extends Phaser.Scene {
             completionTime,
             deathReason,
             mapKey: this.mapKey,
-            hasRecorder: !!this.ghostRecorder,
+            hasRecorder: !!this.ghostSystem,
             hasDb: !!this.recordingDb
         });
         
-        if (!this.ghostRecorder || !this.recordingDb) {
-            console.warn('Missing recorder or database:', {
-                recorder: !!this.ghostRecorder,
+        if (!this.ghostSystem || !this.recordingDb) {
+            console.warn('Missing ghost system or database:', {
+                ghostSystem: !!this.ghostSystem,
                 db: !!this.recordingDb
             });
             return;
@@ -2178,11 +1717,8 @@ export default class JsonMapBase extends Phaser.Scene {
         const screenshot = this.captureScreenshot();
         console.log('📸 Screenshot captured:', screenshot ? `success (${screenshot.length} bytes)` : 'failed');
         
-        // Now stop recording and get data
-        if (this.ghostRecorder.isRecording) {
-            this.ghostRecorder.stopRecording();
-        }
-        const recordingData = await this.ghostRecorder.getRecordingData();
+        // Get recording data from ghost system
+        const recordingData = await this.ghostSystem.stopRecording();
         
         if (!recordingData) {
             console.warn('No recording data available');
@@ -2252,35 +1788,6 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
-    async saveGhostIfBest(completionTime, recordingData = null) {
-        if (!this.ghostRecorder || !this.ghostStorage) {
-            return;
-        }
-        
-        // Check if this is the best time for localStorage ghost
-        if (!this.ghostStorage.shouldSaveGhost(this.mapKey, completionTime)) {
-            return;
-        }
-        
-        // Use provided recording data or get it from recorder
-        if (!recordingData) {
-            // Only stop and get data if not already provided
-            if (this.ghostRecorder.isRecording) {
-                this.ghostRecorder.stopRecording();
-            }
-            recordingData = await this.ghostRecorder.getRecordingData();
-        }
-        
-        if (recordingData) {
-            await this.ghostStorage.saveGhost(
-                this.mapKey,
-                this.mapData,
-                recordingData,
-                completionTime
-            );
-        }
-    }
-    
     async handleRestart(reason = 'unknown') {
         console.log('🔄 handleRestart called with reason:', reason);
         
@@ -2310,34 +1817,6 @@ export default class JsonMapBase extends Phaser.Scene {
                 return;
             }
         }
-    }
-    
-    toggleGhost() {
-        this.ghostVisible = !this.ghostVisible;
-        
-        if (this.ghostPlayer) {
-            this.ghostPlayer.setVisible(this.ghostVisible);
-        }
-        
-        // Show feedback
-        const text = this.add.text(this.scale.width / 2, 80, 
-            this.ghostVisible ? 'Ghost ON' : 'Ghost OFF', {
-            fontSize: '20px',
-            color: this.ghostVisible ? '#9b59b6' : '#e74c3c',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            padding: { x: 15, y: 8 }
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
-        
-        if (this.minimap) {
-            this.minimap.ignore(text);
-        }
-        
-        this.tweens.add({
-            targets: text,
-            alpha: 0,
-            duration: 1500,
-            onComplete: () => text.destroy()
-        });
     }
     
     togglePredictiveCamera() {
@@ -2456,6 +1935,11 @@ export default class JsonMapBase extends Phaser.Scene {
     
     // Show progress when collecting multiple goals
     showGoalProgress() {
+        // Don't show if we're already showing progress text
+        if (this.activeProgressText) {
+            return;
+        }
+        
         const remaining = this.goals.length - this.collectedGoals.size;
         const message = remaining === 1 
             ? '1 goal remaining!' 
@@ -2473,6 +1957,9 @@ export default class JsonMapBase extends Phaser.Scene {
                 padding: { x: 20, y: 10 }
             }
         ).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        // Track the active progress text
+        this.activeProgressText = progressText;
         
         // Ensure cameras ignore it for minimap
         if (this.minimap) {
@@ -2494,7 +1981,13 @@ export default class JsonMapBase extends Phaser.Scene {
             alpha: 0,
             duration: 1500,
             delay: 500,
-            onComplete: () => progressText.destroy()
+            onComplete: () => {
+                progressText.destroy();
+                // Clear the reference when destroyed
+                if (this.activeProgressText === progressText) {
+                    this.activeProgressText = null;
+                }
+            }
         });
     }
     
