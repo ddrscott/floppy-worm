@@ -41,6 +41,7 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
         
         // Use actual DoubleWorm component (physics disabled)
         declare worm: any;
+        declare stopwatch: any; // Stopwatch for timer display during playback
         private wormVisuals: Phaser.GameObjects.Arc[] = [];
         private headTrailGraphics: Phaser.GameObjects.Graphics;
         private tailTrailGraphics: Phaser.GameObjects.Graphics;
@@ -141,6 +142,18 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             
             // Call parent create - handles both JSON and SVG maps
             await super.create();
+            
+            // Create stopwatch for consistent timer behavior during playback
+            // This ensures collections and other timer-dependent features work correctly
+            if (!this.stopwatch) {
+                const Stopwatch = (await import('/src/components/Stopwatch.js')).default;
+                this.stopwatch = new Stopwatch(this, this.scale.width / 2, 20, {
+                    showBestTime: false,
+                    onPause: null
+                });
+                // Start the stopwatch immediately for playback
+                this.stopwatch.start();
+            }
             
             // Create trail graphics
             this.headTrailGraphics = this.add.graphics();
@@ -547,6 +560,13 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 this.updatePlaybackInterpolated(delta);
             }
             
+            // Update stopwatch to stay in sync with playback
+            if (this.stopwatch) {
+                // Override the stopwatch's internal elapsed time to match playback
+                this.stopwatch.elapsedTime = this.elapsedTime;
+                this.stopwatch.updateDisplay();
+            }
+            
             // Update worm visual
             if (this.worm && typeof this.worm.update === 'function') {
                 this.worm.update(delta);
@@ -734,6 +754,11 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             
             this.isPlaying = true;
             
+            // Resume stopwatch
+            if (this.stopwatch && !this.stopwatch.isRunning) {
+                this.stopwatch.isRunning = true;
+            }
+            
             if (this.onPlayStateChange) {
                 this.onPlayStateChange(true);
             }
@@ -741,6 +766,11 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
 
         public pause() {
             this.isPlaying = false;
+            
+            // Pause stopwatch
+            if (this.stopwatch) {
+                this.stopwatch.isRunning = false;
+            }
             
             if (this.onPlayStateChange) {
                 this.onPlayStateChange(false);
@@ -759,6 +789,12 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             if (frameIndex >= 0 && frameIndex < this.frames.length) {
                 this.currentFrameIndex = frameIndex;
                 this.elapsedTime = this.frames[frameIndex].timestamp;
+                
+                // Update stopwatch to match seek position
+                if (this.stopwatch) {
+                    this.stopwatch.elapsedTime = this.elapsedTime;
+                    this.stopwatch.updateDisplay();
+                }
                 
                 // Rebuild trails
                 this.headTrailPoints = [];
@@ -796,6 +832,13 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             this.headTrailGraphics.clear();
             this.tailTrailGraphics.clear();
             this.currentInputState = null;
+            
+            // Reset stopwatch
+            if (this.stopwatch) {
+                this.stopwatch.elapsedTime = 0;
+                this.stopwatch.updateDisplay();
+            }
+            
             this.renderFrameInterpolated(0);
             this.play();
         }
@@ -808,6 +851,12 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
 
         cleanup() {
             super.cleanup();
+            
+            // Clean up stopwatch
+            if (this.stopwatch) {
+                this.stopwatch.destroy();
+                this.stopwatch = null;
+            }
             
             if (this.headTrailGraphics) {
                 this.headTrailGraphics.destroy();
