@@ -8,6 +8,7 @@ import RecordingDatabase from '../storage/RecordingDatabase';
 import VictoryDialog from './VictoryDialog';
 import PauseMenu from './PauseMenu';
 import { getCachedBuildMode } from '../utils/buildMode';
+import GoalCollectionManager from '../utils/GoalCollectionManager';
 import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
 
@@ -213,6 +214,12 @@ export default class JsonMapBase extends Phaser.Scene {
         if (this.worm) {
             this.worm.destroy();
             this.worm = null;
+        }
+        
+        // Clean up goal manager
+        if (this.goalManager) {
+            this.goalManager.destroy();
+            this.goalManager = null;
         }
         
         // Reset victory state (from BaseLevelScene)
@@ -693,65 +700,14 @@ export default class JsonMapBase extends Phaser.Scene {
         this.cameraTarget = this.add.rectangle(wormX, wormY, 10, 10, 0xff0000, 
             this.predictiveCameraConfig?.showTarget ? 0.5 : 0);
         
-        // Create goal(s) at pixel coordinates
-        // Support both single goal and multiple goals
-        if (entitiesData.goals && entitiesData.goals.length > 0) {
-            // Multiple goals - must collect ALL to win
-            this.goals = [];
-            this.collectedGoals = new Set();
-            
-            entitiesData.goals.forEach((goalData, index) => {
-                const goalX = goalData.x;
-                const goalY = goalData.y;
-                
-                // All goals use the same golden color
-                const starColor = 0xffd700;
-                const innerColor = 0xffed4e;
-                
-                const goal = this.add.star(goalX, goalY, 5, 15, 25, starColor);
-                const innerStar = this.add.star(goalX, goalY, 5, 10, 20, innerColor).setDepth(1);
-                
-                // Store reference to both visual elements
-                goal.innerStar = innerStar;
-                goal.id = `goal_${index}`;
-                goal.collected = false;
-                
-                // Rotate the goal
-                this.tweens.add({
-                    targets: [goal, innerStar],
-                    rotation: Math.PI * 2,
-                    duration: 3000,
-                    repeat: -1
-                });
-                
-                this.goals.push(goal);
-            });
-            
-            // For backward compatibility, set this.goal to the first goal
-            this.goal = this.goals[0];
-        } else {
-            // Single goal (backward compatibility)
-            const goalX = goal.x;
-            const goalY = goal.y;
-            
-            this.goal = this.add.star(goalX, goalY, 5, 15, 25, 0xffd700);
-            const innerStar = this.add.star(goalX, goalY, 5, 10, 20, 0xffed4e).setDepth(1);
-            
-            // For consistency, treat single goal as an array with one element
-            this.goals = [this.goal];
-            this.collectedGoals = new Set();
-            this.goal.innerStar = innerStar;
-            this.goal.id = 'goal_0';
-            this.goal.collected = false;
-            
-            // Rotate the goal
-            this.tweens.add({
-                targets: [this.goal, innerStar],
-                rotation: Math.PI * 2,
-                duration: 3000,
-                repeat: -1
-            });
-        }
+        // Initialize goal manager and create goals
+        this.goalManager = new GoalCollectionManager(this);
+        this.goalManager.initializeGoals(entitiesData);
+        
+        // For backward compatibility, expose goals and goal properties
+        this.goals = this.goalManager.goals;
+        this.collectedGoals = this.goalManager.collectedGoals;
+        this.goal = this.goals[0]; // For single goal backward compatibility
         
         // Set up camera
         this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelHeight);
@@ -1438,49 +1394,21 @@ export default class JsonMapBase extends Phaser.Scene {
         // Check if worm has fallen off the map
         this.checkWormFallOff();
         
-        // Check goal collection - need to collect ALL goals to win
-        if (this.goals && this.worm && this.worm.segments) {
-            // Check each uncollected goal for collision
-            for (let goalIndex = 0; goalIndex < this.goals.length; goalIndex++) {
-                const goal = this.goals[goalIndex];
-                
-                // Skip already collected goals
-                if (goal.collected) continue;
-                
-                // Check if any worm segment is touching this goal
-                for (let i = 0; i < this.worm.segments.length; i++) {
-                    const segment = this.worm.segments[i];
-                    const distance = Phaser.Math.Distance.Between(
-                        segment.position.x, segment.position.y,
-                        goal.x, goal.y
-                    );
-                    
-                    const segmentRadius = this.worm.segmentRadii[i] || 15;
-                    const goalRadius = 20;
-                    const collisionDistance = segmentRadius + goalRadius;
-                    
-                    if (distance < collisionDistance && !goal.collected) {
-                        // Mark goal as collected
-                        goal.collected = true;
-                        this.collectedGoals.add(goal.id);
-                        
-                        // Visual feedback for collection
-                        this.collectGoalEffect(goal);
-                        
-                        // Check if all goals are collected
-                        if (this.collectedGoals.size === this.goals.length) {
-                            // All goals collected - victory!
-                            this.victory();
-                            return;
-                        } else {
-                            // Show progress
-                            this.showGoalProgress();
-                        }
-                        
-                        break; // Move to next goal after collecting this one
-                    }
-                }
+        // Check goal collection using the shared manager
+        if (this.goalManager && this.worm && this.worm.segments) {
+            const allCollected = this.goalManager.checkGoalCollisions(
+                this.worm.segments,
+                this.worm.segmentRadii
+            );
+            
+            if (allCollected) {
+                // All goals collected - victory!
+                this.victory();
+                return;
             }
+            
+            // Update exposed properties for backward compatibility
+            this.collectedGoals = this.goalManager.collectedGoals;
         }
     }
     

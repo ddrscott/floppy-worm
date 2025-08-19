@@ -3,6 +3,7 @@ import SvgMapScene from '/src/scenes/SvgMapScene';
 import DoubleWorm from '/src/entities/DoubleWorm';
 import { loadMapDataSync } from '/src/scenes/maps/MapDataRegistry';
 import Random from '/src/utils/Random';
+import GoalCollectionManager from '/src/utils/GoalCollectionManager';
 
 /**
  * Factory function to create the appropriate PlaybackScene class based on map type
@@ -63,6 +64,9 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             jumpArrows: Phaser.GameObjects.Graphics[]
         } | null = null;
         private currentInputState: any = null;
+        
+        // Goal collection manager
+        private goalManager: any = null;
         
         // Error state
         private mapLoadError: boolean = false;
@@ -296,6 +300,10 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 showDebug: false
             });
             
+            // Store segment radii for collision detection
+            (this as any).wormSegmentRadii = this.worm.segmentRadii || 
+                [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8].map(size => size * 15);
+            
             // Disable physics on all segments
             if (this.worm && this.worm.segments) {
                 // Deactivate abilities
@@ -342,32 +350,9 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             // Create camera target
             (this as any).cameraTarget = this.add.rectangle(0, 0, 10, 10, 0xff0000, 0);
             
-            // Create goals (visual only)
-            if (goals && goals.length > 0) {
-                // Multiple goals
-                goals.forEach((goalData: any) => {
-                    const star = this.add.star(goalData.x, goalData.y, 5, 15, 25, 0xffd700);
-                    this.add.star(goalData.x, goalData.y, 5, 10, 20, 0xffed4e).setDepth(1);
-                    
-                    this.tweens.add({
-                        targets: star,
-                        rotation: Math.PI * 2,
-                        duration: 3000,
-                        repeat: -1
-                    });
-                });
-            } else if (goal) {
-                // Single goal
-                const star = this.add.star(goal.x, goal.y, 5, 15, 25, 0xffd700);
-                this.add.star(goal.x, goal.y, 5, 10, 20, 0xffed4e).setDepth(1);
-                
-                this.tweens.add({
-                    targets: star,
-                    rotation: Math.PI * 2,
-                    duration: 3000,
-                    repeat: -1
-                });
-            }
+            // Initialize goal manager and create goals
+            this.goalManager = new GoalCollectionManager(this);
+            this.goalManager.initializeGoals(entitiesData);
             
             // Set up camera
             this.cameras.main.setBounds(0, 0, (this as any).levelWidth, (this as any).levelHeight);
@@ -565,6 +550,19 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 // Override the stopwatch's internal elapsed time to match playback
                 this.stopwatch.elapsedTime = this.elapsedTime;
                 this.stopwatch.updateDisplay();
+            }
+            
+            // Check goal collection during playback
+            if (this.goalManager && this.worm && this.worm.segments) {
+                const allCollected = this.goalManager.checkGoalCollisions(
+                    this.worm.segments,
+                    (this as any).wormSegmentRadii
+                );
+                
+                if (allCollected) {
+                    // Show victory effect for playback
+                    this.goalManager.showVictoryEffect();
+                }
             }
             
             // Update worm visual
@@ -839,6 +837,11 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 this.stopwatch.updateDisplay();
             }
             
+            // Reset goals
+            if (this.goalManager) {
+                this.goalManager.resetGoals();
+            }
+            
             this.renderFrameInterpolated(0);
             this.play();
         }
@@ -882,6 +885,11 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             if (this.worm) {
                 this.worm.destroy();
                 this.worm = null;
+            }
+            
+            if (this.goalManager) {
+                this.goalManager.destroy();
+                this.goalManager = null;
             }
             
             this.wormVisuals = [];
