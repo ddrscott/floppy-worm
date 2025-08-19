@@ -210,6 +210,19 @@ export default class JsonMapBase extends Phaser.Scene {
         // Remove event listeners
         this.events.off('resume');
         
+        // Stop and clean up background music
+        if (this.backgroundMusic) {
+            try {
+                if (this.backgroundMusic.isPlaying) {
+                    this.backgroundMusic.stop();
+                }
+                this.backgroundMusic.destroy();
+            } catch (error) {
+                // Ignore errors during cleanup
+            }
+            this.backgroundMusic = null;
+        }
+        
         // Destroy existing worm if it exists (from BaseLevelScene)
         if (this.worm) {
             this.worm.destroy();
@@ -343,7 +356,8 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     preload() {
-        // Audio is now handled by synthesizers, no need to load wav files
+        // Load background music
+        this.load.audio('backgroundMusic', 'audio/strawberry-house-45kps.mp3');
     }
     
     async create() {
@@ -356,6 +370,36 @@ export default class JsonMapBase extends Phaser.Scene {
         this.events.on('resume', () => {
             this.isPaused = false;
         });
+        
+        // Play background music at 50% volume, looping
+        try {
+            // Check if the audio is in the cache and loaded
+            if (this.cache.audio.exists('backgroundMusic')) {
+                if (this.sound.get('backgroundMusic')) {
+                    // Music already exists, ensure it's playing
+                    const bgMusic = this.sound.get('backgroundMusic');
+                    if (!bgMusic.isPlaying) {
+                        bgMusic.play();
+                    }
+                } else {
+                    // Create and play the background music
+                    this.backgroundMusic = this.sound.add('backgroundMusic', {
+                        loop: true,
+                        volume: 0.5,
+                        seek: 49.55  // Start at 49.55 seconds
+                    });
+                    
+                    // Only play if the sound was successfully created
+                    if (this.backgroundMusic) {
+                        this.backgroundMusic.play();
+                    }
+                }
+            } else {
+                console.log('Background music not loaded yet, skipping playback');
+            }
+        } catch (error) {
+            console.warn('Failed to play background music:', error);
+        }
         
         // Get build mode
         this.buildMode = await getCachedBuildMode();

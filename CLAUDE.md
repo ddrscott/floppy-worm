@@ -15,6 +15,11 @@ Floppy Worm is a physics-based worm game built with **Phaser 3** and **Matter.js
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run preview` - Preview production build
 
+**Note**
+The development server is run in the background in another terminal and has hot code reload. If you need to kill it, find the process with:
+Use `lsof -i :3001 | grep node`
+Otherwise, trust the server is working and move on to the next step.
+
 ### Map Editor
 The project uses a **Remix-based editor**: Access via `/maps/{filename}/edit` routes after running `npm run dev`.
 
