@@ -37,7 +37,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             body {
               margin: 0;
               padding: 0;
-              overflow: hidden;
               background-color: #333333;
             }
             
