@@ -12,6 +12,10 @@ export default class PauseMenu extends Phaser.Scene {
         this.selectedButton = 0;
         this.buttons = [];
         this.buttonCallbacks = [];
+        
+        // Load saved volume from localStorage
+        const savedVolume = localStorage.getItem('gameVolume');
+        this.globalVolume = savedVolume !== null ? parseFloat(savedVolume) : 0.5;
     }
     
     init(data) {
@@ -46,9 +50,9 @@ export default class PauseMenu extends Phaser.Scene {
         );
         overlay.setDepth(100);
         
-        // Dialog background - increased height to accommodate gamepad layout
+        // Dialog background - increased height to accommodate gamepad layout and volume control
         const dialogWidth = 600;
-        const dialogHeight = 500;
+        const dialogHeight = 550;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -110,6 +114,12 @@ export default class PauseMenu extends Phaser.Scene {
             () => this.returnToMainMenu()
         );
         
+        // Volume Control Section
+        this.createVolumeControl(
+            this.scale.width / 2, 
+            startY + (buttonHeight + spacing) * 3 + 20
+        );
+        
         // Set up input
         this.setupInput();
         
@@ -143,7 +153,7 @@ export default class PauseMenu extends Phaser.Scene {
         
         // Store button data
         const buttonIndex = this.buttons.length;
-        this.buttons.push({ button, text: buttonText });
+        this.buttons.push({ button, text: buttonText, isVolumeControl: false });
         this.buttonCallbacks.push(onClick);
         
         // Mouse interaction
@@ -154,6 +164,158 @@ export default class PauseMenu extends Phaser.Scene {
         });
         
         return button;
+    }
+    
+    createVolumeControl(x, y) {
+        // Volume label
+        this.add.text(x, y, 'Volume', {
+            fontSize: '24px',
+            color: '#ecf0f1'
+        }).setOrigin(0.5).setDepth(102);
+        
+        // Volume control container
+        const controlY = y + 35;
+        const sliderWidth = 300;
+        const sliderHeight = 40;
+        
+        // Create volume control as a button for navigation
+        const volumeButton = this.add.rectangle(x, controlY, sliderWidth + 60, sliderHeight, 0x34495e);
+        volumeButton.setDepth(102);
+        volumeButton.setStrokeStyle(2, 0x4ecdc4, 1);
+        volumeButton.setInteractive();
+        
+        // Slider background
+        const sliderBg = this.add.rectangle(x, controlY, sliderWidth, 8, 0x2c3e50);
+        sliderBg.setDepth(103);
+        
+        // Slider fill
+        this.volumeFill = this.add.rectangle(
+            x - sliderWidth/2, 
+            controlY, 
+            sliderWidth * this.globalVolume, 
+            8, 
+            0x4ecdc4
+        );
+        this.volumeFill.setOrigin(0, 0.5);
+        this.volumeFill.setDepth(104);
+        
+        // Volume percentage text
+        this.volumeText = this.add.text(x, controlY + 25, `${Math.round(this.globalVolume * 100)}%`, {
+            fontSize: '16px',
+            color: '#95a5a6'
+        }).setOrigin(0.5).setDepth(102);
+        
+        // Minus button
+        const minusBtn = this.add.text(x - sliderWidth/2 - 25, controlY, '-', {
+            fontSize: '28px',
+            color: '#ecf0f1',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(104);
+        
+        // Plus button
+        const plusBtn = this.add.text(x + sliderWidth/2 + 25, controlY, '+', {
+            fontSize: '28px',
+            color: '#ecf0f1',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setDepth(104);
+        
+        // Store volume control as a button for keyboard navigation
+        const buttonIndex = this.buttons.length;
+        this.buttons.push({ 
+            button: volumeButton, 
+            text: this.volumeText, 
+            isVolumeControl: true,
+            sliderWidth: sliderWidth
+        });
+        this.buttonCallbacks.push(null); // No click callback for volume
+        
+        // Mouse interaction for slider
+        volumeButton.on('pointerdown', (pointer) => {
+            this.isDraggingVolume = true;
+            this.updateVolumeFromPointer(pointer, x, sliderWidth);
+        });
+        
+        volumeButton.on('pointermove', (pointer) => {
+            if (this.isDraggingVolume) {
+                this.updateVolumeFromPointer(pointer, x, sliderWidth);
+            }
+        });
+        
+        volumeButton.on('pointerup', () => {
+            this.isDraggingVolume = false;
+        });
+        
+        volumeButton.on('pointerover', () => {
+            this.selectedButton = buttonIndex;
+            this.updateSelection();
+        });
+        
+        // Click handlers for +/- buttons
+        minusBtn.setInteractive();
+        minusBtn.on('pointerup', () => {
+            this.adjustVolume(-0.1);
+        });
+        
+        plusBtn.setInteractive();
+        plusBtn.on('pointerup', () => {
+            this.adjustVolume(0.1);
+        });
+        
+        // Apply current volume to game
+        this.applyVolume();
+    }
+    
+    updateVolumeFromPointer(pointer, centerX, sliderWidth) {
+        const localX = pointer.x - centerX + sliderWidth/2;
+        const newVolume = Phaser.Math.Clamp(localX / sliderWidth, 0, 1);
+        this.setVolume(newVolume);
+    }
+    
+    adjustVolume(delta) {
+        const newVolume = Phaser.Math.Clamp(this.globalVolume + delta, 0, 1);
+        this.setVolume(newVolume);
+    }
+    
+    setVolume(volume) {
+        this.globalVolume = volume;
+        
+        // Update visual
+        if (this.volumeFill) {
+            const volumeControl = this.buttons.find(b => b.isVolumeControl);
+            if (volumeControl) {
+                this.volumeFill.width = volumeControl.sliderWidth * this.globalVolume;
+            }
+        }
+        
+        if (this.volumeText) {
+            this.volumeText.setText(`${Math.round(this.globalVolume * 100)}%`);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('gameVolume', this.globalVolume.toString());
+        
+        // Apply to game
+        this.applyVolume();
+        
+        // Play a sound to test the volume
+        if (this.menuAudio) {
+            this.menuAudio.play('navigate');
+        }
+    }
+    
+    applyVolume() {
+        // Set global volume for all sounds
+        this.sound.volume = this.globalVolume;
+        
+        // Also update the game scene's background music if it exists
+        if (this.gameScene && this.gameScene.backgroundMusic) {
+            // Store the original configured volume if not already stored
+            if (!this.gameScene.bgMusicOriginalVolume) {
+                this.gameScene.bgMusicOriginalVolume = this.gameScene.bgMusicConfig.volume;
+            }
+            // Apply global volume multiplier to the music's configured volume
+            this.gameScene.backgroundMusic.setVolume(this.gameScene.bgMusicOriginalVolume * this.globalVolume);
+        }
     }
     
     setupInput() {
@@ -174,6 +336,8 @@ export default class PauseMenu extends Phaser.Scene {
             B: false,
             up: false,
             down: false,
+            left: false,
+            right: false,
             options: false
         };
     }
@@ -191,9 +355,19 @@ export default class PauseMenu extends Phaser.Scene {
             this.navigate(1);
         }
         
-        // Handle selection
+        // Handle selection or volume adjustment
         if (Phaser.Input.Keyboard.JustDown(this.enterKey) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
             this.selectButton();
+        }
+        
+        // Left/Right for volume control when selected
+        const selectedItem = this.buttons[this.selectedButton];
+        if (selectedItem && selectedItem.isVolumeControl) {
+            if (Phaser.Input.Keyboard.JustDown(this.cursors.left) || Phaser.Input.Keyboard.JustDown(this.wasd.A)) {
+                this.adjustVolume(-0.05);
+            } else if (Phaser.Input.Keyboard.JustDown(this.cursors.right) || Phaser.Input.Keyboard.JustDown(this.wasd.D)) {
+                this.adjustVolume(0.05);
+            }
         }
         
         // ESC to resume
@@ -215,6 +389,8 @@ export default class PauseMenu extends Phaser.Scene {
             B: pad.B,
             up: pad.up || pad.leftStick.y < -0.5,
             down: pad.down || pad.leftStick.y > 0.5,
+            left: pad.left || pad.leftStick.x < -0.5,
+            right: pad.right || pad.leftStick.x > 0.5,
             options: pad.buttons[9] && pad.buttons[9].pressed // Options/Start button
         };
         
@@ -223,6 +399,16 @@ export default class PauseMenu extends Phaser.Scene {
             this.navigate(-1);
         } else if (currentStates.down && !this.gamepadButtonStates.down) {
             this.navigate(1);
+        }
+        
+        // Left/Right for volume control when selected
+        const selectedItem = this.buttons[this.selectedButton];
+        if (selectedItem && selectedItem.isVolumeControl) {
+            if (currentStates.left && !this.gamepadButtonStates.left) {
+                this.adjustVolume(-0.05);
+            } else if (currentStates.right && !this.gamepadButtonStates.right) {
+                this.adjustVolume(0.05);
+            }
         }
         
         // A button to select

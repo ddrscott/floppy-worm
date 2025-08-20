@@ -381,7 +381,12 @@ export default class JsonMapBase extends Phaser.Scene {
             this.isPaused = false;
         });
         
-        // Play background music at 50% volume, looping
+        // Load saved volume from localStorage and apply
+        const savedVolume = localStorage.getItem('gameVolume');
+        const globalVolume = savedVolume !== null ? parseFloat(savedVolume) : 0.5;
+        this.sound.volume = globalVolume;
+        
+        // Play background music with volume adjustment
         try {
             // Check if the audio is in the cache and loaded
             if (this.cache.audio.exists('backgroundMusic')) {
@@ -395,11 +400,19 @@ export default class JsonMapBase extends Phaser.Scene {
                 
                 // Always create fresh background music instance
                 console.log('🎵 Creating new background music instance');
-                this.backgroundMusic = this.sound.add('backgroundMusic', this.bgMusicConfig);
+                // Apply global volume to the configured volume
+                const adjustedConfig = {
+                    ...this.bgMusicConfig,
+                    volume: this.bgMusicConfig.volume * globalVolume
+                };
+                this.backgroundMusic = this.sound.add('backgroundMusic', adjustedConfig);
+                
+                // Store original volume for pause menu to use
+                this.bgMusicOriginalVolume = this.bgMusicConfig.volume;
                 
                 // Only play if the sound was successfully created
                 if (this.backgroundMusic) {
-                    console.log('🎵 Playing background music');
+                    console.log('🎵 Playing background music at', Math.round(globalVolume * 100) + '% global volume');
                     this.backgroundMusic.play();
                 } else {
                     console.warn('🎵 Background music object was not created');
