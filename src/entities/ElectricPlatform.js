@@ -163,15 +163,13 @@ export default class ElectricPlatform extends PlatformBase {
         // Visual feedback
         this.triggerShockEffect();
         
-        // Simply call handleRestart which will capture screenshot and restart
-        if (this.scene.handleRestart && typeof this.scene.handleRestart === 'function') {
-            console.log('⚡ Calling handleRestart with reason: electric_shock');
-            this.scene.handleRestart('electric_shock');
-        } else {
-            // Fallback to direct restart if handleRestart isn't available
-            console.log('⚡ Falling back to direct restart');
-            this.scene.scene.restart();
-        }
+        // Emit death event to the scene
+        console.log('⚡ Emitting worm-death event: electric_shock');
+        this.scene.events.emit('worm-death', {
+            reason: 'electric_shock',
+            platform: this,
+            animationDuration: this.shockDuration // Wait for shock animation to complete
+        });
     }
     
     applyElectricShock(segment) {
@@ -243,6 +241,7 @@ export default class ElectricPlatform extends PlatformBase {
         
         // Screen shake for dramatic effect
         if (this.scene.cameras && this.scene.cameras.main) {
+            console.log('⚡ ElectricPlatform triggering camera shake');
             this.scene.cameras.main.shake(this.shockDuration, 0.01);
         }
     }

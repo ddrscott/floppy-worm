@@ -95,6 +95,13 @@ export default class MapSelectScene extends Phaser.Scene {
         this.registry.events.on(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
     }
     
+    preload() {
+        // Preload background music here so it's ready for all levels
+        // This prevents hitches when starting a level
+        console.log('🎵 Preloading background music in MapSelectScene');
+        this.load.audio('backgroundMusic', 'audio/strawberry-house-45kps.mp3');
+    }
+    
     async create() {
         // Reset transitioning flag
         this.isTransitioning = false;

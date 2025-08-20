@@ -89,6 +89,15 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Initialize UI elements array
         this.uiElements = [];
+
+        this.bgMusicConfig = {
+            loop: true,
+            volume: 0.3,
+            seek: 49.55,  // Start at 49.55 seconds
+            slowdownDuration: 1600,  // Duration of death slowdown effect in ms
+            slowdownRate: 0.02,  // Final playback rate (0.2 = 20% speed)
+            slowdownVolume: 0.01  // Final volume during slowdown
+        }
     }
     
     getDefaultMapData() {
@@ -209,6 +218,7 @@ export default class JsonMapBase extends Phaser.Scene {
     cleanup() {
         // Remove event listeners
         this.events.off('resume');
+        this.events.off('worm-death', this.handleWormDeath, this);
         
         // Stop and clean up background music
         if (this.backgroundMusic) {
@@ -338,6 +348,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.button0WasPressed = false;
         this.button1WasPressed = false;
         this.ghostSystem = null;
+        this.isDying = false;
         
         // Reset camera references
         this.uiCamera = null;
@@ -356,8 +367,7 @@ export default class JsonMapBase extends Phaser.Scene {
     }
     
     preload() {
-        // Load background music
-        this.load.audio('backgroundMusic', 'audio/strawberry-house-45kps.mp3');
+        // Background music is now preloaded in MapSelectScene to prevent hitches
     }
     
     async create() {
@@ -375,30 +385,30 @@ export default class JsonMapBase extends Phaser.Scene {
         try {
             // Check if the audio is in the cache and loaded
             if (this.cache.audio.exists('backgroundMusic')) {
-                if (this.sound.get('backgroundMusic')) {
-                    // Music already exists, ensure it's playing
-                    const bgMusic = this.sound.get('backgroundMusic');
-                    if (!bgMusic.isPlaying) {
-                        bgMusic.play();
-                    }
+                // First, clean up any existing background music
+                const existingMusic = this.sound.get('backgroundMusic');
+                if (existingMusic) {
+                    console.log('🎵 Found existing background music, removing it');
+                    existingMusic.stop();
+                    existingMusic.destroy();
+                }
+                
+                // Always create fresh background music instance
+                console.log('🎵 Creating new background music instance');
+                this.backgroundMusic = this.sound.add('backgroundMusic', this.bgMusicConfig);
+                
+                // Only play if the sound was successfully created
+                if (this.backgroundMusic) {
+                    console.log('🎵 Playing background music');
+                    this.backgroundMusic.play();
                 } else {
-                    // Create and play the background music
-                    this.backgroundMusic = this.sound.add('backgroundMusic', {
-                        loop: true,
-                        volume: 0.5,
-                        seek: 49.55  // Start at 49.55 seconds
-                    });
-                    
-                    // Only play if the sound was successfully created
-                    if (this.backgroundMusic) {
-                        this.backgroundMusic.play();
-                    }
+                    console.warn('🎵 Background music object was not created');
                 }
             } else {
-                console.log('Background music not loaded yet, skipping playback');
+                console.log('🎵 Background music not loaded yet, skipping playback');
             }
         } catch (error) {
-            console.warn('Failed to play background music:', error);
+            console.warn('🎵 Failed to play background music:', error);
         }
         
         // Get build mode
@@ -691,6 +701,9 @@ export default class JsonMapBase extends Phaser.Scene {
                 }
             });
         });
+        
+        // Set up death event listener for special platforms
+        this.events.on('worm-death', this.handleWormDeath, this);
         
         this.matter.world.on('collisionend', (event) => {
             event.pairs.forEach(pair => {
@@ -1295,9 +1308,9 @@ export default class JsonMapBase extends Phaser.Scene {
             return;
         }
         
-        // Don't update during victory or pause states
-        if (this.victoryAchieved || this.isPaused) {
-            // Victory dialog or pause menu handles all interactions
+        // Don't update during victory, death, or pause states
+        if (this.victoryAchieved || this.isDying || this.isPaused) {
+            // Victory dialog, death sequence, or pause menu handles all interactions
             return;
         }
         
@@ -1517,6 +1530,12 @@ export default class JsonMapBase extends Phaser.Scene {
     async victory() {
         // Set victory flag to handle input differently (from BaseLevelScene)
         this.victoryAchieved = true;
+        
+        // Stop background music on victory (normal stop, no slowdown)
+        if (this.backgroundMusic && this.backgroundMusic.isPlaying) {
+            console.log('🎵 Stopping background music on victory');
+            this.backgroundMusic.stop();
+        }
         
         // Stop the timer and save best time
         if (this.stopwatch) {
@@ -1760,6 +1779,54 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
+    async handleWormDeath(deathData) {
+        // Prevent multiple death events
+        if (this.isDying || this.victoryAchieved) {
+            return;
+        }
+        this.isDying = true;
+        
+        const { reason, platform, animationDuration = 0 } = deathData;
+        
+        console.log(`💀 Worm death event received: ${reason}`, deathData);
+        
+        // Disable all input during death sequence
+        this.input.enabled = false;
+        if (this.worm && this.worm.inputManager) {
+            this.worm.inputManager.enabled = false;
+        }
+        console.log('🎮 Input disabled during death sequence');
+        
+        // Fade out whoosh synth and slow down background music in parallel
+        const audioPromises = [];
+        
+        // Fade out the whoosh synthesizer
+        if (this.worm && this.worm.whooshSynthesizer) {
+            console.log('🎵 Fading out whoosh synthesizer');
+            audioPromises.push(this.fadeOutWhoosh());
+        }
+        
+        // Slow down and stop background music like a record player stopping
+        audioPromises.push(this.slowDownMusic());
+        
+        // Wait for all audio effects to complete
+        await Promise.all(audioPromises);
+        
+        // If there's an animation duration, wait for it to complete
+        if (animationDuration > 0) {
+            await new Promise(resolve => {
+                this.time.delayedCall(animationDuration, resolve);
+            });
+        }
+        
+        // Re-enable input just before restart (will be reset on scene restart anyway)
+        this.input.enabled = true;
+        console.log('🎮 Input re-enabled');
+        
+        // Now handle the restart
+        await this.handleRestart(reason);
+    }
+    
     async handleRestart(reason = 'unknown') {
         console.log('🔄 handleRestart called with reason:', reason);
         
@@ -1789,6 +1856,73 @@ export default class JsonMapBase extends Phaser.Scene {
                 return;
             }
         }
+    }
+    
+    async fadeOutWhoosh() {
+        if (!this.worm || !this.worm.whooshSynthesizer) {
+            return;
+        }
+        
+        console.log('🎵 Fading out whoosh synthesizer quickly');
+        
+        // Whoosh should fade out very quickly since movement has stopped
+        const fadeDuration = 100; // 100ms - almost immediate
+        
+        return new Promise(resolve => {
+            // Create a tween to fade the whoosh volume to 0
+            const initialVolume = this.worm.whooshSynthesizer.volume || 1.0;
+            const fadeTarget = { volume: initialVolume };
+            
+            this.tweens.add({
+                targets: fadeTarget,
+                volume: 0,
+                duration: fadeDuration,
+                ease: 'Power3.easeOut', // Quick ease out
+                onUpdate: () => {
+                    // Update the whoosh synthesizer volume
+                    if (this.worm && this.worm.whooshSynthesizer) {
+                        this.worm.whooshSynthesizer.update(fadeTarget.volume, this.worm.whooshSynthesizer.frequency || 0);
+                    }
+                },
+                onComplete: () => {
+                    console.log('🎵 Whoosh fade complete, stopping synthesizer');
+                    // Stop the whoosh synthesizer
+                    if (this.worm && this.worm.whooshSynthesizer) {
+                        this.worm.stopAudio();
+                    }
+                    resolve();
+                }
+            });
+        });
+    }
+    
+    async slowDownMusic() {
+        if (!this.backgroundMusic || !this.backgroundMusic.isPlaying) {
+            return;
+        }
+        
+        console.log(`🎵 Slowing down music like a record stopping (${this.bgMusicConfig.slowdownDuration}ms)...`);
+        
+        // Use configurable values for the slowdown effect
+        return new Promise(resolve => {
+            this.tweens.add({
+                targets: this.backgroundMusic,
+                rate: this.bgMusicConfig.slowdownRate,  // Configurable final speed
+                volume: this.bgMusicConfig.slowdownVolume, // Configurable final volume
+                duration: this.bgMusicConfig.slowdownDuration, // Configurable duration
+                ease: 'Power2.easeIn',
+                onComplete: () => {
+                    console.log('🎵 Music slowdown complete, stopping playback');
+                    if (this.backgroundMusic) {
+                        this.backgroundMusic.stop();
+                        // Reset rate and volume for next play
+                        this.backgroundMusic.rate = 1.0;
+                        this.backgroundMusic.volume = this.bgMusicConfig.volume;
+                    }
+                    resolve();
+                }
+            });
+        });
     }
     
     togglePredictiveCamera() {

@@ -211,37 +211,62 @@ export default class BlackholePlatform extends PlatformBase {
         if (this.isTriggered) return;
         this.isTriggered = true;
         
-        // Trigger suck-in visual effect
-        const drawDuration = 500;
-        this.triggerSuckInEffect(segment, drawDuration);
+        // Trigger suck-in visual effect with extended duration
+        const spinDuration = 500;  // Time for spinning in the hole
+        const fadeDuration = 500;  // Time for camera fade
+        this.triggerSuckInEffect(segment, spinDuration, fadeDuration);
         
-        // Simply call handleRestart which will capture screenshot and restart
-        if (this.scene.handleRestart && typeof this.scene.handleRestart === 'function') {
-            console.log('🕳️ Calling handleRestart with reason: blackhole_consumed');
-            this.scene.handleRestart('blackhole_consumed');
-        } else {
-            // Fallback to direct restart if handleRestart isn't available
-            console.log('🕳️ Falling back to direct restart');
-            this.scene.scene.restart();
-        }
+        // Emit death event to the scene
+        console.log('🕳️ Emitting worm-death event: blackhole_consumed');
+        this.scene.events.emit('worm-death', {
+            reason: 'blackhole_consumed',
+            platform: this,
+            animationDuration: 0 // Wait for full animation to complete
+        });
     }
     
-    triggerSuckInEffect(segment, duration) {
+    triggerSuckInEffect(segment, spinDuration, fadeDuration) {
         // Visual feedback for being sucked in
         if (this.debrisEmitter) {
             this.debrisEmitter.explode(100);
         }
         
-        // Scale down the entire worm as it gets sucked in
+        const blackHoleX = this.body.position.x;
+        const blackHoleY = this.body.position.y;
+        
+        // Stop camera from following the worm to prevent conflicts
+        // Also reset any active camera effects like shake
+        if (this.scene.cameras && this.scene.cameras.main) {
+            this.scene.cameras.main.stopFollow();
+            // Reset any active shake effect that might be running
+            this.scene.cameras.main.resetFX();
+        }
+        
+        // Phase 1: Spin and pull the worm to the center (spinDuration)
         if (this.scene.worm && this.scene.worm.segments) {
-            this.scene.worm.segments.forEach(wormSegment => {
-                if (wormSegment.gameObject && wormSegment.gameObject.setScale) {
-                    // Animate the worm segments shrinking to nothing
+            this.scene.worm.segments.forEach((wormSegment, index) => {
+                if (wormSegment.gameObject) {
+                    // Calculate spiral path to center
+                    const delay = index * 20; // Stagger the segments slightly
+
+                    // First spin the worm segments around the black hole
+                    this.scene.tweens.add({
+                        targets: wormSegment.gameObject,
+                        angle: '+=720', // Spin 2 full rotations
+                        x: blackHoleX,
+                        y: blackHoleY,
+                        duration: spinDuration,
+                        delay: delay,
+                        ease: 'Power2.easeIn'
+                    });
+
+                    // Then shrink them after spinning
                     this.scene.tweens.add({
                         targets: wormSegment.gameObject,
                         scaleX: 0,
                         scaleY: 0,
-                        duration: duration,
+                        duration: fadeDuration,
+                        delay: spinDuration + delay,
                         ease: 'Power2.easeIn'
                     });
                 }
@@ -250,17 +275,20 @@ export default class BlackholePlatform extends PlatformBase {
         
         // Screen effects for dramatic suck-in
         if (this.scene.cameras && this.scene.cameras.main) {
-            // Quickly zoom in towards black hole center
+            // Phase 1: Pan and zoom to black hole during spin
             this.scene.cameras.main.pan(
-                this.body.position.x, 
-                this.body.position.y, 
-                duration, 
-                'Power3'
+                blackHoleX, 
+                blackHoleY, 
+                spinDuration, 
+                'Power2'
             );
-            this.scene.cameras.main.zoomTo(3.0, duration);
+            this.scene.cameras.main.zoomTo(2.0, spinDuration);
             
-            // Fade to black faster for suck-in effect
-            this.scene.cameras.main.fade(duration/2, 0, 0, 0);
+            // Phase 2: Continue zooming and fade to black after spinning
+            this.scene.time.delayedCall(spinDuration, () => {
+                this.scene.cameras.main.zoomTo(4.0, fadeDuration, 'Power2');
+                this.scene.cameras.main.fade(fadeDuration, 0, 0, 0);
+            });
         }
         
         // Sound effect placeholder
