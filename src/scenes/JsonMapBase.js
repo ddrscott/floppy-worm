@@ -93,7 +93,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.bgMusicConfig = {
             loop: true,
             volume: 0.5,
-            seek: 49.55,  // Start at 49.55 seconds
+            seek: 48.5,  // Start at 49.55 seconds
             slowdownDuration: 1600,  // Duration of death slowdown effect in ms
             slowdownRate: 0.02,  // Final playback rate (0.2 = 20% speed)
             slowdownVolume: 0.01  // Final volume during slowdown

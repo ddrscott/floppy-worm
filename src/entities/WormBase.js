@@ -14,7 +14,7 @@ export default class WormBase {
         this.config = {
             baseRadius: 10,
             baseColor: 0xffa502,
-            segmentSizes: [0.75, 1, 1, 0.90, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
+            segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.015,
             segmentFriction: 1,
             segmentFrictionStatic: 10,
@@ -98,7 +98,14 @@ export default class WormBase {
             const radius = this.config.baseRadius * this.config.segmentSizes[i];
             segmentRadii.push(radius);
             
-            const segment = this.matter.add.circle(x, currentY, radius, {
+            // Create a Phaser circle sprite
+            const segmentColor = this.getSegmentColor(i, this.config.segmentSizes.length);
+            const segmentSprite = this.scene.add.circle(x, currentY, radius, segmentColor);
+            segmentSprite.setStrokeStyle(2, this.getDarkerColor(segmentColor));
+            
+            // Add physics to the sprite using matter.add.gameObject
+            const segmentGameObject = this.scene.matter.add.gameObject(segmentSprite, {
+                shape: { type: 'circle', radius: radius },
                 label: 'worm',
                 friction: this.config.segmentFriction,
                 frictionStatic: this.config.segmentFrictionStatic,
@@ -107,22 +114,20 @@ export default class WormBase {
                 restitution: this.config.segmentRestitution,
                 slop: 0.01,
                 render: {
-                    fillStyle: '#' + this.getSegmentColor(i, this.config.segmentSizes.length).toString(16).padStart(6, '0'),
-                    strokeStyle: '#' + this.getDarkerColor(this.getSegmentColor(i, this.config.segmentSizes.length)).toString(16).padStart(6, '0'),
+                    fillStyle: '#' + segmentColor.toString(16).padStart(6, '0'),
+                    strokeStyle: '#' + this.getDarkerColor(segmentColor).toString(16).padStart(6, '0'),
                     lineWidth: 2,
                     visible: true,
                 },
             });
+            
+            // Get the actual Matter body from the GameObject
+            const segment = segmentGameObject.body;
+            
+            // Store references for easy access
+            segment.sprite = segmentSprite;
+            segment.gameObject = segmentGameObject;
             segment.isWorm = true;
-            
-            // Add visual circle using Phaser graphics
-            const segmentGraphics = this.scene.add.graphics();
-            segmentGraphics.fillStyle(this.getSegmentColor(i, this.config.segmentSizes.length), 1);
-            segmentGraphics.lineStyle(2, this.getDarkerColor(this.getSegmentColor(i, this.config.segmentSizes.length)), 1);
-            segmentGraphics.fillCircle(0, 0, radius);
-            segmentGraphics.strokeCircle(0, 0, radius);
-            
-            segment.graphics = segmentGraphics;
             segments.push(segment);
             
             if (i < this.config.segmentSizes.length - 1) {
@@ -131,9 +136,6 @@ export default class WormBase {
             }
         }
         
-        // Create connection dots at constraint points
-        this.connectionDots = [];
-
         // Create main constraints between segments.
         // Prevents rotation and keeps segments aligned
         for (let i = 0; i < segments.length - 1; i++) {
@@ -152,19 +154,6 @@ export default class WormBase {
             
             this.Matter.World.add(this.matter.world.localWorld, constraint);
             constraints.push(constraint);
-
-
-            // Calculate connection point between segments
-            const midX = (segA.position.x + segB.position.x) / 2;
-            const midY = (segA.position.y + segB.position.y) / 2;
-            
-            // Create small dot graphics
-            const dot = this.scene.add.graphics();
-            dot.fillStyle(this.config.baseColor, 1); // Dark gray color
-            dot.fillCircle(0, 0, this.config.baseRadius * 0.4); // Small dot
-            dot.setPosition(midX, midY);
-            
-            this.connectionDots.push(dot);
         }
         
         this.compressionSprings = [];
@@ -198,25 +187,7 @@ export default class WormBase {
         
         this.updateMovement(delta);
 
-        // Update segment graphics
-        this.segments.forEach((segment) => {
-            if (segment.graphics) {
-                segment.graphics.x = segment.position.x;
-                segment.graphics.y = segment.position.y;
-            }
-        });
-        
-        // Update connection dots positions
-        this.connectionDots.forEach((dot, index) => {
-            if (index < this.segments.length - 1) {
-                const segA = this.segments[index];
-                const segB = this.segments[index + 1];
-                
-                // Update dot position to stay between segments
-                dot.x = (segA.position.x + segB.position.x) / 2;
-                dot.y = (segA.position.y + segB.position.y) / 2;
-            }
-        });
+        // No need to manually update segment positions - Phaser handles this automatically!
         
         // Clean up overstretched surface constraints
         this.cleanupOverstretchedConstraints();
@@ -443,11 +414,12 @@ export default class WormBase {
         // Remove all bodies and constraints
         if (this.segments) {
             this.segments.forEach((segment, index) => {
-                if (segment.graphics) {
-                    segment.graphics.destroy();
-                }
-                if (this.matter && this.matter.world) {
-                    this.matter.world.remove(segment);
+                // Destroy the gameObject (which also removes the sprite and physics body)
+                if (segment.gameObject) {
+                    segment.gameObject.destroy();
+                } else if (segment.sprite) {
+                    // Fallback for older segments
+                    segment.sprite.destroy();
                 }
             });
         }
@@ -465,15 +437,6 @@ export default class WormBase {
             this.compressionSprings.forEach((spring, index) => {
                 if (this.matter && this.matter.world) {
                     this.matter.world.remove(spring);
-                }
-            });
-        }
-        
-        // Clean up connection dots
-        if (this.connectionDots) {
-            this.connectionDots.forEach(dot => {
-                if (dot) {
-                    dot.destroy();
                 }
             });
         }

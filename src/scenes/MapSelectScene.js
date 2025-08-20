@@ -5,6 +5,7 @@ import { getCachedBuildMode, BuildConfig } from '../utils/buildMode';
 import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
 import { getMenuAudio } from '../audio/MenuAudio';
+import ScrollingBackground from '../utils/ScrollingBackground';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -42,6 +43,9 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Audio
         this.menuAudio = null;
+        
+        // Scrolling background
+        this.scrollingBackground = null;
     }
     
     init() {
@@ -131,8 +135,14 @@ export default class MapSelectScene extends Phaser.Scene {
         const gameHeight = this.scale.height;
         const centerX = gameWidth / 2;
         
-        // Create background
-        this.createBackground();
+        // Create animated scrolling background (matching TitleScene)
+        this.scrollingBackground = new ScrollingBackground(this, {
+            gridSize: 96,
+            gridColor: 0x888888,
+            gridAlpha: 0.5,
+            scrollSpeed: 3000
+        });
+        this.scrollingBackground.create();
         
         // Create stacked carousel
         this.createStackedCarousel();
@@ -142,7 +152,7 @@ export default class MapSelectScene extends Phaser.Scene {
         
         // Instructions
         this.add.text(centerX, gameHeight - 30, 
-            'ARROWS/D-PAD: Navigate (↑↓ Category, ←→ Map) • ENTER/A: Play • ESC/B: Refresh', {
+            'ARROWS/D-PAD: Navigate (↑↓ Category, ←→ Map) • ENTER/A: Play • ESC/B: Back', {
             fontSize: '13px',
             color: '#7f8c8d',
             backgroundColor: 'rgba(0,0,0,0.5)',
@@ -174,31 +184,6 @@ export default class MapSelectScene extends Phaser.Scene {
         }, this);
     }
     
-    createBackground() {
-        // Solid background
-        this.add.rectangle(this.scale.width / 2, this.scale.height / 2, 
-            this.scale.width, this.scale.height, 0x232333);
-        
-        // Grid pattern
-        const graphics = this.add.graphics();
-        graphics.lineStyle(1, 0x333333, 0.2);
-        
-        const width = this.scale.width;
-        const height = this.scale.height;
-        
-        for (let x = 0; x <= width; x += 40) {
-            graphics.moveTo(x, 0);
-            graphics.lineTo(x, height);
-        }
-        
-        for (let y = 0; y <= height; y += 40) {
-            graphics.moveTo(0, y);
-            graphics.lineTo(width, y);
-        }
-        
-        graphics.strokePath();
-        graphics.setDepth(-100);
-    }
     
     createStackedCarousel() {
         const centerX = this.scale.width / 2;
@@ -356,29 +341,32 @@ export default class MapSelectScene extends Phaser.Scene {
         // Progress summary
         // const stats = this.stateManager.getCompletionStats();
         
-        // View Recordings button (top left)
-        const recordingsButton = this.add.text(20, 20, 'Floppy Worm', {
+        // Back button (top left) - returns to title screen
+        const backButton = this.add.text(20, 20, '← Back to Menu', {
             fontSize: '16px',
-            color: '#9b59b6',
-            backgroundColor: 'rgba(155, 89, 182, 0.2)',
+            color: '#95a5a6',
+            backgroundColor: 'rgba(52, 73, 94, 0.3)',
             padding: { x: 10, y: 5 }
-        }).setOrigin(0, 0)
-        //
-        // recordingsButton.on('pointerup', () => {
-        //     if (window.location.hostname === 'localhost' && window.location.port === '8080') {
-        //         window.location.href = '/recordings';
-        //     } else {
-        //         window.open('/recordings', '_blank');
-        //     }
-        // });
-        //
-        // recordingsButton.on('pointerover', () => {
-        //     recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.4)');
-        // });
-        //
-        // recordingsButton.on('pointerout', () => {
-        //     recordingsButton.setBackgroundColor('rgba(155, 89, 182, 0.2)');
-        // });
+        }).setOrigin(0, 0).setInteractive();
+        
+        backButton.on('pointerup', () => {
+            if (!this.isTransitioning) {
+                this.isTransitioning = true;
+                this.playMenuSound('select');
+                this.cameras.main.fadeOut(300, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('TitleScene');
+                });
+            }
+        });
+        
+        backButton.on('pointerover', () => {
+            backButton.setBackgroundColor('rgba(52, 73, 94, 0.5)');
+        });
+        
+        backButton.on('pointerout', () => {
+            backButton.setBackgroundColor('rgba(52, 73, 94, 0.3)');
+        });
         
         // Reset progress button (top right)
         // const resetButton = this.add.text(this.scale.width - 20, 20, 'Reset Progress', {
@@ -779,11 +767,18 @@ export default class MapSelectScene extends Phaser.Scene {
             this.playCurrentMap();
         }
         
-        // B button or ESC to refresh
-        const refreshPressed = Phaser.Input.Keyboard.JustDown(this.escKey) ||
-                              (pad && pad.B && !this.bWasPressed);
-        if (refreshPressed) {
-            this.scene.restart();
+        // B button or ESC to go back to title screen
+        const backPressed = Phaser.Input.Keyboard.JustDown(this.escKey) ||
+                           (pad && pad.B && !this.bWasPressed);
+        if (backPressed) {
+            if (!this.isTransitioning) {
+                this.isTransitioning = true;
+                this.playMenuSound('select');
+                this.cameras.main.fadeOut(300, 0, 0, 0);
+                this.cameras.main.once('camerafadeoutcomplete', () => {
+                    this.scene.start('TitleScene');
+                });
+            }
         }
         
         // Track gamepad state
@@ -840,6 +835,12 @@ export default class MapSelectScene extends Phaser.Scene {
     cleanup() {
         // Remove event listeners
         this.registry.events.off(this.stateManager.events.PROGRESS_UPDATED, this.onProgressUpdated, this);
+        
+        // Clean up scrolling background
+        if (this.scrollingBackground) {
+            this.scrollingBackground.destroy();
+            this.scrollingBackground = null;
+        }
         
         // Note: We don't destroy menuAudio here as it's shared across scenes
     }

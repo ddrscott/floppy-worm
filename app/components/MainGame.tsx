@@ -32,7 +32,13 @@ export function MainGame() {
         (window as any).dat = datGuiModule;
 
         // Load game scenes
-        const { default: MapSelectScene } = await import('/src/scenes/MapSelectScene');
+        const [
+          { default: TitleScene },
+          { default: MapSelectScene }
+        ] = await Promise.all([
+          import('/src/scenes/TitleScene'),
+          import('/src/scenes/MapSelectScene')
+        ]);
 
         if (!mounted) return;
 
@@ -41,6 +47,7 @@ export function MainGame() {
           ...BaseGameConfig,
           parent: 'game-container',
           scene: [
+            TitleScene,
             MapSelectScene,
           ]
         });
