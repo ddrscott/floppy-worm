@@ -36,6 +36,8 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 - [x] Basic animations/transitions
 
 #### 1.2 Tutorial & Onboarding
+
+**low priority we have some basic levels to do this already**
 - [ ] Expand tutorial levels with clear control instructions
 - [ ] Visual control prompts (show keys/buttons)
 - [ ] Progressive difficulty introduction
