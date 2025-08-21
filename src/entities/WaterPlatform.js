@@ -192,6 +192,12 @@ export default class WaterPlatform extends PlatformBase {
     }
     
     createSplash(x, y) {
+        // Play water splash sound
+        if (this.scene.registry.get('splatSynthesizer')) {
+            const splatSynth = this.scene.registry.get('splatSynthesizer');
+            splatSynth.playWaterSplash(0.5); // Play at 50% volume
+        }
+        
         // Create splash particles
         try {
             const splash = this.scene.add.particles(x, y, '__DEFAULT', {

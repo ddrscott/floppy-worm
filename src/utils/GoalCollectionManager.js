@@ -155,13 +155,10 @@ export default class GoalCollectionManager {
             }
         });
         
-        // Play sound if available
-        if (this.scene.sound) {
-            if (this.scene.sound.get && this.scene.sound.get('goalCollect')) {
-                this.scene.sound.play('goalCollect');
-            } else if (this.scene.sound.get && this.scene.sound.get('collect')) {
-                this.scene.sound.play('collect');
-            }
+        // Play goal collection sound using ZzfxSplatWrapper
+        if (this.scene.registry.get('splatSynthesizer')) {
+            const splatSynth = this.scene.registry.get('splatSynthesizer');
+            splatSynth.playGoalCollect(0.6); // Play at 60% volume
         }
 
         // Hide from minimap if available

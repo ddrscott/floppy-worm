@@ -279,6 +279,53 @@ export default class WormBase {
         
         // Update the synthesizer with smoothed values
         this.whooshSynthesizer.update(finalVolume, this.audioState.currentFrequency);
+        
+        // Update movement sounds (squish/stretch)
+        this.updateMovementSounds(delta);
+    }
+    
+    updateMovementSounds(delta) {
+        if (!this.splatSynthesizer || !this.constraints || !this.constraintStates) return;
+        
+        // Check each constraint for stretching or compression
+        this.constraints.forEach((constraint, index) => {
+            if (!this.constraintStates[index]) return;
+            
+            const state = this.constraintStates[index];
+            const bodyA = constraint.bodyA;
+            const bodyB = constraint.bodyB;
+            
+            // Calculate current distance between constraint bodies
+            const dx = bodyB.position.x - bodyA.position.x;
+            const dy = bodyB.position.y - bodyA.position.y;
+            const currentLength = Math.sqrt(dx * dx + dy * dy);
+            
+            // Calculate relative length (1.0 = rest length)
+            const relativeLength = currentLength / state.restLength;
+            
+            // Calculate velocity of stretch/compression
+            const lengthVelocity = Math.abs(currentLength - state.prevLength) / (delta / 1000);
+            
+            // Only trigger sounds if there's significant velocity
+            const velocityThreshold = 50; // pixels per second
+            
+            if (lengthVelocity > velocityThreshold) {
+                // Get volume based on velocity (more dramatic changes = louder)
+                const volumeMultiplier = Math.min(1.0, lengthVelocity / 200) * 0.3;
+                
+                // Check for stretching
+                if (relativeLength > state.stretchThreshold && state.prevLength < currentLength) {
+                    this.splatSynthesizer.playStretch(volumeMultiplier);
+                }
+                // Check for compression
+                else if (relativeLength < state.squishThreshold && state.prevLength > currentLength) {
+                    this.splatSynthesizer.playSquish(volumeMultiplier);
+                }
+            }
+            
+            // Update previous length for next frame
+            state.prevLength = currentLength;
+        });
     }
     
     initializeAudio() {
@@ -295,12 +342,33 @@ export default class WormBase {
             volumeThreshold: 10.0,  // Minimum velocity for audio to start
             maxVelocity: 30.0       // Velocity at which volume reaches maximum
         };
+        
+        // Track constraint lengths for movement sounds
+        this.constraintStates = [];
+        if (this.constraints) {
+            this.constraintStates = this.constraints.map(c => ({
+                prevLength: c.length,
+                restLength: c.length,
+                stretchThreshold: 1.15, // 15% stretch triggers sound
+                squishThreshold: 0.85   // 15% compression triggers sound
+            }));
+        }
     }
     
     initializeSplatSynthesizer() {
         // Initialize splat synthesizer for collision sounds
         this.splatSynthesizer = null;
         this.lastSplatTime = 0;
+        
+        // Also register it globally for UI sounds
+        if (!this.scene.registry.get('splatSynthesizer')) {
+            try {
+                const globalSplatSynth = new ZzfxSplatWrapper();
+                this.scene.registry.set('splatSynthesizer', globalSplatSynth);
+            } catch (error) {
+                // Audio not available
+            }
+        }
     }
     
     playSplatSound(velocity = 10, mass = 0.1, surfaceHardness = 0.5) {

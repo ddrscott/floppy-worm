@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getMenuAudio } from '../audio/MenuAudio';
 import ScrollingBackground from '../utils/ScrollingBackground';
 import WormBase from '../entities/WormBase';
+import ZzfxSplatWrapper from '../audio/ZzfxSplatWrapper';
 
 export default class TitleScene extends Phaser.Scene {
     constructor() {
@@ -53,6 +54,16 @@ export default class TitleScene extends Phaser.Scene {
         const { width, height } = this.scale;
         const centerX = width / 2;
         const centerY = height / 2;
+        
+        // Initialize global splat synthesizer for UI sounds
+        if (!this.registry.get('splatSynthesizer')) {
+            try {
+                const globalSplatSynth = new ZzfxSplatWrapper();
+                this.registry.set('splatSynthesizer', globalSplatSynth);
+            } catch (error) {
+                // Audio not available
+            }
+        }
         
         // Disable physics debug rendering
         this.matter.world.drawDebug = false;
@@ -262,6 +273,12 @@ export default class TitleScene extends Phaser.Scene {
     selectOption(index) {
         if (index < 0 || index >= this.menuOptions.length) return;
         
+        // Play UI hover sound
+        if (this.registry.get('splatSynthesizer') && index !== this.selectedOption) {
+            const splatSynth = this.registry.get('splatSynthesizer');
+            splatSynth.playUIHover(0.3); // Play at 30% volume
+        }
+        
         this.selectedOption = index;
         this.updateSelection();
         
@@ -328,6 +345,12 @@ export default class TitleScene extends Phaser.Scene {
         if (this.isTransitioning) return;
         
         const option = this.menuOptions[this.selectedOption];
+        
+        // Play UI click sound
+        if (this.registry.get('splatSynthesizer')) {
+            const splatSynth = this.registry.get('splatSynthesizer');
+            splatSynth.playUIClick(0.4); // Play at 40% volume
+        }
         
         // Play select sound
         if (this.menuAudio) {

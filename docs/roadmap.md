@@ -13,9 +13,10 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 - **Audio Foundation**: Background music system, volume controls
 - **Map Variety**: Both JSON and SVG-based levels
 - **Pause Menu**: Basic pause functionality with volume controls
+- **Title Screen**: Animated title with worm physics showcase
 
 ### ⚠️ Critical Gaps for Beta
-- No proper main menu/title screen
+- No main menu navigation (Start, Settings, Quit)
 - Missing comprehensive tutorial flow
 - Incomplete audio (limited sound effects)
 - No Steam integration
@@ -29,10 +30,10 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 *Without these, the beta will fail to provide basic functionality*
 
 #### 1.1 Main Menu & Title Screen
-- [ ] Create proper title screen with game logo
-- [ ] Main menu with Start, Settings, Quit options
-- [ ] Version number display
-- [ ] Basic animations/transitions
+- [x] Create proper title screen with game logo
+- [x] Main menu with Start, Settings, Quit options
+- [x] Version number display
+- [x] Basic animations/transitions
 
 #### 1.2 Tutorial & Onboarding
 - [ ] Expand tutorial levels with clear control instructions
@@ -41,10 +42,10 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 - [ ] Skip tutorial option for returning players
 
 #### 1.3 Audio & Sound Effects
-- [ ] Movement sounds (squish, stretch)
-- [ ] Platform interaction sounds (electric zap, water splash)
-- [ ] Victory/completion jingle
-- [ ] UI sounds (menu navigation, button clicks)
+- [x] Movement sounds (squish, stretch)
+- [x] Platform interaction sounds (electric zap, water splash)
+- [x] Victory/completion jingle
+- [x] UI sounds (menu navigation, button clicks)
 - [ ] Ambient sounds for atmosphere
 
 #### 1.4 Settings Menu

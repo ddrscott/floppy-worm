@@ -379,6 +379,11 @@ export default class JsonMapBase extends Phaser.Scene {
         // Reset pause state when resuming from pause menu
         this.events.on('resume', () => {
             this.isPaused = false;
+            
+            // Resume the stopwatch
+            if (this.stopwatch) {
+                this.stopwatch.resume();
+            }
         });
         
         // Load saved volume from localStorage and apply
@@ -1803,6 +1808,12 @@ export default class JsonMapBase extends Phaser.Scene {
         
         console.log(`💀 Worm death event received: ${reason}`, deathData);
         
+        // Suspend physics to freeze everything in place
+        if (this.matter && this.matter.world) {
+            this.matter.world.pause();
+            console.log('⏸️ Physics paused - death freeze');
+        }
+        
         // Disable all input during death sequence
         this.input.enabled = false;
         if (this.worm && this.worm.inputManager) {
@@ -1848,6 +1859,12 @@ export default class JsonMapBase extends Phaser.Scene {
         console.log('⏱️ Elapsed time before restart:', elapsedTime);
         
         await this.saveRecordingToIndexedDB(false, elapsedTime, reason);
+        
+        // Resume physics before restarting (in case it was paused)
+        if (this.matter && this.matter.world) {
+            this.matter.world.resume();
+            console.log('▶️ Physics resumed before restart');
+        }
         
         console.log('🔄 Restarting scene now...');
         // Now restart the scene
@@ -1992,6 +2009,11 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Mark as paused
         this.isPaused = true;
+        
+        // Pause the stopwatch
+        if (this.stopwatch) {
+            this.stopwatch.pause();
+        }
         
         // Pause this scene (it will still render but not update) and launch pause menu
         this.scene.pause();

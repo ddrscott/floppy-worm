@@ -441,6 +441,12 @@ export default class VictoryDialog extends Phaser.Scene {
     }
     
     createCelebration() {
+        // Play victory sound
+        if (this.registry.get('splatSynthesizer')) {
+            const splatSynth = this.registry.get('splatSynthesizer');
+            splatSynth.playVictory(0.6); // Play at 60% volume
+        }
+        
         // Celebration stars
         for (let i = 0; i < 15; i++) {
             this.time.delayedCall(i * 100, () => {

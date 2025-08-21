@@ -192,6 +192,12 @@ export default class ElectricPlatform extends PlatformBase {
     }
     
     triggerShockEffect() {
+        // Play electric zap sound
+        if (this.scene.registry.get('splatSynthesizer')) {
+            const splatSynth = this.scene.registry.get('splatSynthesizer');
+            splatSynth.playElectricZap(0.4); // Play at 40% volume
+        }
+        
         // Platform flash - handle different graphic types
         let originalColor;
         
