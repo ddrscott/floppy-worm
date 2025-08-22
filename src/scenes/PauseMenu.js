@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getMenuAudio } from '../audio/MenuAudio';
+import SettingsScene from './SettingsScene';
 
 /**
  * Pause menu overlay scene
@@ -52,7 +53,7 @@ export default class PauseMenu extends Phaser.Scene {
         
         // Dialog background - sized for mobile compatibility
         const dialogWidth = 320;
-        const dialogHeight = 400;
+        const dialogHeight = 450;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -103,10 +104,21 @@ export default class PauseMenu extends Phaser.Scene {
             () => this.restartLevel()
         );
         
-        // Main Menu button
+        // Settings button
         this.createButton(
             this.scale.width / 2, 
             startY + (buttonHeight + spacing) * 2, 
+            buttonWidth, 
+            buttonHeight, 
+            'Settings', 
+            0x9b59b6, 
+            () => this.openSettings()
+        );
+        
+        // Main Menu button
+        this.createButton(
+            this.scale.width / 2, 
+            startY + (buttonHeight + spacing) * 3, 
             buttonWidth, 
             buttonHeight, 
             'Main Menu', 
@@ -117,7 +129,7 @@ export default class PauseMenu extends Phaser.Scene {
         // Volume Control Section
         this.createVolumeControl(
             this.scale.width / 2, 
-            startY + (buttonHeight + spacing) * 3 + 20
+            startY + (buttonHeight + spacing) * 4 + 20
         );
         
         // Set up input
@@ -481,6 +493,20 @@ export default class PauseMenu extends Phaser.Scene {
         this.scene.stop();
         this.scene.resume(this.gameScene.scene.key);
         this.gameScene.scene.restart();
+    }
+    
+    openSettings() {
+        // Add SettingsScene if not already added
+        if (!this.scene.manager.getScene('SettingsScene')) {
+            this.scene.manager.add('SettingsScene', SettingsScene, false);
+        }
+        
+        // Pause this menu and launch settings
+        this.scene.pause();
+        this.scene.launch('SettingsScene', {
+            callerScene: 'PauseMenu',
+            isPauseMenu: true
+        });
     }
     
     async returnToMainMenu() {

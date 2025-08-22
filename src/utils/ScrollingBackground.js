@@ -147,12 +147,23 @@ export default class ScrollingBackground {
     }
     
     handleResize() {
+        // Check if scene is still active and background exists
+        if (!this.scene || !this.scene.scale || !this.background || this.background.scene === undefined) {
+            return;
+        }
+        
         const { width, height } = this.scene.scale;
         
-        // Update background size
-        if (this.background) {
-            this.background.setPosition(width / 2, height / 2);
-            this.background.setSize(width, height);
+        // Update background size with additional safety check
+        if (this.background && this.background.setPosition && this.background.setSize) {
+            try {
+                this.background.setPosition(width / 2, height / 2);
+                this.background.setSize(width, height);
+            } catch (e) {
+                // Background might have been destroyed, ignore the error
+                console.warn('ScrollingBackground: Failed to resize background, it may have been destroyed');
+                return;
+            }
         }
         
         // Recreate grid with new dimensions
@@ -160,13 +171,17 @@ export default class ScrollingBackground {
         
         // Update particle bounds
         this.particles.forEach(particle => {
-            particle.startY = height + 10;
+            if (particle && particle.startY !== undefined) {
+                particle.startY = height + 10;
+            }
         });
     }
     
     destroy() {
-        // Clean up resize listener
-        this.scene.scale.off('resize', this.handleResize, this);
+        // Clean up resize listener first to prevent any further resize calls
+        if (this.scene && this.scene.scale) {
+            this.scene.scale.off('resize', this.handleResize, this);
+        }
         
         // Stop and destroy tween
         if (this.scrollTween) {
@@ -181,14 +196,19 @@ export default class ScrollingBackground {
         }
         
         // Destroy particles
-        this.particles.forEach(particle => particle.destroy());
+        this.particles.forEach(particle => {
+            if (particle) particle.destroy();
+        });
         this.particles = [];
         
-        // Destroy background
+        // Destroy background and clear reference immediately
         if (this.background) {
             this.background.destroy();
             this.background = null;
         }
+        
+        // Clear scene reference to prevent any further access
+        this.scene = null;
     }
     
     /**

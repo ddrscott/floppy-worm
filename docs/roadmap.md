@@ -51,12 +51,12 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 - [ ] Ambient sounds for atmosphere
 
 #### 1.4 Settings Menu
-- [ ] Master volume slider
-- [ ] Music volume slider
-- [ ] SFX volume slider
+- [x] Master volume slider
+- [x] Music volume slider
+- [x] SFX volume slider
 - [ ] Graphics quality options (if needed)
 - [ ] Control remapping (basic)
-- [ ] Fullscreen toggle
+- [x] Fullscreen toggle
 
 #### 1.5 Error Handling & Stability
 - [ ] Graceful crash recovery
@@ -118,11 +118,47 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 - [ ] Steam Workshop support prep
 - [ ] Discord Rich Presence
 
-#### 3.3 Extended Content
+#### 3.3 Extended Content & New Platform Types
 - [ ] 10+ additional levels
 - [ ] Secret/bonus levels
-- [ ] New platform types
 - [ ] Environmental hazards
+
+##### New Platform Types (Implementation Priority Order)
+Each platform type will have its own SVG test stage for isolated testing and development.
+
+**Puzzle Mechanics (Priority 1)**
+- [ ] **SwitchPlatform** - Pressure/toggle switches that activate other platforms
+  - Test stage: `test-switch.svg`
+- [ ] **DoorPlatform** - Opens/closes based on switch activation
+  - Test stage: `test-door.svg`
+
+**Hazards & Traps (Priority 2)**
+- [ ] **SpikeTrapPlatform** - Retractable or permanent spikes that reset the worm
+  - Test stage: `test-spiketrap.svg`
+- [ ] **CrumblingPlatform** - Breaks after sustained weight, can respawn
+  - Test stage: `test-crumbling.svg`
+
+**Movement Enhancers (Priority 3)**
+- [ ] **CatapultPlatform** - Spring-loaded launcher with configurable force/angle
+  - Test stage: `test-catapult.svg`
+- [ ] **SpringboardPlatform** - Compressed spring that releases on contact
+  - Test stage: `test-springboard.svg`
+- [ ] **ConveyorPlatform** - Moving belt that carries objects along surface
+  - Test stage: `test-conveyor.svg`
+- [ ] **SeesawPlatform** - Tilts based on weight distribution
+  - Test stage: `test-seesaw.svg`
+
+**Environmental Effects (Priority 4)**
+- [ ] **StickyPlatform** - Tar/honey surface that slows movement
+  - Test stage: `test-sticky.svg`
+- [ ] **WindFanPlatform** - Industrial fan creating directional air currents
+  - Test stage: `test-windfan.svg`
+
+**Mechanical Elements (Priority 5)**
+- [ ] **RotatingGearPlatform** - Spinning gear that can interlock with others
+  - Test stage: `test-gear.svg`
+- [ ] **MovingPlatform** - Follows waypoint path (elevator/trolley style)
+  - Test stage: `test-moving.svg`
 
 ## Beta Testing Focus Areas
 

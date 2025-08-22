@@ -3,6 +3,7 @@ import { getMenuAudio } from '../audio/MenuAudio';
 import ScrollingBackground from '../utils/ScrollingBackground';
 import WormBase from '../entities/WormBase';
 import ZzfxSplatWrapper from '../audio/ZzfxSplatWrapper';
+import SettingsScene from './SettingsScene';
 
 export default class TitleScene extends Phaser.Scene {
     constructor() {
@@ -43,6 +44,9 @@ export default class TitleScene extends Phaser.Scene {
         
         // Initialize menu audio from registry
         this.menuAudio = getMenuAudio(this);
+        
+        // Clean up any existing resize listeners to prevent duplicates
+        this.scale.off('resize', this.handleResize, this);
     }
     
     preload() {
@@ -212,6 +216,11 @@ export default class TitleScene extends Phaser.Scene {
     }
     
     handleResize() {
+        // Check if scene is still active and not being destroyed
+        if (!this.scene || !this.scene.isActive() || this.isTransitioning) {
+            return;
+        }
+        
         const { width, height } = this.scale;
         const centerX = width / 2;
         const centerY = height / 2;
@@ -223,26 +232,34 @@ export default class TitleScene extends Phaser.Scene {
         const subtitleFontSize = Math.max(14, Math.floor(20 * scaleFactor));
         const menuFontSize = Math.max(18, Math.floor(24 * scaleFactor));
         
-        // Update title position and size
-        if (this.titleText) {
-            this.titleText.setPosition(centerX, centerY - 150);
-            this.titleText.setFontSize(titleFontSize);
-            this.titleText.setStroke('#232333', Math.max(4, Math.floor(8 * scaleFactor)));
+        // Update title position and size with safety checks
+        if (this.titleText && this.titleText.scene) {
+            try {
+                this.titleText.setPosition(centerX, centerY - 150);
+                this.titleText.setFontSize(titleFontSize);
+                this.titleText.setStroke('#232333', Math.max(4, Math.floor(8 * scaleFactor)));
+            } catch (e) {
+                // Text object may have been destroyed, ignore
+            }
         }
         
-        // Update subtitle position and size
-        if (this.subtitleText) {
-            this.subtitleText.setPosition(centerX, centerY - 90);
-            this.subtitleText.setFontSize(subtitleFontSize);
+        // Update subtitle position and size with safety checks
+        if (this.subtitleText && this.subtitleText.scene) {
+            try {
+                this.subtitleText.setPosition(centerX, centerY - 90);
+                this.subtitleText.setFontSize(subtitleFontSize);
+            } catch (e) {
+                // Text object may have been destroyed, ignore
+            }
         }
         
         // Update menu container position
-        if (this.menuContainer) {
+        if (this.menuContainer && this.menuContainer.scene) {
             this.menuContainer.setPosition(centerX, centerY + 50);
         }
         
         // Update version text position
-        if (this.versionText) {
+        if (this.versionText && this.versionText.scene) {
             this.versionText.setPosition(width - 20, height - 20);
         }
         
@@ -385,26 +402,25 @@ export default class TitleScene extends Phaser.Scene {
     }
     
     openSettings() {
-        // For now, just show a message
-        // In the future, this will open the SettingsScene
-        console.log('Settings not yet implemented');
+        this.isTransitioning = true;
         
-        // Create temporary message
-        const message = this.add.text(this.scale.width / 2, this.scale.height - 100, 
-            'Settings coming soon!', {
-            fontSize: '20px',
-            color: '#e74c3c',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 15, y: 10 }
-        }).setOrigin(0.5);
+        // Play select sound
+        if (this.menuAudio) {
+            this.menuAudio.play('select');
+        }
         
-        this.tweens.add({
-            targets: message,
-            alpha: 1,
-            duration: 300,
-            yoyo: true,
-            hold: 1500,
-            onComplete: () => message.destroy()
+        // Add SettingsScene if not already added
+        if (!this.scene.manager.getScene('SettingsScene')) {
+            this.scene.manager.add('SettingsScene', SettingsScene, false);
+        }
+        
+        // Fade out to settings
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+            // Stop this scene to prevent resize issues
+            this.scene.stop();
+            this.scene.start('SettingsScene', { callerScene: 'TitleScene' });
         });
     }
     
@@ -506,10 +522,13 @@ export default class TitleScene extends Phaser.Scene {
     }
     
     shutdown() {
+        // Set transitioning flag to prevent resize handlers from running
+        this.isTransitioning = true;
+        
         // Kill all tweens to prevent them from running on destroyed objects
         this.tweens.killAll();
         
-        // Clean up resize listener
+        // Clean up resize listener immediately
         this.scale.off('resize', this.handleResize, this);
         
         // Clean up scrolling background
