@@ -1084,11 +1084,6 @@ export default class JsonMapBase extends Phaser.Scene {
 
             }
             this.cameras.main.setDeadzone(60, 60);
-            
-            // Apply UI padding if it exists
-            if (this.uiBarHeight) {
-                this.adjustCameraForUI(this.uiBarHeight);
-            }
         }
         
         if (this.minimap) {
@@ -1113,46 +1108,6 @@ export default class JsonMapBase extends Phaser.Scene {
         }
     }
     
-    adjustCameraForUI(uiHeight) {
-        // Store UI bar height for resize events
-        this.uiBarHeight = uiHeight;
-        
-        if (!this.cameras || !this.cameras.main) return;
-        
-        const { width, height } = this.scale;
-        const mainCam = this.cameras.main;
-        
-        // Calculate the visible game area (accounting for UI)
-        const visibleHeight = height - uiHeight;
-        
-        // Set camera viewport to exclude the UI area
-        // This creates a viewport that doesn't render under the UI
-        mainCam.setViewport(0, 0, width, visibleHeight);
-        
-        // Keep the same world bounds - the camera will handle the viewport
-        mainCam.setBounds(0, 0, this.levelWidth, this.levelHeight);
-        
-        // Recalculate zoom if needed to ensure level fits in visible area
-        const minWidth = 720;
-        const minHeight = 720 - uiHeight; // Adjust minimum height for UI
-        
-        if (this.scale.isPortrait && width < minWidth) {
-            mainCam.setZoom(width / minWidth);
-        } else if (this.scale.isLandscape && visibleHeight < minHeight) {
-            mainCam.setZoom(visibleHeight / minHeight);
-        }
-        
-        // Ensure deadzone is appropriate for the viewport
-        mainCam.setDeadzone(60, 60);
-        
-        // Update minimap to not overlap with UI (optional - keep it in top right)
-        if (this.minimap) {
-            // Minimap stays in the visible game area, not under UI
-            const mapX = width - this.miniMapConfig.width - this.miniMapConfig.padding;
-            const mapY = this.miniMapConfig.padding;
-            this.minimap.setViewport(mapX, mapY, this.miniMapConfig.width, this.miniMapConfig.height);
-        }
-    }
     
     calculateWormVelocityVector() {
         if (!this.worm || !this.worm.segments) return { x: 0, y: 0, magnitude: 0 };

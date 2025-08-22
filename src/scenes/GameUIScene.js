@@ -6,7 +6,8 @@ import Phaser from 'phaser';
  * Design philosophy:
  * - Dieter Rams: Less but better, unobtrusive, honest
  * - Teenage Engineering: Functional minimalism, grid-based, monospace
- * - Bottom bar layout for minimal gameplay obstruction
+ * - Top-left overlay with vertical stat stacking
+ * - No background, pure text overlay
  * - Mobile-first responsive design
  */
 export default class GameUIScene extends Phaser.Scene {
@@ -24,29 +25,25 @@ export default class GameUIScene extends Phaser.Scene {
         
         // UI elements
         this.container = null;
-        this.background = null;
         this.levelText = null;
         this.ghostIndicator = null;
-        this.starIcon = null;
         this.starText = null;
         this.timeText = null;
         this.bestTimeText = null;
-        this.pauseButton = null;
         
         // Layout config
-        this.barHeight = 80;
         this.baseFontSize = 18;
         this.padding = 20;
+        this.lineHeight = 24;
         
         // Colors (limited palette)
         this.colors = {
-            background: 0x000000,
-            backgroundAlpha: 0.85,
             primary: '#ffffff',
             gold: '#ffd700',
             purple: '#9b59b6',
             gray: '#95a5a6',
-            accent: '#4ecdc4'
+            accent: '#4ecdc4',
+            shadow: '#000000'
         };
     }
     
@@ -54,14 +51,20 @@ export default class GameUIScene extends Phaser.Scene {
         // Store reference to game scene
         this.gameScene = data.gameScene;
         
+        // Ensure this scene renders on top of everything
+        this.scene.bringToTop();
+        
         // Calculate responsive sizes
         this.calculateSizes();
         
-        // Create the bottom bar
-        this.createBottomBar();
+        // Create the top-left overlay
+        this.createTopLeftOverlay();
         
         // Set up event listeners
         this.setupEventListeners();
+        
+        // Handle resize events
+        this.scale.on('resize', this.handleResize, this);
         
         // Initialize with data if provided
         if (data) {
@@ -69,333 +72,255 @@ export default class GameUIScene extends Phaser.Scene {
             if (data.bestTime !== undefined) this.setBestTime(data.bestTime);
             if (data.totalGoals) this.setGoalTotal(data.totalGoals);
         }
-        
-        // Notify game scene of UI height for camera adjustment
-        if (this.gameScene && this.gameScene.adjustCameraForUI) {
-            this.gameScene.adjustCameraForUI(this.barHeight);
-        }
     }
     
     calculateSizes() {
         const { width, height } = this.scale;
         const screenMin = Math.min(width, height);
         
-        // Responsive font size (14-24px)
-        this.baseFontSize = Math.max(14, Math.min(24, screenMin / 30));
+        // Responsive font size (14-20px)
+        this.baseFontSize = Math.max(14, Math.min(20, screenMin / 35));
         
-        // Responsive bar height (60-100px, 8% of screen)
-        this.barHeight = Math.max(60, Math.min(100, height * 0.08));
+        // Line height for vertical spacing
+        this.lineHeight = this.baseFontSize * 1.8;
         
         // Adaptive padding
-        this.padding = Math.max(10, Math.min(30, width * 0.02));
+        this.padding = Math.max(15, Math.min(25, width * 0.02));
     }
     
-    createBottomBar() {
-        const { width, height } = this.scale;
+    createTopLeftOverlay() {
+        // Main container for the top-left overlay
+        this.container = this.add.container(this.padding, this.padding);
         
-        // Main container for the bottom bar
-        this.container = this.add.container(0, height - this.barHeight);
+        let yOffset = 0;
         
-        // Semi-transparent background
-        this.background = this.add.rectangle(
-            width / 2, 
-            this.barHeight / 2, 
-            width, 
-            this.barHeight, 
-            this.colors.background, 
-            this.colors.backgroundAlpha
-        );
-        this.container.add(this.background);
-        
-        // Add subtle top border
-        const border = this.add.rectangle(
-            width / 2,
-            1,
-            width,
-            2,
-            parseInt(this.colors.accent.replace('#', '0x')),
-            0.3
-        );
-        this.container.add(border);
-        
-        // Create sections
-        this.createLevelSection();
-        this.createProgressSection();
-        this.createTimerSection();
-        this.createControlsSection();
-    }
-    
-    createLevelSection() {
-        const x = this.padding;
-        const y = this.barHeight / 2;
-        
-        // Level name (subdued color, smaller font)
-        this.levelText = this.add.text(x, y - 8, '', {
-            fontSize: `${this.baseFontSize * 0.8}px`,
+        // Level name (top line) - matches title screen color
+        this.levelText = this.add.text(0, yOffset, '', {
+            fontSize: `${this.baseFontSize}px`,
             fontFamily: 'Arial, sans-serif',
-            color: this.colors.gray,
-            align: 'left'
-        }).setOrigin(0, 0.5);
+            fontStyle: 'bold',
+            color: '#4ecdc4',  // Match title screen cyan
+            align: 'left',
+            stroke: this.colors.shadow,
+            strokeThickness: 2
+        }).setOrigin(0, 0);
+        this.container.add(this.levelText);
         
-        // Ghost indicator (appears below level name when racing)
-        this.ghostIndicator = this.add.text(x, y + 12, '', {
-            fontSize: `${this.baseFontSize * 0.7}px`,
+        yOffset += this.lineHeight;
+        
+        // Create pause button and time display on same line (VCR style)
+        this.createVCRControls(yOffset);
+        
+        yOffset += this.lineHeight;
+        
+        // Best time (appears below timer when it exists)
+        this.bestTimeText = this.add.text(0, yOffset, '', {
+            fontSize: `${this.baseFontSize * 0.8}px`,
+            fontFamily: 'monospace',
+            color: this.colors.accent,
+            align: 'left',
+            stroke: this.colors.shadow,
+            strokeThickness: 2
+        }).setOrigin(0, 0).setVisible(false);
+        this.container.add(this.bestTimeText);
+        
+        // Star progress (shifts up when no best time)
+        this.starText = this.add.text(0, yOffset, '', {
+            fontSize: `${this.baseFontSize * 1.1}px`,
+            fontFamily: 'monospace',
+            color: this.colors.gold,
+            align: 'left',
+            stroke: this.colors.shadow,
+            strokeThickness: 2
+        }).setOrigin(0, 0).setVisible(false);
+        this.container.add(this.starText);
+        
+        // Ghost indicator (shifts up when no best time)
+        this.ghostIndicator = this.add.text(0, yOffset, '', {
+            fontSize: `${this.baseFontSize * 0.8}px`,
             fontFamily: 'monospace',
             color: this.colors.purple,
-            align: 'left'
-        }).setOrigin(0, 0.5).setVisible(false);
-        
-        this.container.add([this.levelText, this.ghostIndicator]);
+            align: 'left',
+            stroke: this.colors.shadow,
+            strokeThickness: 2
+        }).setOrigin(0, 0).setVisible(false);
+        this.container.add(this.ghostIndicator);
     }
     
-    createProgressSection() {
-        const { width } = this.scale;
-        const x = width * 0.3; // 30% from left
-        const y = this.barHeight / 2;
+    createVCRControls(yOffset) {
+        // VCR-style controls container for perfect alignment
+        this.vcrContainer = this.add.container(0, yOffset);
+        this.container.add(this.vcrContainer);
         
-        // Star icon (only shown when goals exist)
-        this.starIcon = this.add.star(x - 15, y, 5, 8, 12, parseInt(this.colors.gold.replace('#', '0x')))
-            .setVisible(false);
+        const buttonSize = this.baseFontSize * 1.5; // Match timer height
         
-        // Star counter text
-        this.starText = this.add.text(x + 5, y, '', {
-            fontSize: `${this.baseFontSize}px`,
-            fontFamily: 'monospace',
-            color: this.colors.gold,
-            align: 'left'
-        }).setOrigin(0, 0.5).setVisible(false);
+        // Pause button background (square, VCR style)
+        this.pauseButton = this.add.rectangle(
+            buttonSize/2, buttonSize/2, 
+            buttonSize, buttonSize, 
+            0x000000, 0.5  // Transparent background
+        ).setOrigin(0.5, 0.5);
+        this.pauseButton.setStrokeStyle(2, 0xaaaaaa, 1); // White outline
+        this.pauseButton.setInteractive({ useHandCursor: true });
+        this.vcrContainer.add(this.pauseButton);
         
-        this.container.add([this.starIcon, this.starText]);
-    }
-    
-    createTimerSection() {
-        const { width } = this.scale;
-        const x = width * 0.65; // 65% from left (right-center)
-        const y = this.barHeight / 2;
+        // Pause icon (two vertical bars, VCR style)
+        const barWidth = buttonSize * 0.12;
+        const barHeight = buttonSize * 0.5;
+        const barSpacing = buttonSize * 0.2;
         
-        // Current time (large, prominent)
-        this.timeText = this.add.text(x, y - 10, '0:00.00', {
-            fontSize: `${this.baseFontSize * 1.3}px`,
+        // Left bar - white with black stroke
+        const leftBar = this.add.rectangle(
+            buttonSize/2 - barSpacing/2, buttonSize/2,
+            barWidth, barHeight,
+            0xffffff  // White fill
+        );
+        leftBar.setStrokeStyle(1, this.colors.shadow, 1);
+        this.vcrContainer.add(leftBar);
+        
+        // Right bar - white with black stroke
+        const rightBar = this.add.rectangle(
+            buttonSize/2 + barSpacing/2, buttonSize/2,
+            barWidth, barHeight,
+            0xffffff  // White fill
+        );
+        rightBar.setStrokeStyle(1, this.colors.shadow, 1);
+        this.vcrContainer.add(rightBar);
+        
+        // Store bars for hover effects
+        this.pauseBars = [leftBar, rightBar];
+        
+        // Current time display - vertically centered with button
+        this.timeText = this.add.text(buttonSize + 10, buttonSize/2, '0:00.00', {
+            fontSize: `${this.baseFontSize * 1.2}px`,
             fontFamily: 'monospace',
             color: this.colors.primary,
-            fontStyle: 'bold',
-            align: 'center'
-        }).setOrigin(0.5, 0.5);
+            align: 'left',
+            stroke: this.colors.shadow,
+            strokeThickness: 2
+        }).setOrigin(0, 0.5); // Center vertically
+        this.vcrContainer.add(this.timeText);
         
-        // Best time (smaller, below current)
-        this.bestTimeText = this.add.text(x, y + 12, '', {
-            fontSize: `${this.baseFontSize * 0.75}px`,
-            fontFamily: 'monospace',
-            color: this.colors.gold,
-            align: 'center'
-        }).setOrigin(0.5, 0.5).setVisible(false);
-        
-        this.container.add([this.timeText, this.bestTimeText]);
-    }
-    
-    createControlsSection() {
-        const { width } = this.scale;
-        const x = width - this.padding;
-        const y = this.barHeight / 2;
-        
-        // Pause button (minimalist design)
-        const buttonSize = Math.max(40, this.barHeight * 0.5);
-        
-        // Create button background
-        const buttonBg = this.add.rectangle(x - buttonSize/2, y, buttonSize, buttonSize, 0xffffff, 0)
-            .setStrokeStyle(2, parseInt(this.colors.gray.replace('#', '0x')), 0.5)
-            .setInteractive({ useHandCursor: true });
-        
-        // Pause icon (two vertical bars)
-        const barWidth = buttonSize * 0.08;
-        const barHeight = buttonSize * 0.3;
-        const barSpacing = buttonSize * 0.15;
-        
-        const pauseIcon1 = this.add.rectangle(
-            x - buttonSize/2 - barSpacing/2, 
-            y, 
-            barWidth, 
-            barHeight, 
-            parseInt(this.colors.gray.replace('#', '0x'))
-        );
-        
-        const pauseIcon2 = this.add.rectangle(
-            x - buttonSize/2 + barSpacing/2, 
-            y, 
-            barWidth, 
-            barHeight, 
-            parseInt(this.colors.gray.replace('#', '0x'))
-        );
-        
-        // Group pause button elements
-        this.pauseButton = this.add.container(0, 0, [buttonBg, pauseIcon1, pauseIcon2]);
-        
-        // Add hover effect
-        buttonBg.on('pointerover', () => {
-            buttonBg.setStrokeStyle(2, parseInt(this.colors.accent.replace('#', '0x')), 1);
-            pauseIcon1.setFillStyle(parseInt(this.colors.accent.replace('#', '0x')));
-            pauseIcon2.setFillStyle(parseInt(this.colors.accent.replace('#', '0x')));
+        // Hover effects
+        this.pauseButton.on('pointerover', () => {
+            this.pauseButton.setStrokeStyle(3, this.colors.primary, 1); // Thicker white outline
+            this.pauseButton.setFillStyle(0xffffff, 0.1); // Slight white fill
+            this.pauseBars.forEach(bar => bar.setScale(1.1));
         });
         
-        buttonBg.on('pointerout', () => {
-            buttonBg.setStrokeStyle(2, parseInt(this.colors.gray.replace('#', '0x')), 0.5);
-            pauseIcon1.setFillStyle(parseInt(this.colors.gray.replace('#', '0x')));
-            pauseIcon2.setFillStyle(parseInt(this.colors.gray.replace('#', '0x')));
+        this.pauseButton.on('pointerout', () => {
+            this.pauseButton.setStrokeStyle(2, this.colors.primary, 1); // Normal white outline
+            this.pauseButton.setFillStyle(0x000000, 0); // Transparent
+            this.pauseBars.forEach(bar => bar.setScale(1));
         });
         
-        buttonBg.on('pointerdown', () => {
-            this.handlePauseClick();
+        // Click to pause
+        this.pauseButton.on('pointerup', () => {
+            if (this.gameScene && !this.gameScene.isPaused) {
+                // Trigger pause menu in the game scene
+                this.gameScene.showPauseMenu();
+            }
         });
-        
-        this.container.add(this.pauseButton);
     }
     
     setupEventListeners() {
-        // Listen for events from the game scene
+        if (!this.gameScene) return;
+        
+        // Listen for updates from game scene
+        this.gameScene.events.on('ui-update-level', this.setLevelName, this);
         this.gameScene.events.on('ui-update-time', this.updateTime, this);
         this.gameScene.events.on('ui-update-stars', this.updateStars, this);
-        this.gameScene.events.on('ui-set-best', this.setBestTime, this);
-        this.gameScene.events.on('ui-show-ghost', this.showGhost, this);
-        this.gameScene.events.on('ui-hide-ghost', this.hideGhost, this);
-        this.gameScene.events.on('ui-pulse-time', this.pulseTime, this);
+        this.gameScene.events.on('ui-update-ghost', this.updateGhostStatus, this);
+        this.gameScene.events.on('ui-update-best', this.setBestTime, this);
+        this.gameScene.events.on('ui-set-goal-total', this.setGoalTotal, this);
         
-        // Listen for resize events
-        this.scale.on('resize', this.handleResize, this);
-        
-        // Clean up on shutdown
+        // Clean up on scene shutdown
         this.events.once('shutdown', this.cleanup, this);
     }
     
-    // Public methods for updating UI
-    
     setLevelName(name) {
         this.levelName = name;
-        // Truncate if too long for mobile
-        const maxLength = this.scale.width < 600 ? 15 : 25;
-        const displayName = name.length > maxLength ? 
-            name.substring(0, maxLength - 3) + '...' : name;
-        this.levelText.setText(displayName);
+        this.levelText.setText(name);
     }
     
-    updateTime(milliseconds) {
-        this.currentTime = milliseconds;
-        this.timeText.setText(this.formatTime(milliseconds));
+    updateTime(elapsedTime) {
+        this.currentTime = elapsedTime;
+        this.timeText.setText(this.formatTime(elapsedTime));
     }
     
-    setBestTime(milliseconds) {
-        this.bestTime = milliseconds;
-        if (milliseconds !== null) {
-            this.bestTimeText.setText(`best: ${this.formatTime(milliseconds)}`).setVisible(true);
+    setBestTime(time) {
+        this.bestTime = time;
+        const baseY = this.lineHeight * 2; // Position after level name and VCR controls
+        
+        if (time !== null && time !== undefined) {
+            // Show best time below timer
+            this.bestTimeText.setText(`Best ${this.formatTime(time)}`).setVisible(true);
+            this.bestTimeText.setY(baseY);
+            
+            // Shift other elements down
+            const offsetY = baseY + this.lineHeight;
+            this.starText.setY(offsetY);
+            this.ghostIndicator.setY(offsetY + this.lineHeight);
         } else {
+            // Hide best time
             this.bestTimeText.setVisible(false);
+            
+            // Shift elements up
+            this.starText.setY(baseY);
+            this.ghostIndicator.setY(baseY + this.lineHeight);
         }
     }
     
     setGoalTotal(total) {
         this.totalGoals = total;
-        if (total > 0) {
-            this.starIcon.setVisible(true);
-            this.starText.setVisible(true);
-            this.updateStars(0);
-        } else {
-            this.starIcon.setVisible(false);
-            this.starText.setVisible(false);
-        }
+        this.updateStars(this.collectedGoals);
     }
     
     updateStars(collected) {
         this.collectedGoals = collected;
         if (this.totalGoals > 0) {
-            this.starText.setText(`${collected}/${this.totalGoals}`);
+            this.starText.setText(`⭐ ${collected}/${this.totalGoals}`).setVisible(true);
             
-            // Pulse effect on collection
-            if (collected > 0) {
-                this.tweens.add({
-                    targets: [this.starIcon, this.starText],
-                    scale: 1.2,
-                    duration: 200,
-                    yoyo: true,
-                    ease: 'Power2'
-                });
+            // Show remaining goals message if not all collected
+            if (collected < this.totalGoals) {
+                const remaining = this.totalGoals - collected;
+                this.starText.setText(`⭐ ${collected}/${this.totalGoals}`);
             }
+            
+            // Update position based on whether best time is visible
+            this.updateElementPositions();
+        } else {
+            this.starText.setVisible(false);
         }
     }
     
-    showGhost(ghostTime) {
-        this.isGhostRacing = true;
-        this.ghostTime = ghostTime;
-        this.ghostIndicator
-            .setText(`👻 racing ${this.formatTime(ghostTime)}`)
-            .setVisible(true);
-        
-        // Fade in animation
-        this.ghostIndicator.setAlpha(0);
-        this.tweens.add({
-            targets: this.ghostIndicator,
-            alpha: 1,
-            duration: 500,
-            ease: 'Power2'
-        });
-    }
-    
-    hideGhost() {
-        this.isGhostRacing = false;
-        this.tweens.add({
-            targets: this.ghostIndicator,
-            alpha: 0,
-            duration: 500,
-            ease: 'Power2',
-            onComplete: () => {
-                this.ghostIndicator.setVisible(false);
-            }
-        });
-    }
-    
-    pulseTime() {
-        // Pulse effect for new best time
-        this.tweens.add({
-            targets: this.timeText,
-            scale: 1.3,
-            duration: 300,
-            yoyo: true,
-            repeat: 2,
-            ease: 'Power2'
-        });
-        
-        // Flash gold color
-        this.timeText.setColor(this.colors.gold);
-        this.time.delayedCall(1000, () => {
-            this.timeText.setColor(this.colors.primary);
-        });
-    }
-    
-    handlePauseClick() {
-        // Trigger pause in the game scene
-        if (this.gameScene && this.gameScene.showPauseMenu) {
-            this.gameScene.showPauseMenu();
+    updateGhostStatus(status) {
+        if (status && status.isRacing) {
+            this.isGhostRacing = true;
+            this.ghostTime = status.time;
+            const ghostTimeStr = status.time ? this.formatTime(status.time) : '--:--';
+            this.ghostIndicator.setText(`👻 ${ghostTimeStr}`).setVisible(true);
+            
+            // Update position based on whether best time is visible
+            this.updateElementPositions();
+        } else {
+            this.isGhostRacing = false;
+            this.ghostIndicator.setVisible(false);
         }
     }
     
-    handleResize() {
-        const { width, height } = this.scale;
+    updateElementPositions() {
+        const baseY = this.lineHeight * 2; // Position after level name and VCR controls
         
-        // Recalculate sizes
-        this.calculateSizes();
-        
-        // Reposition container
-        this.container.y = height - this.barHeight;
-        
-        // Update background size
-        this.background.setSize(width, this.barHeight);
-        this.background.x = width / 2;
-        
-        // Reposition sections
-        // (We would need to store positions and update them here)
-        // For now, this is simplified
-        
-        // Notify game scene of new UI height
-        if (this.gameScene && this.gameScene.adjustCameraForUI) {
-            this.gameScene.adjustCameraForUI(this.barHeight);
+        if (this.bestTimeText.visible) {
+            // Best time is showing, shift other elements down
+            const offsetY = baseY + this.lineHeight;
+            this.starText.setY(offsetY);
+            this.ghostIndicator.setY(offsetY + this.lineHeight);
+        } else {
+            // No best time, elements move up
+            this.starText.setY(baseY);
+            this.ghostIndicator.setY(baseY + this.lineHeight);
         }
     }
     
@@ -408,27 +333,30 @@ export default class GameUIScene extends Phaser.Scene {
         return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
     
-    cleanup() {
-        // Remove event listeners
-        if (this.gameScene) {
-            this.gameScene.events.off('ui-update-time', this.updateTime, this);
-            this.gameScene.events.off('ui-update-stars', this.updateStars, this);
-            this.gameScene.events.off('ui-set-best', this.setBestTime, this);
-            this.gameScene.events.off('ui-show-ghost', this.showGhost, this);
-            this.gameScene.events.off('ui-hide-ghost', this.hideGhost, this);
-            this.gameScene.events.off('ui-pulse-time', this.pulseTime, this);
+    handleResize() {
+        // Recalculate sizes
+        this.calculateSizes();
+        
+        // Update container padding
+        if (this.container) {
+            this.container.setPosition(this.padding, this.padding);
         }
         
-        this.scale.off('resize', this.handleResize, this);
+        // VCR controls will be recreated with new sizes
+        // Since they're part of the container, they'll resize automatically
     }
     
-    setVisible(visible) {
-        if (this.container) {
-            this.container.setVisible(visible);
+    cleanup() {
+        if (this.gameScene) {
+            this.gameScene.events.off('ui-update-level', this.setLevelName, this);
+            this.gameScene.events.off('ui-update-time', this.updateTime, this);
+            this.gameScene.events.off('ui-update-stars', this.updateStars, this);
+            this.gameScene.events.off('ui-update-ghost', this.updateGhostStatus, this);
+            this.gameScene.events.off('ui-update-best', this.setBestTime, this);
+            this.gameScene.events.off('ui-set-goal-total', this.setGoalTotal, this);
         }
-    }
-    
-    getBarHeight() {
-        return this.barHeight;
+        
+        // Clean up resize listener
+        this.scale.off('resize', this.handleResize, this);
     }
 }
