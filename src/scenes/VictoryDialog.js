@@ -38,19 +38,9 @@ export default class VictoryDialog extends Phaser.Scene {
         // Get build mode
         this.buildMode = await getCachedBuildMode();
         
-        // Create overlay
-        const overlay = this.add.rectangle(
-            this.scale.width / 2, 
-            this.scale.height / 2, 
-            this.scale.width, 
-            this.scale.height, 
-            0x000000, 0.8
-        );
-        overlay.setDepth(100);
-        
         // Dialog background
-        const dialogWidth = 600;
-        const dialogHeight = 360;
+        const dialogWidth = 320;
+        const dialogHeight = 320;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -64,12 +54,12 @@ export default class VictoryDialog extends Phaser.Scene {
         // Victory text
         this.add.text(
             this.scale.width / 2, 
-            this.scale.height / 2 - 150, 
+            this.scale.height / 2 - 120, 
             'LEVEL COMPLETE!', {
-            fontSize: '48px',
+            fontSize: '20px',
             color: '#ffd700',
             stroke: '#000000',
-            strokeThickness: 6
+            strokeThickness: 2
         }).setOrigin(0.5).setDepth(102);
         
         // Time display
@@ -87,10 +77,10 @@ export default class VictoryDialog extends Phaser.Scene {
         
         this.add.text(
             this.scale.width / 2, 
-            this.scale.height / 2 - 90, 
+            this.scale.height / 2 - 87, 
             timeText, {
-            fontSize: '24px',
-            color: '#ffffff'
+            fontSize: '18px',
+            color: '#4ecdc4'
         }).setOrigin(0.5).setDepth(102);
         
         if (this.buildMode === 'static') {
@@ -110,9 +100,11 @@ export default class VictoryDialog extends Phaser.Scene {
     }
     
     async createStaticModeButtons() {
-        const centerY = this.scale.height / 2 + 20;
-        const buttonSize = 100; // Square buttons
-        const spacing = 15;
+        const centerX = this.scale.width / 2;
+        const buttonWidth = 180;
+        const buttonHeight = 40;
+        const spacing = 12;
+        const startY = this.scale.height / 2 - 40;
         
         // Get next level info
         const { getMapKeys } = await import('./maps/MapDataRegistry');
@@ -121,26 +113,23 @@ export default class VictoryDialog extends Phaser.Scene {
         const hasNext = currentIndex !== -1 && currentIndex < mapKeys.length - 1;
         const nextMapKey = hasNext ? mapKeys[currentIndex + 1] : null;
         
-        // Calculate button positions (3 buttons in a row, or 2 if no next level)
-        const numButtons = hasNext ? 3 : 2;
-        const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
-        const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
-        
-        let buttonX = startX;
+        let buttonY = startY;
         
         // Retry button
-        this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
-            this.close();
-            // Restart the scene completely for a clean replay
+        this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Retry', 0x3498db, () => {
+            // Stop this scene and wake+restart the game scene
+            this.scene.stop();
+            this.scene.wake(this.gameScene.scene.key);
             this.gameScene.scene.restart();
         });
         
-        buttonX += buttonSize + spacing;
+        buttonY += buttonHeight + spacing;
         
         // Next Level button - only if there's a next level
         if (hasNext) {
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Next\nLevel', 0x27ae60, async () => {
-                this.close();
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Next Level', 0x27ae60, async () => {
+                // Stop both scenes and load next level
+                this.scene.stop();
                 this.gameScene.scene.stop();
                 
                 // Use MapLoader to properly load and start the next map
@@ -154,111 +143,106 @@ export default class VictoryDialog extends Phaser.Scene {
                     this.scene.start('MapSelectScene');
                 }
             });
-            buttonX += buttonSize + spacing;
+            buttonY += buttonHeight + spacing;
         }
         
         // Main Menu button
-        this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Main\nMenu', 0xe74c3c, () => {
-            this.close();
+        this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Main Menu', 0xe74c3c, () => {
+            // Stop both scenes and go to main menu
+            this.scene.stop();
             this.gameScene.scene.stop();
-            this.gameScene.scene.start('MapSelectScene');
+            this.scene.start('MapSelectScene');
         });
         
         // Instructions
         this.add.text(
             this.scale.width / 2,
-            centerY + buttonSize / 2 + 30,
-            'Use ARROW KEYS or GAMEPAD to select • SPACE/ENTER/A to confirm',
+            this.scale.height / 2 + 100,
+            'ARROWS/D-PAD: Navigate • ENTER/A: Select',
             {
-                fontSize: '14px',
+                fontSize: '11px',
                 color: '#95a5a6'
             }
         ).setOrigin(0.5).setDepth(102);
     }
     
     async createServerModeButtons() {
-        const centerY = this.scale.height / 2 + 40;
-        const buttonSize = 100; // Square buttons
-        const spacing = 20;
+        const centerX = this.scale.width / 2;
+        const buttonWidth = 180;
+        const buttonHeight = 40;
+        const spacing = 12;
+        const startY = this.scale.height / 2 - 40;
         
         // Check if map editor is actually available
         const hasMapEditor = this.scene.manager.getScene('MapEditor') !== null;
         
+        let buttonY = startY;
+        
         if (hasMapEditor) {
-            // Three buttons horizontally when editor is available
-            const numButtons = 3;
-            const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
-            const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
-            
-            let buttonX = startX;
-            
             // Retry button
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
-                this.close();
-                // Restart the scene completely for a clean replay
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Retry', 0x3498db, () => {
+                // Stop this scene and wake+restart the game scene
+                this.scene.stop();
+                this.scene.wake(this.gameScene.scene.key);
                 this.gameScene.scene.restart();
             });
             
-            buttonX += buttonSize + spacing;
+            buttonY += buttonHeight + spacing;
             
             // Return to Editor button
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Editor', 0x27ae60, () => {
-                // Switch to map editor
-                this.close();
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Editor', 0x27ae60, () => {
+                // Stop both scenes and switch to map editor
+                this.scene.stop();
                 this.gameScene.scene.stop();
-                this.gameScene.scene.start('MapEditor');
+                this.scene.start('MapEditor');
             });
             
-            buttonX += buttonSize + spacing;
+            buttonY += buttonHeight + spacing;
             
             // Map Selection button
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Maps', 0xe74c3c, () => {
-                this.close();
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+                // Stop both scenes and go to map selection
+                this.scene.stop();
                 this.gameScene.scene.stop();
-                this.gameScene.scene.start('MapSelectScene');
+                this.scene.start('MapSelectScene');
             });
             
             // Instructions
             this.add.text(
                 this.scale.width / 2,
-                centerY + buttonSize / 2 + 30,
+                this.scale.height / 2 + 100,
                 'Server Mode • TAB to toggle editor',
                 {
-                    fontSize: '14px',
+                    fontSize: '11px',
                     color: '#95a5a6'
                 }
             ).setOrigin(0.5).setDepth(10002);
         } else {
-            // Two buttons when no editor
-            const numButtons = 2;
-            const totalWidth = numButtons * buttonSize + (numButtons - 1) * spacing;
-            const startX = this.scale.width / 2 - totalWidth / 2 + buttonSize / 2;
-            
-            let buttonX = startX;
-            
             // Retry button
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Retry', 0x3498db, () => {
-                this.close();
-                // Restart the scene completely for a clean replay
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Retry', 0x3498db, () => {
+                // Stop this scene and wake+restart the game scene
+                this.scene.stop();
+                this.scene.wake(this.gameScene.scene.key);
                 this.gameScene.scene.restart();
             });
             
-            buttonX += buttonSize + spacing;
+            buttonY += buttonHeight + spacing;
             
             // Map Selection button
-            this.createButton(buttonX, centerY, buttonSize, buttonSize, 'Maps', 0xe74c3c, () => {
-                this.close();
+            this.createButton(centerX, buttonY, buttonWidth, buttonHeight, 'Map Selection', 0xe74c3c, () => {
+                // Stop both scenes and go to map selection
+                this.scene.stop();
                 this.gameScene.scene.stop();
-                this.gameScene.scene.start('MapSelectScene');
+                this.scene.start('MapSelectScene');
             });
             
             // Instructions
             this.add.text(
                 this.scale.width / 2,
-                centerY + buttonSize / 2 + 30,
-                'Use ARROW KEYS or GAMEPAD to select • SPACE/ENTER/A to confirm',
+                this.scale.height / 2 + 100,
+                'ARROWS/D-PAD: Navigate • ENTER/A: Select',
                 {
-                    fontSize: '14px',
+                    fontSize: '11px',
                     color: '#95a5a6'
                 }
             ).setOrigin(0.5).setDepth(102);
@@ -273,7 +257,7 @@ export default class VictoryDialog extends Phaser.Scene {
         
         // Adjust font size based on button size and text lines
         const lineCount = text.split('\n').length;
-        const fontSize = lineCount > 1 ? '16px' : '18px';
+        const fontSize = lineCount > 1 ? '14px' : '16px';
         
         const buttonText = this.add.text(x, y, text, {
             fontSize: fontSize,
@@ -396,15 +380,15 @@ export default class VictoryDialog extends Phaser.Scene {
         
         const oldSelection = this.selectedButton;
         
-        // All buttons are now in a horizontal row
-        // Left/right arrows navigate between buttons
-        if (deltaX !== 0) {
-            this.selectedButton = (this.selectedButton + deltaX + this.buttons.length) % this.buttons.length;
+        // All buttons are now in a vertical column
+        // Up/down arrows navigate between buttons
+        if (deltaY !== 0) {
+            this.selectedButton = (this.selectedButton + deltaY + this.buttons.length) % this.buttons.length;
         }
-        // Up/down arrows also navigate horizontally for convenience
-        else if (deltaY !== 0) {
-            // Down goes right, up goes left
-            const direction = deltaY > 0 ? 1 : -1;
+        // Left/right arrows also navigate vertically for convenience
+        else if (deltaX !== 0) {
+            // Right goes down, left goes up
+            const direction = deltaX > 0 ? 1 : -1;
             this.selectedButton = (this.selectedButton + direction + this.buttons.length) % this.buttons.length;
         }
         
@@ -478,9 +462,4 @@ export default class VictoryDialog extends Phaser.Scene {
         return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
     
-    close() {
-        // Stop this scene and wake the game scene (since it was put to sleep)
-        this.scene.stop();
-        this.scene.wake(this.gameScene.scene.key);
-    }
 }

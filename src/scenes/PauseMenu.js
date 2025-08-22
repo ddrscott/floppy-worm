@@ -50,9 +50,9 @@ export default class PauseMenu extends Phaser.Scene {
         );
         overlay.setDepth(100);
         
-        // Dialog background - increased height to accommodate gamepad layout and volume control
-        const dialogWidth = 600;
-        const dialogHeight = 550;
+        // Dialog background - sized for mobile compatibility
+        const dialogWidth = 320;
+        const dialogHeight = 400;
         const dialogBg = this.add.rectangle(
             this.scale.width / 2, 
             this.scale.height / 2, 
@@ -66,20 +66,20 @@ export default class PauseMenu extends Phaser.Scene {
         // Title
         this.add.text(
             this.scale.width / 2, 
-            this.scale.height / 2 - 100, 
+            this.scale.height / 2 - 160, 
             'PAUSED', {
-            fontSize: '48px',
+            fontSize: '32px',
             color: '#ecf0f1',
             stroke: '#34495e',
-            strokeThickness: 6
+            strokeThickness: 4
         }).setOrigin(0.5).setDepth(102);
         
         // Create menu buttons
         const centerY = this.scale.height / 2;
-        const buttonWidth = 200;
-        const buttonHeight = 50;
-        const spacing = 15;
-        const startY = centerY - 30;
+        const buttonWidth = 180;
+        const buttonHeight = 40;
+        const spacing = 12;
+        const startY = centerY - 80;
         
         // Resume button
         this.createButton(
@@ -146,7 +146,7 @@ export default class PauseMenu extends Phaser.Scene {
         button.setInteractive();
         
         const buttonText = this.add.text(x, y, text, {
-            fontSize: '20px',
+            fontSize: '16px',
             color: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(103);
@@ -169,14 +169,14 @@ export default class PauseMenu extends Phaser.Scene {
     createVolumeControl(x, y) {
         // Volume label
         this.add.text(x, y, 'Volume', {
-            fontSize: '24px',
+            fontSize: '18px',
             color: '#ecf0f1'
         }).setOrigin(0.5).setDepth(102);
         
         // Volume control container
-        const controlY = y + 35;
-        const sliderWidth = 300;
-        const sliderHeight = 40;
+        const controlY = y + 28;
+        const sliderWidth = 200;
+        const sliderHeight = 32;
         
         // Create volume control as a button for navigation
         const volumeButton = this.add.rectangle(x, controlY, sliderWidth + 60, sliderHeight, 0x34495e);
@@ -200,21 +200,21 @@ export default class PauseMenu extends Phaser.Scene {
         this.volumeFill.setDepth(104);
         
         // Volume percentage text
-        this.volumeText = this.add.text(x, controlY + 25, `${Math.round(this.globalVolume * 100)}%`, {
-            fontSize: '16px',
+        this.volumeText = this.add.text(x, controlY + 20, `${Math.round(this.globalVolume * 100)}%`, {
+            fontSize: '12px',
             color: '#95a5a6'
         }).setOrigin(0.5).setDepth(102);
         
         // Minus button
-        const minusBtn = this.add.text(x - sliderWidth/2 - 25, controlY, '-', {
-            fontSize: '28px',
+        const minusBtn = this.add.text(x - sliderWidth/2 - 20, controlY, '-', {
+            fontSize: '20px',
             color: '#ecf0f1',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(104);
         
         // Plus button
-        const plusBtn = this.add.text(x + sliderWidth/2 + 25, controlY, '+', {
-            fontSize: '28px',
+        const plusBtn = this.add.text(x + sliderWidth/2 + 20, controlY, '+', {
+            fontSize: '20px',
             color: '#ecf0f1',
             fontStyle: 'bold'
         }).setOrigin(0.5).setDepth(104);
