@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="2880"
+   width="1824"
    height="2400"
-   viewBox="0 0 2880 2400"
+   viewBox="0 0 1824 2400"
    version="1.1"
    id="svg5"
    inkscape:version="1.3.2 (091e20e, 2023-11-25)"
@@ -18,7 +18,7 @@
    xmlns:cc="http://creativecommons.org/ns#"
    xmlns:dc="http://purl.org/dc/elements/1.1/">
   <title
-     id="title366">Stars!!!</title>
+     id="title457">99 Stars</title>
   <sodipodi:namedview
      id="namedview7"
      pagecolor="#383838"
@@ -31,13 +31,13 @@
      inkscape:document-units="px"
      showgrid="true"
      showborder="true"
-     inkscape:zoom="0.38475365"
-     inkscape:cx="1997.3819"
-     inkscape:cy="1169.5795"
-     inkscape:window-width="2640"
-     inkscape:window-height="1274"
-     inkscape:window-x="2784"
-     inkscape:window-y="219"
+     inkscape:zoom="0.46664685"
+     inkscape:cx="1073.617"
+     inkscape:cy="1614.7114"
+     inkscape:window-width="1728"
+     inkscape:window-height="1005"
+     inkscape:window-x="0"
+     inkscape:window-y="38"
      inkscape:window-maximized="0"
      inkscape:current-layer="layer1"
      shape-rendering="crispEdges">
@@ -64,7 +64,7 @@
     <inkscape:grid
        id="grid1"
        units="px"
-       originx="0"
+       originx="912"
        originy="2400"
        spacingx="96"
        spacingy="96"
@@ -92,1362 +92,12 @@
      id="layer1">
     <circle
        class="worm-start"
-       cx="1440"
-       cy="1025.934"
+       cx="912"
+       cy="1152"
        r="15"
        fill="#00ff00"
        opacity="0.8"
        id="circle1" />
-    <circle
-       class="goal"
-       cx="96"
-       cy="1344"
-       r="16"
-       fill="#ffd700"
-       id="circle8">
-      <title
-         id="title8">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="281.14285"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle30">
-      <title
-         id="title30">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1577.1428"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle41">
-      <title
-         id="title41">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2317.7144"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle52">
-      <title
-         id="title52">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle63">
-      <title
-         id="title63">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle185">
-      <title
-         id="title185">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28571"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle186">
-      <title
-         id="title186">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1762.2858"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle187">
-      <title
-         id="title187">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7143"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle209">
-      <title
-         id="title209">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1947.4286"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle210">
-      <title
-         id="title210">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle211">
-      <title
-         id="title211">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2132.5715"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle212">
-      <title
-         id="title212">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle213">
-      <title
-         id="title213">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="836.57141"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle214">
-      <title
-         id="title214">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="651.42859"
-       cy="1343.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle215">
-      <title
-         id="title215">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="192"
-       cy="1440"
-       r="16"
-       fill="#ffd700"
-       id="circle216">
-      <title
-         id="title216">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="377.14285"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle217">
-      <title
-         id="title217">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1673.1428"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle218">
-      <title
-         id="title218">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2413.7144"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle219">
-      <title
-         id="title219">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2598.8572"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle220">
-      <title
-         id="title220">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2784"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle221">
-      <title
-         id="title221">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="562.28564"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle222">
-      <title
-         id="title222">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1858.2858"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle223">
-      <title
-         id="title223">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1117.7142"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle224">
-      <title
-         id="title224">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2043.4286"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle225">
-      <title
-         id="title225">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1488"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle226">
-      <title
-         id="title226">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2228.5715"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle227">
-      <title
-         id="title227">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1302.8572"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle228">
-      <title
-         id="title228">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="932.57141"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle229">
-      <title
-         id="title229">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="747.42859"
-       cy="1439.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle230">
-      <title
-         id="title230">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="96"
-       cy="1536"
-       r="16"
-       fill="#ffd700"
-       id="circle231">
-      <title
-         id="title231">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="281.14285"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle232">
-      <title
-         id="title232">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1577.1428"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle233">
-      <title
-         id="title233">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2317.7144"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle234">
-      <title
-         id="title234">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle235">
-      <title
-         id="title235">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle236">
-      <title
-         id="title236">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28564"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle237">
-      <title
-         id="title237">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1762.2858"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle238">
-      <title
-         id="title238">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7142"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle239">
-      <title
-         id="title239">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1947.4286"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle240">
-      <title
-         id="title240">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle241">
-      <title
-         id="title241">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2132.5715"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle242">
-      <title
-         id="title242">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle243">
-      <title
-         id="title243">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="836.57141"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle244">
-      <title
-         id="title244">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="651.42859"
-       cy="1535.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle245">
-      <title
-         id="title245">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="192"
-       cy="1631.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle246">
-      <title
-         id="title246">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="377.14285"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle247">
-      <title
-         id="title247">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1673.1428"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle248">
-      <title
-         id="title248">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2413.7144"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle249">
-      <title
-         id="title249">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2598.8572"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle250">
-      <title
-         id="title250">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2784"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle251">
-      <title
-         id="title251">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="562.28564"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle252">
-      <title
-         id="title252">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1858.2858"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle253">
-      <title
-         id="title253">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1117.7141"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle254">
-      <title
-         id="title254">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2043.4286"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle255">
-      <title
-         id="title255">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1488"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle256">
-      <title
-         id="title256">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2228.5715"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle257">
-      <title
-         id="title257">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1302.8572"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle258">
-      <title
-         id="title258">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="932.57141"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle259">
-      <title
-         id="title259">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="747.42859"
-       cy="1630.4375"
-       r="16"
-       fill="#ffd700"
-       id="circle260">
-      <title
-         id="title260">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="96"
-       cy="1728"
-       r="16"
-       fill="#ffd700"
-       id="circle261">
-      <title
-         id="title261">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="281.14285"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle262">
-      <title
-         id="title262">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1577.1428"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle263">
-      <title
-         id="title263">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2317.7144"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle264">
-      <title
-         id="title264">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle265">
-      <title
-         id="title265">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle266">
-      <title
-         id="title266">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28564"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle267">
-      <title
-         id="title267">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1762.2858"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle268">
-      <title
-         id="title268">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7141"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle269">
-      <title
-         id="title269">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1947.4286"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle270">
-      <title
-         id="title270">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle271">
-      <title
-         id="title271">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2132.5715"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle272">
-      <title
-         id="title272">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle273">
-      <title
-         id="title273">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="836.57141"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle274">
-      <title
-         id="title274">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="651.42859"
-       cy="1727.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle275">
-      <title
-         id="title275">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="192"
-       cy="1824"
-       r="16"
-       fill="#ffd700"
-       id="circle276">
-      <title
-         id="title276">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="377.14285"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle277">
-      <title
-         id="title277">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1673.1428"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle278">
-      <title
-         id="title278">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2413.7144"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle279">
-      <title
-         id="title279">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2598.8572"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle280">
-      <title
-         id="title280">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2784"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle281">
-      <title
-         id="title281">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="562.28564"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle282">
-      <title
-         id="title282">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1858.2858"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle283">
-      <title
-         id="title283">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1117.7141"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle284">
-      <title
-         id="title284">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2043.4286"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle285">
-      <title
-         id="title285">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1488"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle286">
-      <title
-         id="title286">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2228.5715"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle287">
-      <title
-         id="title287">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1302.8572"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle288">
-      <title
-         id="title288">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="932.57141"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle289">
-      <title
-         id="title289">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="747.42859"
-       cy="1823.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle290">
-      <title
-         id="title290">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="96"
-       cy="1920"
-       r="16"
-       fill="#ffd700"
-       id="circle291">
-      <title
-         id="title291">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="281.14285"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle292">
-      <title
-         id="title292">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1577.1428"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle293">
-      <title
-         id="title293">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2317.7144"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle294">
-      <title
-         id="title294">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle295">
-      <title
-         id="title295">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle296">
-      <title
-         id="title296">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28564"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle297">
-      <title
-         id="title297">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1762.2858"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle298">
-      <title
-         id="title298">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7141"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle299">
-      <title
-         id="title299">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1947.4286"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle300">
-      <title
-         id="title300">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle301">
-      <title
-         id="title301">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2132.5715"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle302">
-      <title
-         id="title302">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle303">
-      <title
-         id="title303">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="836.57141"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle304">
-      <title
-         id="title304">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="651.42859"
-       cy="1919.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle305">
-      <title
-         id="title305">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="192"
-       cy="2016"
-       r="16"
-       fill="#ffd700"
-       id="circle306">
-      <title
-         id="title306">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="377.14285"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle307">
-      <title
-         id="title307">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1673.1428"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle308">
-      <title
-         id="title308">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2413.7144"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle309">
-      <title
-         id="title309">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2598.8572"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle310">
-      <title
-         id="title310">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2784"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle311">
-      <title
-         id="title311">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="562.28564"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle312">
-      <title
-         id="title312">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1858.2858"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle313">
-      <title
-         id="title313">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1117.7141"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle314">
-      <title
-         id="title314">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2043.4286"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle315">
-      <title
-         id="title315">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1488"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle316">
-      <title
-         id="title316">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2228.5715"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle317">
-      <title
-         id="title317">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1302.8572"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle318">
-      <title
-         id="title318">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="932.57141"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle319">
-      <title
-         id="title319">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="747.42859"
-       cy="2015.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle320">
-      <title
-         id="title320">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="96"
-       cy="2112"
-       r="16"
-       fill="#ffd700"
-       id="circle321">
-      <title
-         id="title321">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="281.14285"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle322">
-      <title
-         id="title322">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1577.1428"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle323">
-      <title
-         id="title323">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2317.7144"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle324">
-      <title
-         id="title324">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle325">
-      <title
-         id="title325">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle326">
-      <title
-         id="title326">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28564"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle327">
-      <title
-         id="title327">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1762.2858"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle328">
-      <title
-         id="title328">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7141"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle329">
-      <title
-         id="title329">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1947.4286"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle330">
-      <title
-         id="title330">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle331">
-      <title
-         id="title331">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2132.5715"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle332">
-      <title
-         id="title332">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle333">
-      <title
-         id="title333">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="836.57141"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle334">
-      <title
-         id="title334">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="651.42859"
-       cy="2111.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle335">
-      <title
-         id="title335">Hard Route Goal</title>
-    </circle>
     <circle
        class="goal"
        cx="192"
@@ -1460,8 +110,8 @@
     </circle>
     <circle
        class="goal"
-       cx="377.14285"
-       cy="2207.2188"
+       cx="384"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle337">
@@ -1470,8 +120,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1673.1428"
-       cy="2207.2188"
+       cx="1728"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle338">
@@ -1480,38 +130,8 @@
     </circle>
     <circle
        class="goal"
-       cx="2413.7144"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle339">
-      <title
-         id="title339">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2598.8572"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle340">
-      <title
-         id="title340">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2784"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle341">
-      <title
-         id="title341">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="562.28564"
-       cy="2207.2188"
+       cx="576"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle342">
@@ -1520,18 +140,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1858.2858"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle343">
-      <title
-         id="title343">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1117.7141"
-       cy="2207.2188"
+       cx="1152"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle344">
@@ -1540,18 +150,8 @@
     </circle>
     <circle
        class="goal"
-       cx="2043.4286"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle345">
-      <title
-         id="title345">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1488"
-       cy="2207.2188"
+       cx="1536"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle346">
@@ -1560,18 +160,8 @@
     </circle>
     <circle
        class="goal"
-       cx="2228.5715"
-       cy="2207.2188"
-       r="16"
-       fill="#ffd700"
-       id="circle347">
-      <title
-         id="title347">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1302.8572"
-       cy="2207.2188"
+       cx="1344"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle348">
@@ -1580,8 +170,8 @@
     </circle>
     <circle
        class="goal"
-       cx="932.57141"
-       cy="2207.2188"
+       cx="960"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle349">
@@ -1590,8 +180,8 @@
     </circle>
     <circle
        class="goal"
-       cx="747.42859"
-       cy="2207.2188"
+       cx="768"
+       cy="2208"
        r="16"
        fill="#ffd700"
        id="circle350">
@@ -1601,7 +191,7 @@
     <circle
        class="goal"
        cx="96"
-       cy="2304.7812"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle351">
@@ -1610,8 +200,8 @@
     </circle>
     <circle
        class="goal"
-       cx="281.14285"
-       cy="2304"
+       cx="288"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle352">
@@ -1620,8 +210,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1577.1428"
-       cy="2304"
+       cx="1632"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle353">
@@ -1630,38 +220,8 @@
     </circle>
     <circle
        class="goal"
-       cx="2317.7144"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle354">
-      <title
-         id="title354">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2502.8572"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle355">
-      <title
-         id="title355">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="2688"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle356">
-      <title
-         id="title356">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="466.28564"
-       cy="2304"
+       cx="480"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle357">
@@ -1670,18 +230,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1762.2858"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle358">
-      <title
-         id="title358">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1021.7141"
-       cy="2304"
+       cx="1056"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle359">
@@ -1690,18 +240,8 @@
     </circle>
     <circle
        class="goal"
-       cx="1947.4286"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle360">
-      <title
-         id="title360">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1392"
-       cy="2304"
+       cx="1440"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle361">
@@ -1710,18 +250,8 @@
     </circle>
     <circle
        class="goal"
-       cx="2132.5715"
-       cy="2304"
-       r="16"
-       fill="#ffd700"
-       id="circle362">
-      <title
-         id="title362">Hard Route Goal</title>
-    </circle>
-    <circle
-       class="goal"
-       cx="1206.8572"
-       cy="2304"
+       cx="1248"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle363">
@@ -1730,8 +260,8 @@
     </circle>
     <circle
        class="goal"
-       cx="836.57141"
-       cy="2304"
+       cx="864"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle364">
@@ -1740,13 +270,823 @@
     </circle>
     <circle
        class="goal"
-       cx="651.42859"
-       cy="2304"
+       cx="672"
+       cy="2304.3906"
        r="16"
        fill="#ffd700"
        id="circle365">
       <title
          id="title365">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="192"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle367">
+      <title
+         id="title367">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="384"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle368">
+      <title
+         id="title368">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1728"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle369">
+      <title
+         id="title369">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="576"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle370">
+      <title
+         id="title370">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1152"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle371">
+      <title
+         id="title371">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1536"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle372">
+      <title
+         id="title372">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1344"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle373">
+      <title
+         id="title373">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="960"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle374">
+      <title
+         id="title374">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="768"
+       cy="2015.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle375">
+      <title
+         id="title375">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="96"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle376">
+      <title
+         id="title376">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="288"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle377">
+      <title
+         id="title377">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1632"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle378">
+      <title
+         id="title378">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="480"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle379">
+      <title
+         id="title379">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1056"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle380">
+      <title
+         id="title380">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1440"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle381">
+      <title
+         id="title381">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1248"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle382">
+      <title
+         id="title382">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="864"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle383">
+      <title
+         id="title383">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="672"
+       cy="2112"
+       r="16"
+       fill="#ffd700"
+       id="circle384">
+      <title
+         id="title384">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="192"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle385">
+      <title
+         id="title385">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="384"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle386">
+      <title
+         id="title386">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1728"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle387">
+      <title
+         id="title387">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="576"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle388">
+      <title
+         id="title388">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1152"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle389">
+      <title
+         id="title389">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1536"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle390">
+      <title
+         id="title390">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1344"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle391">
+      <title
+         id="title391">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="960"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle392">
+      <title
+         id="title392">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="768"
+       cy="1823.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle393">
+      <title
+         id="title393">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="96"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle394">
+      <title
+         id="title394">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="288"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle395">
+      <title
+         id="title395">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1632"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle396">
+      <title
+         id="title396">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="480"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle397">
+      <title
+         id="title397">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1056"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle398">
+      <title
+         id="title398">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1440"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle399">
+      <title
+         id="title399">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1248"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle400">
+      <title
+         id="title400">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="864"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle401">
+      <title
+         id="title401">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="672"
+       cy="1920"
+       r="16"
+       fill="#ffd700"
+       id="circle402">
+      <title
+         id="title402">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="192"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle403">
+      <title
+         id="title403">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="384"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle404">
+      <title
+         id="title404">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1728"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle405">
+      <title
+         id="title405">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="576"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle406">
+      <title
+         id="title406">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1152"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle407">
+      <title
+         id="title407">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1536"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle408">
+      <title
+         id="title408">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1344"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle409">
+      <title
+         id="title409">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="960"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle410">
+      <title
+         id="title410">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="768"
+       cy="1631.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle411">
+      <title
+         id="title411">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="96"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle412">
+      <title
+         id="title412">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="288"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle413">
+      <title
+         id="title413">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1632"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle414">
+      <title
+         id="title414">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="480"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle415">
+      <title
+         id="title415">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1056"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle416">
+      <title
+         id="title416">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1440"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle417">
+      <title
+         id="title417">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1248"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle418">
+      <title
+         id="title418">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="864"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle419">
+      <title
+         id="title419">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="672"
+       cy="1728"
+       r="16"
+       fill="#ffd700"
+       id="circle420">
+      <title
+         id="title420">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="192"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle421">
+      <title
+         id="title421">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="384"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle422">
+      <title
+         id="title422">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1728"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle423">
+      <title
+         id="title423">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="576"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle424">
+      <title
+         id="title424">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1152"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle425">
+      <title
+         id="title425">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1536"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle426">
+      <title
+         id="title426">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1344"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle427">
+      <title
+         id="title427">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="960"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle428">
+      <title
+         id="title428">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="768"
+       cy="1439.6094"
+       r="16"
+       fill="#ffd700"
+       id="circle429">
+      <title
+         id="title429">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="96"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle430">
+      <title
+         id="title430">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="288"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle431">
+      <title
+         id="title431">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1632"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle432">
+      <title
+         id="title432">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="480"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle433">
+      <title
+         id="title433">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1056"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle434">
+      <title
+         id="title434">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1440"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle435">
+      <title
+         id="title435">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1248"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle436">
+      <title
+         id="title436">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="864"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle437">
+      <title
+         id="title437">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="672"
+       cy="1536"
+       r="16"
+       fill="#ffd700"
+       id="circle438">
+      <title
+         id="title438">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="96"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle448">
+      <title
+         id="title448">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="288"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle449">
+      <title
+         id="title449">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1632"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle450">
+      <title
+         id="title450">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="480"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle451">
+      <title
+         id="title451">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1056"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle452">
+      <title
+         id="title452">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1440"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle453">
+      <title
+         id="title453">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="1248"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle454">
+      <title
+         id="title454">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="864"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle455">
+      <title
+         id="title455">Hard Route Goal</title>
+    </circle>
+    <circle
+       class="goal"
+       cx="672"
+       cy="1344"
+       r="16"
+       fill="#ffd700"
+       id="circle456">
+      <title
+         id="title456">Hard Route Goal</title>
     </circle>
   </g>
   <metadata
@@ -1771,8 +1111,8 @@
         </dc:rights>
         <cc:license
            rdf:resource="http://creativecommons.org/licenses/by-nc-sa/4.0/" />
-        <dc:title>Stars!!!</dc:title>
-        <dc:description>Gotta get them all</dc:description>
+        <dc:title>99 Stars</dc:title>
+        <dc:description>Gotta get them all!</dc:description>
       </cc:Work>
       <cc:License
          rdf:about="http://creativecommons.org/licenses/by-nc-sa/4.0/">
