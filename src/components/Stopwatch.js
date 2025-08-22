@@ -1,16 +1,13 @@
+/**
+ * Stopwatch - Pure logic component for time tracking
+ * Emits events to the UI scene instead of rendering
+ */
 export default class Stopwatch {
-    constructor(scene, x, y, options = {}) {
+    constructor(scene, options = {}) {
         this.scene = scene;
-        this.x = x;
-        this.y = y;
         
         // Default options
         this.options = {
-            fontSize: '20px',
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 },
-            showBestTime: true,
             onPause: null,  // Callback for when pause is triggered
             ...options
         };
@@ -21,38 +18,6 @@ export default class Stopwatch {
         this.isPaused = false;
         this.pausedTime = 0;  // Accumulated time when paused
         this.bestTime = null;
-        
-        this.create();
-    }
-    
-    create() {
-        // Create timer display with pause icon
-        this.timerText = this.scene.add.text(this.x, this.y, '⏸ ' + this.formatTime(0), {
-            fontSize: this.options.fontSize,
-            color: this.options.color,
-            backgroundColor: this.options.backgroundColor,
-            padding: this.options.padding
-        }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
-        
-        // Make timer clickable for pause
-        this.timerText.setInteractive({ useHandCursor: true });
-        this.timerText.on('pointerdown', () => {
-            if (this.options.onPause) {
-                this.options.onPause();
-            }
-        });
-        
-        // Create best time display if enabled
-        if (this.options.showBestTime) {
-            this.bestTimeText = this.scene.add.text(this.x, this.y + 35, '', {
-                fontSize: '16px',
-                color: '#ffd700',
-                backgroundColor: this.options.backgroundColor,
-                padding: { x: 10, y: 3 }
-            }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
-            
-            this.updateBestTimeDisplay();
-        }
     }
     
     start() {
@@ -97,32 +62,23 @@ export default class Stopwatch {
         this.pausedTime = 0;
         this.isRunning = false;
         this.isPaused = false;
-        this.updateDisplay();
+        // Emit event to reset UI
+        this.scene.events.emit('ui-update-time', 0);
     }
     
     update() {
         if (this.isRunning && !this.isPaused) {
             // Calculate elapsed time as: time since last resume + accumulated paused time
             this.elapsedTime = (Date.now() - this.startTime) + this.pausedTime;
-            this.updateDisplay();
-        }
-    }
-    
-    updateDisplay() {
-        if (this.timerText) {
-            this.timerText.setText('⏸ ' + this.formatTime(this.elapsedTime));
-        }
-    }
-    
-    updateBestTimeDisplay() {
-        if (this.bestTimeText && this.bestTime !== null) {
-            this.bestTimeText.setText(`Best: ${this.formatTime(this.bestTime)}`);
+            // Emit event to update UI
+            this.scene.events.emit('ui-update-time', this.elapsedTime);
         }
     }
     
     setBestTime(time) {
         this.bestTime = time;
-        this.updateBestTimeDisplay();
+        // Emit event to update UI
+        this.scene.events.emit('ui-set-best', time);
     }
     
     formatTime(milliseconds) {
@@ -132,10 +88,5 @@ export default class Stopwatch {
         const ms = Math.floor((milliseconds % 1000) / 10); // Show centiseconds
         
         return `${minutes}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-    }
-    
-    destroy() {
-        if (this.timerText) this.timerText.destroy();
-        if (this.bestTimeText) this.bestTimeText.destroy();
     }
 }

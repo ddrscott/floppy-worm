@@ -95,6 +95,9 @@ export default class GoalCollectionManager {
                     // Visual feedback for collection
                     this.collectGoalEffect(goal);
                     
+                    // Emit event to update UI
+                    this.scene.events.emit('ui-update-stars', this.collectedGoals.size);
+                    
                     // Check if all goals are collected
                     if (this.collectedGoals.size === this.goals.length) {
                         return true; // All goals collected!
@@ -165,16 +168,6 @@ export default class GoalCollectionManager {
         if (this.scene.minimap) {
             this.scene.minimap.ignore(goal);
             this.scene.minimap.ignore(goal.innerStar);
-        }
-
-        // Update star counter if the scene has one
-        if (this.scene.updateStarCounter) {
-            this.scene.updateStarCounter();
-        }
-        
-        // Animate star to counter if the scene has one
-        if (this.scene.animateStarToCounter) {
-            this.scene.animateStarToCounter(goal.x, goal.y);
         }
     }
 

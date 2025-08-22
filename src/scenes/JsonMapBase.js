@@ -7,6 +7,7 @@ import GhostSystemManager from '../systems/GhostSystemManager';
 import RecordingDatabase from '../storage/RecordingDatabase';
 import VictoryDialog from './VictoryDialog';
 import PauseMenu from './PauseMenu';
+import GameUIScene from './GameUIScene';
 import { getCachedBuildMode } from '../utils/buildMode';
 import GoalCollectionManager from '../utils/GoalCollectionManager';
 import GameStateManager from '../services/GameStateManager';
@@ -86,9 +87,6 @@ export default class JsonMapBase extends Phaser.Scene {
             historySize: 60,         // Number of frames to average for smoothing
             history: []             // Store recent predictions
         };
-        
-        // Initialize UI elements array
-        this.uiElements = [];
 
         this.bgMusicConfig = {
             loop: true,
@@ -291,7 +289,7 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Cleanup stopwatch
         if (this.stopwatch) {
-            this.stopwatch.destroy();
+            // Stopwatch is now a logic-only component, no destroy needed
             this.stopwatch = null;
         }
         
@@ -300,6 +298,9 @@ export default class JsonMapBase extends Phaser.Scene {
             this.controlsDisplay.destroy();
             this.controlsDisplay = null;
         }
+        
+        // Stop the UI scene
+        this.scene.stop('GameUIScene');
         
         // Cleanup ghost system
         if (this.ghostSystem) {
@@ -311,14 +312,6 @@ export default class JsonMapBase extends Phaser.Scene {
         if (this.minimap) {
             this.cameras.remove(this.minimap);
             this.minimap = null;
-        }
-        
-        // UI overlay camera removed - now using TouchControlsScene
-        
-        // Cleanup UI camera
-        if (this.uiCamera) {
-            this.cameras.remove(this.uiCamera);
-            this.uiCamera = null;
         }
     }
 
@@ -351,7 +344,6 @@ export default class JsonMapBase extends Phaser.Scene {
         this.isDying = false;
         
         // Reset camera references
-        this.uiCamera = null;
         this.minimap = null;
         
         // Initialize state manager
@@ -461,9 +453,6 @@ export default class JsonMapBase extends Phaser.Scene {
 
         // Create mini-map camera (after level is parsed)
         this.createMiniMap(levelHeight);
-        
-        // Create UI
-        this.createUI();
         
         // Set up controls
         this.setupControls();
@@ -789,6 +778,9 @@ export default class JsonMapBase extends Phaser.Scene {
         this.handleResize();
         this.scale.on('resize', this.handleResize, this);
         
+        // Launch UI overlay scene (after goals are created)
+        this.launchUIScene();
+        
         // Set up collision detection for special platforms
         this.setupSpecialPlatformCollisions();
     }
@@ -962,78 +954,33 @@ export default class JsonMapBase extends Phaser.Scene {
         this.button0WasPressed = false;
     }
     
-    createUI() {
-        const emSize = 20;
-        // Create a fixed UI camera that doesn't zoom or scroll
-        this.uiCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
-        this.uiCamera.setName('ui');
-        this.uiCamera.setScroll(0, 0);
-        this.uiCamera.setZoom(1);
+    launchUIScene() {
+        // Add GameUIScene if not already added
+        if (!this.scene.manager.getScene('GameUIScene')) {
+            this.scene.manager.add('GameUIScene', GameUIScene, false);
+        }
         
-        // Store UI elements in an array for easy management
-        this.uiElements = [];
-        
-        // Title
-        const title = this.add.text(emSize, emSize, this.sceneTitle, {
-            fontSize: '24px',
-            color: '#ffffff',
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0);
-        
-        this.uiElements.push(title);
-        this.minimapIgnoreList.push(title);
-        
-        
-        // Pause hint (small text in top right)
-        const pauseHint = this.add.text(this.scale.width - emSize, emSize, 'ESC: Pause', {
-            fontSize: '14px',
-            color: '#95a5a6',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            padding: { x: 5, y: 2 }
-        }).setOrigin(1, 0).setScrollFactor(0);
-        
-        this.uiElements.push(pauseHint);
-        this.minimapIgnoreList.push(pauseHint);
-        
-        // Create stopwatch in top center with pause functionality
-        this.stopwatch = new Stopwatch(this, this.scale.width / 2, emSize, {
+        // Create stopwatch logic component
+        this.stopwatch = new Stopwatch(this, {
             onPause: () => this.showPauseMenu()
         });
+        
         // Load best time from state manager
         const bestTime = this.stateManager.getBestTime(this.mapKey);
         if (bestTime !== null) {
             this.stopwatch.setBestTime(bestTime);
         }
-        this.uiElements.push(this.stopwatch.timerText);
-        this.minimapIgnoreList.push(this.stopwatch.timerText);
-        if (this.stopwatch.bestTimeText) {
-            this.uiElements.push(this.stopwatch.bestTimeText);
-            this.minimapIgnoreList.push(this.stopwatch.bestTimeText);
-        }
         
-        // Create star counter for all maps with goals
-        if (this.goals && this.goals.length > 0) {
-            this.createStarCounter(emSize);
-        }
-        
-        // Ghost indicator is now managed by GhostSystemManager
-        
-        // Make the main camera and minimap ignore UI elements
-        this.uiElements.forEach(element => {
-            this.cameras.main.ignore(element);
-            if (this.minimap) {
-                this.minimap.ignore(element);
-            }
+        // Launch the UI scene with initial data
+        this.scene.launch('GameUIScene', {
+            gameScene: this,
+            levelName: this.sceneTitle,
+            bestTime: bestTime,
+            totalGoals: this.goals ? this.goals.length : 0
         });
         
-        // Make the UI camera ignore everything else
-        const allObjects = this.children.list;
-        allObjects.forEach(obj => {
-            if (!this.uiElements.includes(obj)) {
-                this.uiCamera.ignore(obj);
-            }
-        });
+        // Get reference to UI scene for camera adjustments
+        this.uiScene = this.scene.manager.getScene('GameUIScene');
     }
     
     createMiniMap(levelHeight) {
@@ -1088,26 +1035,12 @@ export default class JsonMapBase extends Phaser.Scene {
             padding: { x: 4, y: 2 }
         }).setScrollFactor(0).setDepth(1001);
         
-        // Add to UI elements
-        this.uiElements.push(this.miniMapBorder);
-        this.uiElements.push(this.miniMapLabel);
-        
         // Make main camera and minimap ignore these UI elements
         this.cameras.main.ignore(this.miniMapBorder);
         this.cameras.main.ignore(this.miniMapLabel);
         if (this.minimap) {
             this.minimap.ignore(this.miniMapBorder);
             this.minimap.ignore(this.miniMapLabel);
-        }
-        
-        // Update UI camera to render these
-        if (this.uiCamera) {
-            const allObjects = this.children.list;
-            allObjects.forEach(obj => {
-                if (!this.uiElements.includes(obj)) {
-                    this.uiCamera.ignore(obj);
-                }
-            });
         }
     }
     
@@ -1151,6 +1084,11 @@ export default class JsonMapBase extends Phaser.Scene {
 
             }
             this.cameras.main.setDeadzone(60, 60);
+            
+            // Apply UI padding if it exists
+            if (this.uiBarHeight) {
+                this.adjustCameraForUI(this.uiBarHeight);
+            }
         }
         
         if (this.minimap) {
@@ -1161,13 +1099,6 @@ export default class JsonMapBase extends Phaser.Scene {
             // Don't update viewport indicator during initial setup
             // It will be created and updated later in createMiniMap
         }
-        
-        // Update UI camera if it exists
-        if (this.uiCamera) {
-            this.uiCamera.setSize(width, height);
-        }
-        
-        // UI overlay camera removed - no longer needed
     }
     
     updateMiniMapBorder(x, y) {
@@ -1179,6 +1110,47 @@ export default class JsonMapBase extends Phaser.Scene {
         
         if (this.miniMapLabel) {
             this.miniMapLabel.setPosition(x + 5, y - 20);
+        }
+    }
+    
+    adjustCameraForUI(uiHeight) {
+        // Store UI bar height for resize events
+        this.uiBarHeight = uiHeight;
+        
+        if (!this.cameras || !this.cameras.main) return;
+        
+        const { width, height } = this.scale;
+        const mainCam = this.cameras.main;
+        
+        // Calculate the visible game area (accounting for UI)
+        const visibleHeight = height - uiHeight;
+        
+        // Set camera viewport to exclude the UI area
+        // This creates a viewport that doesn't render under the UI
+        mainCam.setViewport(0, 0, width, visibleHeight);
+        
+        // Keep the same world bounds - the camera will handle the viewport
+        mainCam.setBounds(0, 0, this.levelWidth, this.levelHeight);
+        
+        // Recalculate zoom if needed to ensure level fits in visible area
+        const minWidth = 720;
+        const minHeight = 720 - uiHeight; // Adjust minimum height for UI
+        
+        if (this.scale.isPortrait && width < minWidth) {
+            mainCam.setZoom(width / minWidth);
+        } else if (this.scale.isLandscape && visibleHeight < minHeight) {
+            mainCam.setZoom(visibleHeight / minHeight);
+        }
+        
+        // Ensure deadzone is appropriate for the viewport
+        mainCam.setDeadzone(60, 60);
+        
+        // Update minimap to not overlap with UI (optional - keep it in top right)
+        if (this.minimap) {
+            // Minimap stays in the visible game area, not under UI
+            const mapX = width - this.miniMapConfig.width - this.miniMapConfig.padding;
+            const mapY = this.miniMapConfig.padding;
+            this.minimap.setViewport(mapX, mapY, this.miniMapConfig.width, this.miniMapConfig.height);
         }
     }
     
@@ -2063,11 +2035,6 @@ export default class JsonMapBase extends Phaser.Scene {
             });
         }
         
-        // Animate a star flying to the counter
-        if (this.starCounter) {
-            this.animateStarToCounter(goal.x, goal.y);
-        }
-        
         // Play a collection sound if available
         if (this.sound && this.sound.get('goalCollect')) {
             this.sound.play('goalCollect');
@@ -2132,112 +2099,4 @@ export default class JsonMapBase extends Phaser.Scene {
         });
     }
     
-    // Create the star counter UI element
-    createStarCounter(emSize) {
-        // Position it to the left of the timer
-        const x = this.scale.width / 2 - 150;
-        const y = emSize;
-        
-        // Create star icon
-        this.starIcon = this.add.star(x, y, 5, 8, 12, 0xffd700);
-        this.starIcon.setScrollFactor(0).setDepth(1000);
-        
-        // Create counter text
-        this.starCounter = this.add.text(x + 20, y, `0/${this.goals.length}`, {
-            fontSize: '20px',
-            color: '#ffd700',
-            fontFamily: 'monospace',
-            padding: { x: 5, y: 5 }
-        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1000);
-        
-        // Add to UI elements
-        this.uiElements.push(this.starIcon, this.starCounter);
-        this.minimapIgnoreList.push(this.starIcon, this.starCounter);
-        
-        // Make cameras ignore them
-        this.cameras.main.ignore([this.starIcon, this.starCounter]);
-        if (this.minimap) {
-            this.minimap.ignore([this.starIcon, this.starCounter]);
-        }
-    }
-    
-    // Update the star counter display
-    updateStarCounter() {
-        if (this.starCounter) {
-            const collected = this.collectedGoals.size;
-            const total = this.goals.length;
-            this.starCounter.setText(`${collected}/${total}`);
-            
-            // Pulse effect when updated
-            this.tweens.add({
-                targets: [this.starIcon, this.starCounter],
-                scale: 1.2,
-                duration: 200,
-                yoyo: true,
-                ease: 'Power2'
-            });
-        }
-    }
-    
-    // Animate a star flying from collection point to counter
-    animateStarToCounter(fromX, fromY) {
-        if (!this.starIcon) return;
-        
-        // Create a star at the collection point in world space
-        const flyingStar = this.add.star(fromX, fromY, 5, 10, 15, 0xffd700);
-        flyingStar.setDepth(1001);
-        
-        // Convert to screen space for the animation endpoint
-        const camera = this.cameras.main;
-        const startScreenX = fromX - camera.scrollX;
-        const startScreenY = fromY - camera.scrollY;
-        
-        // Set star to screen space
-        flyingStar.setScrollFactor(0);
-        flyingStar.setPosition(startScreenX, startScreenY);
-        
-        // Target is the star icon position (already in screen space)
-        const toX = this.starIcon.x;
-        const toY = this.starIcon.y;
-        
-        // Animate the star flying to the counter
-        this.tweens.add({
-            targets: flyingStar,
-            x: toX,
-            y: toY,
-            scale: 0.5,
-            duration: 800,
-            ease: 'Power2',
-            onComplete: () => {
-                flyingStar.destroy();
-                // Update counter when star arrives
-                this.updateStarCounter();
-            }
-        });
-        
-        // Add a trail effect
-        for (let i = 0; i < 5; i++) {
-            this.time.delayedCall(i * 50, () => {
-                if (!flyingStar || !flyingStar.active) return;
-                
-                const trail = this.add.circle(
-                    flyingStar.x, 
-                    flyingStar.y, 
-                    3, 
-                    0xffd700
-                );
-                trail.setScrollFactor(0);
-                trail.setDepth(1000);
-                trail.setAlpha(0.5);
-                
-                this.tweens.add({
-                    targets: trail,
-                    scale: 0,
-                    alpha: 0,
-                    duration: 300,
-                    onComplete: () => trail.destroy()
-                });
-            });
-        }
-    }
 }

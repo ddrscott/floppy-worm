@@ -178,47 +178,13 @@ export default class GhostSystemManager {
      * @param {number} ghostTime - The ghost's completion time
      */
     createIndicator(ghostTime) {
-        // Ghost race indicator
-        this.indicator = this.scene.add.text(20, 60, 
-            `Racing ghost! (${this.formatTime(ghostTime)})`, {
-            fontSize: '18px',
-            color: '#9b59b6',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            padding: { x: 10, y: 5 }
-        }).setScrollFactor(0);
+        // Emit event to show ghost indicator in UI
+        this.scene.events.emit('ui-show-ghost', ghostTime);
         
-        // Add to UI elements for proper camera management
-        if (this.scene.uiElements) {
-            this.scene.uiElements.push(this.indicator);
-        }
-        
-        // Fade out after a few seconds
-        this.scene.tweens.add({
-            targets: this.indicator,
-            alpha: 0,
-            duration: 2000,
-            delay: 3000,
-            onComplete: () => {
-                this.indicator.destroy();
-                this.indicator = null;
-            }
+        // Auto-hide after a few seconds
+        this.scene.time.delayedCall(5000, () => {
+            this.scene.events.emit('ui-hide-ghost');
         });
-        
-        // Make cameras ignore it appropriately
-        this.scene.cameras.main.ignore(this.indicator);
-        if (this.scene.minimap) {
-            this.scene.minimap.ignore(this.indicator);
-        }
-        
-        // Update UI camera
-        if (this.scene.uiCamera) {
-            const allObjects = this.scene.children.list;
-            allObjects.forEach(obj => {
-                if (obj !== this.indicator && !this.scene.uiElements.includes(obj)) {
-                    this.scene.uiCamera.ignore(obj);
-                }
-            });
-        }
     }
     
     /**
