@@ -37,7 +37,7 @@ export default class WormBase {
                 }
             },
             surfaceConstraint: {
-                stiffness: 0.01,
+                stiffness: 0.02,
                 damping: 0.2,
                 length: 2,
                 render: {
