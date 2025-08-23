@@ -6,6 +6,8 @@ import FirePlatform from '../entities/FirePlatform';
 import BlackholePlatform from '../entities/BlackholePlatform';
 import WaterPlatform from '../entities/WaterPlatform';
 import WaterfallPlatform from '../entities/WaterfallPlatform';
+import SwitchPlatform from '../entities/SwitchPlatform';
+import DoorPlatform from '../entities/DoorPlatform';
 
 /**
  * PlatformFactory - Centralized platform creation from JSON data
@@ -330,18 +332,20 @@ export default class PlatformFactory {
     }
     
     createSpecialPlatform(platformData) {
-        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color, chamfer } = platformData;
+        const { type, platformType, x, y, width, height, radius, physics = {}, motion, color, chamfer, ...otherProps } = platformData;
         
         // Use the same coordinate transformations as regular platforms
         const centerX = x;
         const centerY = y;
         
         // Apply physics from JSON with proper defaults
+        // Include all platform-specific properties (switchId, doorId, etc.)
         const config = {
             shape: type, // Pass the shape type
             motion: motion, // Pass motion config if present
             chamfer: chamfer, // Pass chamfer config if present
             ...physics,
+            ...otherProps, // Include all other properties like switchId, doorId, etc.
         };
         
         // Determine platform dimensions based on shape type
@@ -385,6 +389,14 @@ export default class PlatformFactory {
                 
             case 'waterfall':
                 return new WaterfallPlatform(this.scene, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'switch':
+                console.log(`Creating switch with config:`, config);
+                return new SwitchPlatform(this.scene, centerX, centerY, platformWidth, platformHeight, config);
+                
+            case 'door':
+                console.log(`Creating door with config:`, config);
+                return new DoorPlatform(this.scene, centerX, centerY, platformWidth, platformHeight, config);
                 
             case 'standard':
                 // Standard platform with motion needs to use PlatformBase

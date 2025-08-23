@@ -127,10 +127,14 @@ This roadmap outlines the critical features and improvements needed to launch Fl
 Each platform type will have its own SVG test stage for isolated testing and development.
 
 **Puzzle Mechanics (Priority 1)**
-- [ ] **SwitchPlatform** - Pressure/toggle switches that activate other platforms
-  - Test stage: `test-switch.svg`
-- [ ] **DoorPlatform** - Opens/closes based on switch activation
-  - Test stage: `test-door.svg`
+- [x] **Switch** and **Door** - Pressure/toggle switches that activate other platforms
+  - Test stage: `050-switch-and-doors.svg`
+  - Switches have a visible button on top of it. When the worm falls on it. The switch activates and there should be a visual dot that starts off in a dim color, and brightens when switched.
+  - Doors should have a matching dot that starts off and turns on when the switch is activated.
+  - Players will understand the relationship between the switch and door through the colors.
+  - One switch might activate multiple doors if they have the same color.
+  - The switch can be toggled off, too.
+  - Doors can slide similar to `SlidingPlatform` and should have an arrow indicating the direction they slide.
 
 **Hazards & Traps (Priority 2)**
 - [ ] **SpikeTrapPlatform** - Retractable or permanent spikes that reset the worm

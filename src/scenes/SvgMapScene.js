@@ -482,6 +482,45 @@ export default class SvgMapScene extends JsonMapBase {
             }
         }
         
+        // Parse switch-specific attributes
+        if (platform.platformType === 'switch') {
+            if (element.dataset.switchId) {
+                platform.switchId = element.dataset.switchId;
+            }
+            if (element.dataset.toggleMode !== undefined) {
+                platform.toggleMode = element.dataset.toggleMode === 'true';
+            }
+            if (element.dataset.indicatorColorOff) {
+                platform.indicatorColorOff = parseInt(element.dataset.indicatorColorOff.replace('#', '0x'));
+            }
+            if (element.dataset.indicatorColorOn) {
+                platform.indicatorColorOn = parseInt(element.dataset.indicatorColorOn.replace('#', '0x'));
+            }
+        }
+        
+        // Parse door-specific attributes
+        if (platform.platformType === 'door') {
+            if (element.dataset.doorId) {
+                platform.doorId = element.dataset.doorId;
+            }
+            // doorId can also come from switchId for compatibility
+            if (!platform.doorId && element.dataset.switchId) {
+                platform.doorId = element.dataset.switchId;
+            }
+            if (element.dataset.slideDirection) {
+                platform.slideDirection = element.dataset.slideDirection;
+            }
+            if (element.dataset.slideDistance) {
+                platform.slideDistance = parseFloat(element.dataset.slideDistance);
+            }
+            if (element.dataset.indicatorColorOff) {
+                platform.indicatorColorOff = parseInt(element.dataset.indicatorColorOff.replace('#', '0x'));
+            }
+            if (element.dataset.indicatorColorOn) {
+                platform.indicatorColorOn = parseInt(element.dataset.indicatorColorOn.replace('#', '0x'));
+            }
+        }
+        
         // Handle transforms
         const transform = element.getAttribute('transform');
         if (transform) {
@@ -568,7 +607,8 @@ export default class SvgMapScene extends JsonMapBase {
         // Check for special platform types
         const platformTypes = [
             'ice', 'bouncy', 'electric', 'fire', 
-            'blackhole', 'water', 'waterfall'
+            'blackhole', 'water', 'waterfall',
+            'switch', 'door'
         ];
         
         for (const type of platformTypes) {

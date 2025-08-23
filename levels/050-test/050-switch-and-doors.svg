@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="1920"
+   height="1600"
+   viewBox="0 0 1920 1600"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   sodipodi:docname="050-switch-and-doors.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <title
+     id="title1">Switches and Doors</title>
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#383838"
+     bordercolor="#cccccc"
+     borderopacity="1"
+     inkscape:showpageshadow="false"
+     inkscape:pageopacity="1"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#ffffff"
+     inkscape:document-units="px"
+     showgrid="true"
+     showborder="true"
+     inkscape:zoom="0.58029497"
+     inkscape:cx="753.06528"
+     inkscape:cy="1065.8372"
+     inkscape:window-width="1712"
+     inkscape:window-height="1005"
+     inkscape:window-x="0"
+     inkscape:window-y="38"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1"
+     showguides="false">
+    <sodipodi:guide
+       position="1636.5915,432"
+       orientation="0,800"
+       id="guide182"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="1555,1612.6998"
+       orientation="800,0"
+       id="guide184"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="755,432"
+       orientation="0,-800"
+       id="guide186"
+       inkscape:locked="false" />
+    <sodipodi:guide
+       position="-45,432"
+       orientation="-800,0"
+       id="guide188"
+       inkscape:locked="false" />
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="960"
+       originy="1600"
+       spacingx="96"
+       spacingy="96"
+       empcolor="#4ecdc4"
+       empopacity="0.30196078"
+       color="#888888"
+       opacity="0.14901961"
+       empspacing="5"
+       dotted="false"
+       gridanglex="30"
+       gridanglez="30"
+       visible="true"
+       snapvisiblegridlinesonly="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <color-profile
+       name="Adobe-RGB-1998"
+       xlink:href="file:///System/Library/ColorSync/Profiles/AdobeRGB1998.icc"
+       id="color-profile2" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       class="platform switch"
+       data-switch-id="red"
+       x="127.95953"
+       y="1569.2257"
+       width="100"
+       height="30"
+       fill="#808080"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect2"
+       style="fill:#ca4436" />
+    <rect
+       class="platform door"
+       data-door-id="red"
+       data-slide-direction="up"
+       data-slide-distance="100"
+       x="98"
+       y="1121"
+       width="190"
+       height="189.99997"
+       fill="#604020"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect3"
+       style="stroke:#bc2122" />
+    <rect
+       class="platform switch"
+       data-switch-id="blue"
+       data-toggle-mode="true"
+       x="533"
+       y="1569.2257"
+       width="100"
+       height="30"
+       fill="#808080"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect4"
+       style="fill:#7382b3" />
+    <rect
+       class="platform door"
+       data-door-id="blue"
+       data-slide-direction="right"
+       data-slide-distance="150"
+       x="497.50342"
+       y="1045.4292"
+       width="177.96973"
+       height="285.22571"
+       fill="#604020"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect5"
+       style="stroke:#bec1fc" />
+    <rect
+       class="platform switch"
+       data-switch-id="green"
+       x="863.35162"
+       y="1505.5624"
+       width="193.44298"
+       height="93.437622"
+       fill="#808080"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect6"
+       style="fill:#9dde67" />
+    <rect
+       class="platform door"
+       data-door-id="green"
+       data-slide-direction="left"
+       data-slide-distance="100"
+       x="766.79462"
+       y="1214.8523"
+       width="194"
+       height="96.604858"
+       fill="#604020"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect7"
+       style="stroke:#9dde67" />
+    <rect
+       class="platform door"
+       data-door-id="green"
+       data-slide-direction="right"
+       data-slide-distance="100"
+       x="960.79462"
+       y="1215.1548"
+       width="194"
+       height="96"
+       fill="#604020"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect8"
+       style="stroke:#9dde67" />
+    <rect
+       class="platform switch"
+       data-switch-id="yellow"
+       data-toggle-mode="false"
+       x="1206.3524"
+       y="1566.781"
+       width="100"
+       height="30"
+       fill="#808080"
+       stroke="#000000"
+       stroke-width="2"
+       id="rect9"
+       style="fill:#eae385" />
+    <rect
+       class="platform door"
+       data-door-id="yellow"
+       data-slide-direction="down"
+       data-slide-distance="400"
+       x="1466.3383"
+       y="1121"
+       width="445.82422"
+       height="189.99998"
+       fill="#604020"
+       stroke="#000000"
+       stroke-width="2.00001"
+       id="rect10"
+       style="stroke:#eae385" />
+    <rect
+       class="platform"
+       x="481"
+       y="641"
+       width="200"
+       height="94"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="2.00001"
+       id="rect13" />
+    <rect
+       class="platform"
+       x="910"
+       y="1058"
+       width="100"
+       height="94"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="2.00001"
+       id="rect15" />
+    <rect
+       class="platform"
+       x="991"
+       y="595.39282"
+       width="100"
+       height="94"
+       fill="#696969"
+       stroke="#000000"
+       stroke-width="2.00001"
+       id="rect16" />
+    <circle
+       class="goal"
+       cx="960"
+       cy="1042"
+       r="16"
+       fill="#ffd700"
+       id="circle16" />
+    <circle
+       class="goal"
+       cx="193.95953"
+       cy="1042"
+       r="16"
+       fill="#ffd700"
+       id="circle17" />
+    <circle
+       class="goal"
+       cx="1689.2504"
+       cy="351.98801"
+       r="16"
+       fill="#ffd700"
+       id="circle18" />
+    <circle
+       class="goal"
+       cx="586.48828"
+       cy="979.79272"
+       r="16"
+       fill="#ffd700"
+       id="circle19" />
+    <text
+       x="127.95953"
+       y="1549.2257"
+       fill="#cccccc"
+       font-size="14px"
+       class="sticker"
+       id="text19">Red Switch (Toggle)</text>
+    <text
+       x="514"
+       y="1542.2257"
+       fill="#cccccc"
+       font-size="14px"
+       class="sticker"
+       id="text20">Blue Switch (Toggle)</text>
+    <text
+       x="855.98798"
+       y="1394.9982"
+       fill="#cccccc"
+       font-size="14px"
+       class="sticker"
+       id="text21">Green Switch (Multiple Doors)</text>
+    <text
+       x="1170.3597"
+       y="1543.9646"
+       fill="#cccccc"
+       font-size="14px"
+       class="sticker"
+       id="text22">Yellow Switch (Pressure)</text>
+    <circle
+       class="worm-start"
+       cx="1233"
+       cy="1120"
+       r="15"
+       fill="#00ff00"
+       opacity="0.8"
+       id="circle1" />
+  </g>
+  <metadata
+     id="metadata190">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Scott Pierce &lt;ddrscott@gmail.com&gt;</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:publisher>
+          <cc:Agent>
+            <dc:title>You're Welcome Studios</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <dc:rights>
+          <cc:Agent>
+            <dc:title>Attribution-NonCommerical-ShareAlike 4.0</dc:title>
+          </cc:Agent>
+        </dc:rights>
+        <dc:title>Switches and Doors</dc:title>
+        <dc:description>Snitches get Switches</dc:description>
+        <cc:license
+           rdf:resource="http://creativecommons.org/licenses/by-nc-sa/4.0/" />
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/by-nc-sa/4.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Notice" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#Attribution" />
+        <cc:prohibits
+           rdf:resource="http://creativecommons.org/ns#CommercialUse" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+        <cc:requires
+           rdf:resource="http://creativecommons.org/ns#ShareAlike" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>
