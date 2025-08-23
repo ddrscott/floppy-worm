@@ -45,6 +45,10 @@ export default class MovementAbility extends BaseAbility {
         this.minForceThreshold = config.minForceThreshold || 0.00001;
         this.minDistanceThreshold = config.minDistanceThreshold || 0.1;
         
+        // Velocity limiting
+        this.maxSegmentVelocity = config.maxSegmentVelocity || 15; // Maximum velocity magnitude for any segment
+        this.velocityLimitDamping = config.velocityLimitDamping || 0.9; // How harshly to dampen when over limit
+        
         // Ground stabilization parameters
         this.groundConfig = config.ground || {
             segments: 0.3,
@@ -147,8 +151,12 @@ export default class MovementAbility extends BaseAbility {
     update(delta) {
         if (!this.isActive) return;
         
-        // Update visual indicators
         this.updateStickDisplay();
+        
+        // Apply velocity limiting to all segments
+        this.worm.segments.forEach(segment => {
+            this.limitSegmentVelocity(segment);
+        });
     }
     
     handleInput(inputs) {
@@ -314,6 +322,9 @@ export default class MovementAbility extends BaseAbility {
             }
         }
         
+        // Apply velocity limiting to the segment
+        this.limitSegmentVelocity(segment);
+        
         return totalForce;
     }
     
@@ -401,6 +412,30 @@ export default class MovementAbility extends BaseAbility {
     
     colorToHex(color) {
         return '#' + color.toString(16).padStart(6, '0');
+    }
+    
+    limitSegmentVelocity(segment) {
+        if (!segment || !segment.velocity) return;
+        
+        const vx = segment.velocity.x;
+        const vy = segment.velocity.y;
+        const velocityMagnitude = Math.sqrt(vx * vx + vy * vy);
+        
+        if (velocityMagnitude > this.maxSegmentVelocity) {
+            // Apply damping to reduce velocity
+            const dampingFactor = this.velocityLimitDamping;
+            
+            // Calculate the excess velocity
+            const excessRatio = this.maxSegmentVelocity / velocityMagnitude;
+            
+            // Apply a combination of clamping and damping
+            // This provides a softer limit that feels more natural
+            const newVx = vx * Math.max(excessRatio, dampingFactor);
+            const newVy = vy * Math.max(excessRatio, dampingFactor);
+            
+            // Set the new velocity
+            this.Matter.Body.setVelocity(segment, { x: newVx, y: newVy });
+        }
     }
     
     updateRollModeAnchor(stickState, delta) {

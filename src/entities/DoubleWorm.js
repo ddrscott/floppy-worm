@@ -29,7 +29,7 @@ export default class DoubleWorm extends WormBase {
             anchorDensity: 0.0001,
             
             // Air resistance
-            airFriction: 0.012,
+            airFriction: 0.006,
             
             // Movement Physics
             velocityDamping: 1,
@@ -40,6 +40,10 @@ export default class DoubleWorm extends WormBase {
             positionForceMagnitude: 0.00001,
             minForceThreshold: 0.00001,
             minDistanceThreshold: 0.1,
+            
+            // Velocity limiting to prevent runaway acceleration
+            maxSegmentVelocity: 45,  // Maximum speed any segment can reach
+            velocityLimitDamping: 0.12,  // How harshly to slow down when over limit
             
             // Ground Physics
             ground: {

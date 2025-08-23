@@ -112,7 +112,7 @@ export default class WormBase {
                 frictionAir: this.config.airFriction || 0,
                 density: this.config.segmentDensity,
                 restitution: this.config.segmentRestitution,
-                slop: 0.01,
+                slop: 0.001,  // Reduced from 0.01 for tighter collision detection
                 render: {
                     fillStyle: '#' + segmentColor.toString(16).padStart(6, '0'),
                     strokeStyle: '#' + this.getDarkerColor(segmentColor).toString(16).padStart(6, '0'),
