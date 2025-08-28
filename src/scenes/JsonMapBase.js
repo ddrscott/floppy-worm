@@ -938,6 +938,9 @@ export default class JsonMapBase extends Phaser.Scene {
         // Predictive camera toggle
         this.pKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
         
+        // Mouse constraint toggle (number 0 key)
+        this.zeroKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ZERO);
+        
         // Fullscreen toggle
         this.f11Key = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.F11);
         
@@ -1358,6 +1361,11 @@ export default class JsonMapBase extends Phaser.Scene {
         // Check for P key to toggle predictive camera
         if (Phaser.Input.Keyboard.JustDown(this.pKey)) {
             this.togglePredictiveCamera();
+        }
+        
+        // Check for 0 key to toggle mouse constraint (debug tool)
+        if (Phaser.Input.Keyboard.JustDown(this.zeroKey)) {
+            this.toggleMouseConstraint();
         }
         
         // Check for gamepad button M to toggle mini-map
@@ -1917,6 +1925,61 @@ export default class JsonMapBase extends Phaser.Scene {
             duration: 1500,
             onComplete: () => text.destroy()
         });
+    }
+    
+    toggleMouseConstraint() {
+        if (this.mouseConstraint) {
+            // Remove existing mouse constraint
+            this.matter.world.removeConstraint(this.mouseConstraint);
+            this.mouseConstraint = null;
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 170, 
+                'Mouse Constraint OFF', {
+                fontSize: '20px',
+                color: '#e74c3c',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 15, y: 8 }
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+            
+            if (this.minimap) {
+                this.minimap.ignore(text);
+            }
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 1500,
+                onComplete: () => text.destroy()
+            });
+        } else {
+            // Create mouse constraint
+            this.mouseConstraint = this.matter.add.mouseSpring({
+                length: 0.01,
+                stiffness: 0.8,
+                damping: 0
+            });
+            
+            // Show feedback
+            const text = this.add.text(this.scale.width / 2, 170, 
+                'Mouse Constraint ON - Drag physics bodies!', {
+                fontSize: '20px',
+                color: '#2ecc71',
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: { x: 15, y: 8 }
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+            
+            if (this.minimap) {
+                this.minimap.ignore(text);
+            }
+            
+            this.tweens.add({
+                targets: text,
+                alpha: 0,
+                duration: 2000,
+                onComplete: () => text.destroy()
+            });
+        }
     }
     
     formatTime(milliseconds) {

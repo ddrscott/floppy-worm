@@ -1,3 +1,7 @@
+# syncthing files
+.stfolder/
+.stignore
+
 build/
 template-remix/
 node_modules/
