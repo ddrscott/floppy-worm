@@ -424,7 +424,7 @@ export default class InputManager {
             padding: { x: 10, y: 10 }
         };
         
-        this.debugText = this.scene.add.text(10, 10, '', style);
+        this.debugText = this.scene.add.text(200, 10, '', style);
         this.debugText.setScrollFactor(0);
         this.debugText.setDepth(10000);
     }
