@@ -10,9 +10,6 @@ export default class DoubleWorm extends WormBase {
     constructor(scene, x, y, config = {}) {
         // Merge swing-specific config with base config
         const swingConfig = {
-            // Jump spring defaults
-            flattenIdle: 0.000001,
-            flattenStiffness: 0.5,
             
             // Colors
             headColor: 0xff6b6b,
@@ -58,22 +55,15 @@ export default class DoubleWorm extends WormBase {
             rangeIndicatorAlpha: 0.4,
             rangeIndicatorLineWidth: 1,
             
+            triggerMinimum: 0.1,
             // Jump Physics
             jump: {
-                springLengthMultiplier: 1.3,
                 triggerThreshold: 0.01,
-                stiffness: 0.0375,
                 baseCompressionStiffness: 0.05,
                 maxCompressionStiffness: 0.7,
                 compressionTriggerSensitivity: 1.0,
-                useGroundAnchor: false,
-                laser: {
-                    lineWidth: 4,
-                    length: 200,
-                    arrowSize: 15,
-                    arrowOffset: 10,
-                    fadeDuration: 500
-                }
+                // Lattice spring configuration
+                latticeEnabled: true
             },
             
             // Grab Physics
@@ -182,9 +172,6 @@ export default class DoubleWorm extends WormBase {
         // Set cross-references
         this.rollAbility.setMovementAbility(this.movementAbility);
         
-        // Initialize jump spring lengths while worm is in resting position
-        this.jumpAbility.initializeSpringLengths();
-        
         // Set up state machine listeners
         this.setupStateMachineListeners();
         
@@ -265,7 +252,7 @@ export default class DoubleWorm extends WormBase {
             
             // Check if all mode buttons are released
             const anyModeButtonPressed = inputState.rollButton || 
-                (inputState.leftTrigger > 0.1 || inputState.rightTrigger > 0.1);
+                (inputState.leftTrigger > this.config.triggerMinimum || inputState.rightTrigger > this.config.triggerMinimum);
             
             if (!anyModeButtonPressed) {
                 // All buttons released, unblock input
@@ -293,7 +280,7 @@ export default class DoubleWorm extends WormBase {
         }
         
         // Check if jump button is pressed
-        const jumpButtonPressed = (inputState.leftTrigger > 0.1 || inputState.rightTrigger > 0.1);
+        const jumpButtonPressed = (inputState.leftTrigger > this.config.triggerMinimum || inputState.rightTrigger > this.config.triggerMinimum);
         
         // Track previous button states
         let prevRollDown = this.rollButtonDown;
@@ -372,7 +359,7 @@ export default class DoubleWorm extends WormBase {
         }
         if (this.jumpAbility) {
             this.jumpAbility.deactivate();
-            this.jumpAbility.destroy(); // Clean up lasers
+            this.jumpAbility.destroy();
         }
         if (this.rollAbility) {
             this.rollAbility.deactivate();

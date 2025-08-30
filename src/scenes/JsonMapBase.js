@@ -283,7 +283,9 @@ export default class JsonMapBase extends Phaser.Scene {
         
         // Remove mouse constraint if it exists
         if (this.mouseConstraint) {
-            this.matter.world.removeConstraint(this.mouseConstraint);
+            if (this.matter && this.matter.world) {
+                this.matter.world.removeConstraint(this.mouseConstraint);
+            }
             this.mouseConstraint = null;
         }
         
@@ -1930,7 +1932,9 @@ export default class JsonMapBase extends Phaser.Scene {
     toggleMouseConstraint() {
         if (this.mouseConstraint) {
             // Remove existing mouse constraint
-            this.matter.world.removeConstraint(this.mouseConstraint);
+            if (this.matter && this.matter.world) {
+                this.matter.world.removeConstraint(this.mouseConstraint);
+            }
             this.mouseConstraint = null;
             
             // Show feedback
