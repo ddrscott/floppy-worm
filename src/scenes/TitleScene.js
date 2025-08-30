@@ -90,7 +90,7 @@ export default class TitleScene extends Phaser.Scene {
         const titleFontSize = Math.max(36, Math.floor(baseFontSize * scaleFactor)); // Min 36px
         
         // Create title with responsive size
-        this.titleText = this.add.text(centerX, centerY - 150, 'Floppy Worm', {
+        this.titleText = this.add.text(centerX, centerY - 150, 'Title Screen', {
             fontSize: `${titleFontSize}px`,
             fontFamily: 'Arial Black, Arial',
             color: '#4ecdc4',
