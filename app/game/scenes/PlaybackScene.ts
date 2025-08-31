@@ -792,7 +792,8 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 // Update stopwatch to match seek position
                 if (this.stopwatch) {
                     this.stopwatch.elapsedTime = this.elapsedTime;
-                    this.stopwatch.updateDisplay();
+                    // Emit event to update UI with seek position
+                    this.events.emit('ui-update-time', this.elapsedTime);
                 }
                 
                 // Rebuild trails
@@ -835,7 +836,8 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             // Reset stopwatch
             if (this.stopwatch) {
                 this.stopwatch.elapsedTime = 0;
-                this.stopwatch.updateDisplay();
+                // Emit event to update UI with reset time
+                this.events.emit('ui-update-time', 0);
             }
             
             // Reset goals
