@@ -549,7 +549,8 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             if (this.stopwatch) {
                 // Override the stopwatch's internal elapsed time to match playback
                 this.stopwatch.elapsedTime = this.elapsedTime;
-                this.stopwatch.updateDisplay();
+                // Emit event to update UI with current time
+                this.events.emit('ui-update-time', this.elapsedTime);
             }
             
             // Check goal collection during playback
