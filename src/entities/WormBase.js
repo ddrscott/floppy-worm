@@ -30,8 +30,8 @@ export default class WormBase {
             },
             spacingConstraint: {
                 angularStiffness: 0.1,
-                stiffness: 1,
-                damping: 0,
+                stiffness: 0.3,
+                damping: 0.1,
                 render: {
                     visible: true,
                 }
