@@ -58,12 +58,8 @@ export default class DoubleWorm extends WormBase {
             triggerMinimum: 0.1,
             // Jump Physics
             jump: {
-                triggerThreshold: 0.01,
-                baseCompressionStiffness: 0.05,
-                maxCompressionStiffness: 0.7,
-                compressionTriggerSensitivity: 1.0,
-                // Lattice spring configuration
-                latticeEnabled: true
+                latticeEnabled: true,
+                ...config.jump  // Allow override from config
             },
             
             // Grab Physics

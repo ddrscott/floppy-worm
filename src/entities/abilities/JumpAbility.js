@@ -5,12 +5,13 @@ export default class JumpAbility extends BaseAbility {
         super(worm, config);
         
         // Trigger threshold for activation
-        this.triggerThreshold = config.triggerThreshold || 0.01;
+        this.triggerThreshold = config.triggerThreshold || 0.001;
         
-        // Compression spring parameters
-        this.baseCompressionStiffness = config.baseCompressionStiffness || 0.05;
-        this.maxCompressionStiffness = config.maxCompressionStiffness || 0.7;
-        this.compressionTriggerSensitivity = config.compressionTriggerSensitivity || 1.0;
+        // Input curve configuration
+        // curveExponent > 1 makes it less sensitive at low values (easier fine control)
+        // curveExponent < 1 makes it more sensitive at low values (quicker response)
+        // curveExponent = 1 is linear (current behavior)
+        this.curveExponent = config.curveExponent || 5.0; // Default to cubic for better control
         
         // Lattice spring configuration
         this.latticeEnabled = config.latticeEnabled !== false;
@@ -182,6 +183,22 @@ export default class JumpAbility extends BaseAbility {
         });
     }
     
+    applyInputCurve(rawInput) {
+        // Apply trigger threshold (acts as deadzone)
+        if (Math.abs(rawInput) < this.triggerThreshold) {
+            return 0;
+        }
+        
+        // Remove threshold from the input range
+        const adjustedInput = (rawInput - this.triggerThreshold) / (1 - this.triggerThreshold);
+        
+        // Apply power curve
+        // This maintains 0 -> 0 and 1 -> 1 mapping while adjusting the curve in between
+        const curvedInput = Math.pow(Math.max(0, Math.min(1, adjustedInput)), this.curveExponent);
+        
+        return curvedInput;
+    }
+    
     updateLatticeStiffness(headTriggerValue, tailTriggerValue) {
         if (!this.latticeEnabled) return;
         
@@ -237,21 +254,20 @@ export default class JumpAbility extends BaseAbility {
         const { leftTrigger, rightTrigger, swapControls, delta } = inputs;
         
         // Determine which triggers control which springs
-        const headTriggerValue = swapControls ? rightTrigger : leftTrigger;
-        const tailTriggerValue = swapControls ? leftTrigger : rightTrigger;
+        const rawHeadValue = swapControls ? rightTrigger : leftTrigger;
+        const rawTailValue = swapControls ? leftTrigger : rightTrigger;
+        
+        // Apply input curve for better sensitivity control
+        const curvedHeadValue = this.applyInputCurve(rawHeadValue);
+        const curvedTailValue = this.applyInputCurve(rawTailValue);
+        
+        let headTriggerValue = curvedHeadValue;
+        let tailTriggerValue = curvedTailValue;
         
         // Direct control - triggers immediately affect spring stiffness
         if (this.latticeEnabled) {
             this.updateLatticeStiffness(headTriggerValue, tailTriggerValue);
         }
-        
-        // Update compression springs based on trigger values
-        const maxTriggerValue = Math.max(headTriggerValue, tailTriggerValue);
-        const compressionStiffness = this.baseCompressionStiffness + 
-            (maxTriggerValue * this.compressionTriggerSensitivity * 
-             (this.maxCompressionStiffness - this.baseCompressionStiffness));
-        
-        this.worm.updateCompressionStiffness(compressionStiffness);
     }
     
     // Clean up everything when the worm is destroyed

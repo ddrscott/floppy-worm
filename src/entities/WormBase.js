@@ -465,17 +465,6 @@ export default class WormBase {
         }
     }
     
-    // Update compression spring stiffness for dynamic body tension
-    updateCompressionStiffness(newStiffness) {
-        if (this.compressionSprings && Array.isArray(this.compressionSprings)) {
-            this.compressionSprings.forEach(spring => {
-                if (spring && typeof spring === 'object' && 'stiffness' in spring) {
-                    spring.stiffness = newStiffness;
-                }
-            });
-        }
-    }
-    
     // Cleanup
     destroy() {
         
