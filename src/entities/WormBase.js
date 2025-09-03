@@ -75,6 +75,9 @@ export default class WormBase {
         // Initialize splat synthesizer for collision sounds
         this.initializeSplatSynthesizer();
         
+        // Initialize trail system
+        this.initializeTrails();
+        
         // Create the worm structure
         this.create(x, y);
         
@@ -188,6 +191,11 @@ export default class WormBase {
         this.updateMovement(delta);
 
         // No need to manually update segment positions - Phaser handles this automatically!
+        
+        // Update trails if enabled
+        if (this.trailConfig && this.trailConfig.enabled) {
+            this.updateTrails();
+        }
         
         // Clean up overstretched surface constraints
         this.cleanupOverstretchedConstraints();
@@ -371,6 +379,34 @@ export default class WormBase {
         }
     }
     
+    initializeTrails() {
+        // Trail configuration (can be overridden by config)
+        this.trailConfig = {
+            enabled: this.config.trailEnabled !== false, // Default to true
+            maxLength: this.config.trailMaxLength || 60,
+            headColor: this.config.trailHeadColor || 0xff6b6b,
+            headAlpha: this.config.trailHeadAlpha || 0.8,
+            headLineWidth: this.config.trailHeadLineWidth || 3,
+            tailColor: this.config.trailTailColor || 0x74b9ff,
+            tailAlpha: this.config.trailTailAlpha || 0.5,
+            tailLineWidth: this.config.trailTailLineWidth || 3
+        };
+        
+        // Only create trail graphics if enabled
+        if (this.trailConfig.enabled) {
+            // Create trail graphics objects
+            this.headTrailGraphics = this.scene.add.graphics();
+            this.headTrailGraphics.setDepth(5); // Behind worm but above platforms
+            
+            this.tailTrailGraphics = this.scene.add.graphics();
+            this.tailTrailGraphics.setDepth(5);
+            
+            // Trail point arrays
+            this.headTrailPoints = [];
+            this.tailTrailPoints = [];
+        }
+    }
+    
     playSplatSound(velocity = 10, mass = 0.1, surfaceHardness = 0.5) {
         // Use config values for minimum velocity and cooldown
         if (velocity < this.config.splatSound.minVelocityThreshold) {
@@ -496,6 +532,19 @@ export default class WormBase {
                     this.matter.world.remove(spring);
                 }
             });
+        }
+        
+        // Clean up trails
+        if (this.trailConfig && this.trailConfig.enabled) {
+            this.clearTrails();
+            if (this.headTrailGraphics) {
+                this.headTrailGraphics.destroy();
+                this.headTrailGraphics = null;
+            }
+            if (this.tailTrailGraphics) {
+                this.tailTrailGraphics.destroy();
+                this.tailTrailGraphics = null;
+            }
         }
         
         // Clean up collision detection
@@ -922,6 +971,140 @@ export default class WormBase {
                     particle.destroy();
                 }
             });
+        }
+    }
+    
+    // Trail system methods
+    updateTrails() {
+        if (!this.segments || this.segments.length === 0) return;
+        
+        // Get head and tail positions
+        const head = this.getHead();
+        const tail = this.getTail();
+        
+        if (head && head.position) {
+            // Add new point to head trail
+            this.headTrailPoints.push({ 
+                x: head.position.x, 
+                y: head.position.y 
+            });
+            
+            // Remove old points to maintain max length
+            if (this.headTrailPoints.length > this.trailConfig.maxLength) {
+                this.headTrailPoints.shift();
+            }
+        }
+        
+        if (tail && tail.position) {
+            // Add new point to tail trail
+            this.tailTrailPoints.push({ 
+                x: tail.position.x, 
+                y: tail.position.y 
+            });
+            
+            // Remove old points to maintain max length
+            if (this.tailTrailPoints.length > this.trailConfig.maxLength) {
+                this.tailTrailPoints.shift();
+            }
+        }
+        
+        // Render the trails
+        this.renderTrails();
+    }
+    
+    renderTrails() {
+        if (!this.headTrailGraphics || !this.tailTrailGraphics) return;
+        
+        // Clear previous graphics
+        this.headTrailGraphics.clear();
+        this.tailTrailGraphics.clear();
+        
+        // Render head trail
+        if (this.headTrailPoints.length >= 2) {
+            for (let i = 1; i < this.headTrailPoints.length; i++) {
+                // Calculate alpha based on position in trail (fade out towards the end)
+                const progress = i / (this.headTrailPoints.length - 1);
+                const alpha = this.trailConfig.headAlpha * progress;
+                
+                // Draw line segment
+                this.headTrailGraphics.lineStyle(
+                    this.trailConfig.headLineWidth, 
+                    this.trailConfig.headColor, 
+                    alpha
+                );
+                this.headTrailGraphics.beginPath();
+                this.headTrailGraphics.moveTo(
+                    this.headTrailPoints[i - 1].x, 
+                    this.headTrailPoints[i - 1].y
+                );
+                this.headTrailGraphics.lineTo(
+                    this.headTrailPoints[i].x, 
+                    this.headTrailPoints[i].y
+                );
+                this.headTrailGraphics.strokePath();
+            }
+        }
+        
+        // Render tail trail
+        if (this.tailTrailPoints.length >= 2) {
+            for (let i = 1; i < this.tailTrailPoints.length; i++) {
+                // Calculate alpha based on position in trail (fade out towards the end)
+                const progress = i / (this.tailTrailPoints.length - 1);
+                const alpha = this.trailConfig.tailAlpha * progress;
+                
+                // Draw line segment
+                this.tailTrailGraphics.lineStyle(
+                    this.trailConfig.tailLineWidth, 
+                    this.trailConfig.tailColor, 
+                    alpha
+                );
+                this.tailTrailGraphics.beginPath();
+                this.tailTrailGraphics.moveTo(
+                    this.tailTrailPoints[i - 1].x, 
+                    this.tailTrailPoints[i - 1].y
+                );
+                this.tailTrailGraphics.lineTo(
+                    this.tailTrailPoints[i].x, 
+                    this.tailTrailPoints[i].y
+                );
+                this.tailTrailGraphics.strokePath();
+            }
+        }
+    }
+    
+    // Clear trails (useful for scene restarts)
+    clearTrails() {
+        if (this.trailConfig && this.trailConfig.enabled) {
+            this.headTrailPoints = [];
+            this.tailTrailPoints = [];
+            if (this.headTrailGraphics) {
+                this.headTrailGraphics.clear();
+            }
+            if (this.tailTrailGraphics) {
+                this.tailTrailGraphics.clear();
+            }
+        }
+    }
+    
+    // Enable or disable trails at runtime
+    setTrailsEnabled(enabled) {
+        if (this.trailConfig) {
+            this.trailConfig.enabled = enabled;
+            
+            if (!enabled) {
+                // Clear trails when disabling
+                this.clearTrails();
+            } else if (!this.headTrailGraphics || !this.tailTrailGraphics) {
+                // Create graphics if they don't exist
+                this.headTrailGraphics = this.scene.add.graphics();
+                this.headTrailGraphics.setDepth(5);
+                
+                this.tailTrailGraphics = this.scene.add.graphics();
+                this.tailTrailGraphics.setDepth(5);
+                
+                this.headTrailPoints = [];
+                this.tailTrailPoints = [];
+            }
         }
     }
 }

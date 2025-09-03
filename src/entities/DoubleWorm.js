@@ -342,8 +342,6 @@ export default class DoubleWorm extends WormBase {
     // Removed simulateStickFromKeyboard - now handled by InputManager
     
     destroy() {
-        console.log('DoubleWorm.destroy() - Starting cleanup');
-        
         // Clean up input manager
         if (this.inputManager) {
             this.inputManager.destroy();
@@ -368,9 +366,6 @@ export default class DoubleWorm extends WormBase {
         if (this.stateMachine) {
             this.stateMachine.reset();
         }
-        
-        console.log('DoubleWorm.destroy() - Calling parent destroy');
         super.destroy();
-        console.log('DoubleWorm.destroy() completed');
     }
 }

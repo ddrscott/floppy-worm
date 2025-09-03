@@ -754,11 +754,24 @@ export default class JsonMapBase extends Phaser.Scene {
         this.worm = new DoubleWorm(this, wormX, wormY, {
             baseRadius: 15,
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-            showDebug: debugEnabled
+            showDebug: debugEnabled,
+            // Trail configuration
+            trailEnabled: true,
+            trailMaxLength: 60,
+            trailHeadColor: 0xff6b6b,
+            trailTailColor: 0x74b9ff
         });
 
         // Set Matter.js debug rendering based on worm's showDebug config
         this.matter.world.drawDebug = this.worm.config.showDebug;
+        
+        // Add trail graphics to minimap ignore list if they exist
+        if (this.worm.headTrailGraphics) {
+            this.minimapIgnoreList.push(this.worm.headTrailGraphics);
+        }
+        if (this.worm.tailTrailGraphics) {
+            this.minimapIgnoreList.push(this.worm.tailTrailGraphics);
+        }
 
         // Initial impulse is now handled automatically in WormBase
         
@@ -940,6 +953,9 @@ export default class JsonMapBase extends Phaser.Scene {
         // Predictive camera toggle
         this.pKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
         
+        // Trail toggle
+        this.tKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
+        
         // Mouse constraint toggle (number 0 key)
         this.zeroKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ZERO);
         
@@ -1015,6 +1031,16 @@ export default class JsonMapBase extends Phaser.Scene {
         
         if (this.controlsDisplay && this.controlsDisplay.elements) {
             this.minimap.ignore(this.controlsDisplay.elements);
+        }
+        
+        // Also ignore worm trails if they exist
+        if (this.worm) {
+            if (this.worm.headTrailGraphics) {
+                this.minimap.ignore(this.worm.headTrailGraphics);
+            }
+            if (this.worm.tailTrailGraphics) {
+                this.minimap.ignore(this.worm.tailTrailGraphics);
+            }
         }
         
         // Touch controls are now handled by TouchControlsScene
@@ -1363,6 +1389,11 @@ export default class JsonMapBase extends Phaser.Scene {
         // Check for P key to toggle predictive camera
         if (Phaser.Input.Keyboard.JustDown(this.pKey)) {
             this.togglePredictiveCamera();
+        }
+        
+        // Check for T key to toggle trails
+        if (Phaser.Input.Keyboard.JustDown(this.tKey)) {
+            this.toggleTrails();
         }
         
         // Check for 0 key to toggle mouse constraint (debug tool)
@@ -1913,6 +1944,50 @@ export default class JsonMapBase extends Phaser.Scene {
             this.predictiveCameraConfig.enabled ? 'Predictive Camera ON' : 'Predictive Camera OFF', {
             fontSize: '20px',
             color: this.predictiveCameraConfig.enabled ? '#3498db' : '#e74c3c',
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: { x: 15, y: 8 }
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
+        
+        if (this.minimap) {
+            this.minimap.ignore(text);
+        }
+        
+        this.tweens.add({
+            targets: text,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => text.destroy()
+        });
+    }
+    
+    toggleTrails() {
+        if (!this.worm) return;
+        
+        // Toggle trail state
+        const currentEnabled = this.worm.trailConfig ? this.worm.trailConfig.enabled : false;
+        const newEnabled = !currentEnabled;
+        
+        // Update worm trail state
+        this.worm.setTrailsEnabled(newEnabled);
+        
+        // Update minimap to ignore/unignore trails
+        if (this.minimap && this.worm) {
+            if (newEnabled) {
+                // If enabling trails, make sure minimap ignores them
+                if (this.worm.headTrailGraphics) {
+                    this.minimap.ignore(this.worm.headTrailGraphics);
+                }
+                if (this.worm.tailTrailGraphics) {
+                    this.minimap.ignore(this.worm.tailTrailGraphics);
+                }
+            }
+        }
+        
+        // Show feedback
+        const text = this.add.text(this.scale.width / 2, 110, 
+            newEnabled ? 'Trails ON' : 'Trails OFF', {
+            fontSize: '20px',
+            color: newEnabled ? '#9b59b6' : '#e74c3c',
             backgroundColor: 'rgba(0,0,0,0.8)',
             padding: { x: 15, y: 8 }
         }).setOrigin(0.5).setScrollFactor(0).setDepth(1000);
