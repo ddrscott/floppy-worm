@@ -75,6 +75,16 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
         constructor(config: any = {}) {
             // Set the scene key for Phaser
             config.key = 'PlaybackScene';
+            
+            // Ensure background music config is set (will be used by parent class)
+            if (!config.bgMusicConfig) {
+                config.bgMusicConfig = {
+                    loop: true,
+                    volume: 0.5,
+                    seek: 48.5,  // Start at 48.5 seconds
+                };
+            }
+            
             super(config);
         }
 
@@ -134,6 +144,11 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 mapKey: this.mapKey
             });
             
+            // Load background music if not already loaded
+            if (!this.cache.audio.exists('backgroundMusic')) {
+                this.load.audio('backgroundMusic', '/audio/strawberry-house-45kps.mp3');
+            }
+            
             super.preload();
         }
 
@@ -144,7 +159,7 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
                 return;
             }
             
-            // Call parent create - handles both JSON and SVG maps
+            // Call parent create - handles both JSON and SVG maps (includes background music)
             await super.create();
             
             // Create stopwatch for consistent timer behavior during playback
@@ -297,7 +312,9 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
             this.worm = new DoubleWorm(this, wormX, wormY, {
                 baseRadius: 15,
                 segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
-                showDebug: false
+                showDebug: false,
+                // Disable WormBase trails since PlaybackScene has its own trail implementation
+                trailEnabled: false
             });
             
             // Store segment radii for collision detection
@@ -856,6 +873,7 @@ function createPlaybackSceneClass(BaseMapClass: typeof JsonMapBase): typeof Json
         }
 
         cleanup() {
+            // Parent cleanup handles background music cleanup
             super.cleanup();
             
             // Clean up stopwatch

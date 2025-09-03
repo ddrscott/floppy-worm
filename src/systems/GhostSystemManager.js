@@ -53,7 +53,7 @@ export default class GhostSystemManager {
             this.player = new GhostPlayer(this.scene, loadedSegmentCount);
             const loaded = await this.player.loadGhostData(ghostData);
             
-            if (loaded) {
+            if (loaded && this.player.frames && this.player.frames.length > 0) {
                 console.log(`Ghost loaded successfully with ${this.player.frames.length} frames, time: ${this.formatTime(ghostData.completionTime)}`);
                 // Create ghost indicator UI
                 this.createIndicator(ghostData.completionTime);
@@ -70,7 +70,7 @@ export default class GhostSystemManager {
      * Start ghost playback (call after stopwatch starts)
      */
     startPlayback() {
-        if (this.player && this.player.frames.length > 0) {
+        if (this.player && this.player.frames && this.player.frames.length > 0) {
             console.log('Starting ghost player with', this.player.frames.length, 'frames');
             this.player.start();
         }

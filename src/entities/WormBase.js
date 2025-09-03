@@ -17,7 +17,7 @@ export default class WormBase {
             segmentSizes: [0.75, 1, 1, 0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
             segmentDensity: 0.015,
             segmentFriction: 1,
-            segmentFrictionStatic: 10,
+            segmentFrictionStatic: Infinity,
             segmentRestitution: 0.0001,
             linkConstraint: {
                 angularStiffness: 0.1,

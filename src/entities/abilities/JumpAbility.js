@@ -20,8 +20,8 @@ export default class JumpAbility extends BaseAbility {
         // Lattice configurations with shared defaults
         const latticeDefaults = {
             baseStiffness: 0.0001,
-            activeStiffness: 0.9,
-            damping: 0.2,
+            activeStiffness: 0.99,
+            damping: 0.5,
             lengthMultiplier: 1.1,
         };
         
