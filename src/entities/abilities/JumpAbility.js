@@ -12,6 +12,7 @@ export default class JumpAbility extends BaseAbility {
         // curveExponent < 1 makes it more sensitive at low values (quicker response)
         // curveExponent = 1 is linear (current behavior)
         this.curveExponent = config.curveExponent || 5.0; // Default to cubic for better control
+        this.curveCap = config.curveCap || 0.95; // Cap before snapping to full activation
         
         // Lattice spring configuration
         this.latticeEnabled = config.latticeEnabled !== false;
@@ -194,7 +195,11 @@ export default class JumpAbility extends BaseAbility {
         
         // Apply power curve
         // This maintains 0 -> 0 and 1 -> 1 mapping while adjusting the curve in between
-        const curvedInput = Math.pow(Math.max(0, Math.min(1, adjustedInput)), this.curveExponent);
+        let curvedInput = Math.pow(Math.max(0, Math.min(1, adjustedInput)), this.curveExponent);
+
+        if (curvedInput > this.curveCap) {
+            curvedInput = 1.0; // Snap to full activation for high inputs
+        }
         
         return curvedInput;
     }
