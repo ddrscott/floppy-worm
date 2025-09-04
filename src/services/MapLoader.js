@@ -121,6 +121,7 @@ export default class MapLoader {
                 // Add SVG-specific config
                 if (isSvgMap) {
                     config.svgPath = mapData.svgPath;
+                    config.svgContent = mapData.svgContent; // Pass bundled SVG content if available
                 } else {
                     config.mapData = mapData;
                 }

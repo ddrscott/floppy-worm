@@ -10,14 +10,15 @@ export default class SvgMapScene extends JsonMapBase {
         super(config);
         
         this.svgPath = config.svgPath || null;
-        this.svgContent = null;
+        this.svgContent = config.svgContent || null; // Accept bundled SVG content
         this.svgDoc = null;
     }
     
     preload() {
         super.preload();
         
-        if (this.svgPath) {
+        // Only load SVG from path if we don't have bundled content
+        if (this.svgPath && !this.svgContent) {
             // Create a unique cache key based on the SVG path to avoid caching issues
             this.svgCacheKey = 'svg_' + this.svgPath.replace(/[^a-zA-Z0-9]/g, '_');
             
@@ -32,8 +33,12 @@ export default class SvgMapScene extends JsonMapBase {
     }
     
     create() {
-        // If we have an SVG path, load and parse it
-        if (this.svgPath && this.svgCacheKey) {
+        // Use bundled SVG content if available, otherwise load from cache
+        if (this.svgContent) {
+            // Use bundled SVG content directly (for static builds)
+            this.parseSvgToMapData(this.svgContent);
+        } else if (this.svgPath && this.svgCacheKey) {
+            // Load from cache (for development/dynamic loading)
             const svgText = this.cache.text.get(this.svgCacheKey);
             if (svgText) {
                 this.parseSvgToMapData(svgText);

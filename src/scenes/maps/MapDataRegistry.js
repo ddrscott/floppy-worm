@@ -148,6 +148,7 @@ for (const path in svgUrls) {
         const svgMapData = {
             type: 'svg',
             svgPath: svgUrls[path],
+            svgContent: svgText, // Include the actual SVG content for static builds
             metadata: {
                 name: name,
                 description: description,
@@ -191,6 +192,7 @@ for (const path in svgUrls) {
         STATIC_MAP_REGISTRY[mapKey] = {
             type: 'svg',
             svgPath: svgUrls[path],
+            svgContent: svgText, // Include the actual SVG content for static builds
             metadata: {
                 name: name,
                 description: description,

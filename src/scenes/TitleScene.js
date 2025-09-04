@@ -4,6 +4,7 @@ import ScrollingBackground from '../utils/ScrollingBackground';
 import WormBase from '../entities/WormBase';
 import ZzfxSplatWrapper from '../audio/ZzfxSplatWrapper';
 import SettingsScene from './SettingsScene';
+import packageJson from '../../package.json';
 
 export default class TitleScene extends Phaser.Scene {
     constructor() {
@@ -116,7 +117,7 @@ export default class TitleScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Create version text
-        this.versionText = this.add.text(width - 20, height - 20, 'v0.1.0-beta', {
+        this.versionText = this.add.text(width - 20, height - 20, `v${packageJson.version}`, {
             fontSize: '14px',
             fontFamily: 'Arial',
             color: '#7f8c8d'

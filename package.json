@@ -1,6 +1,6 @@
 {
   "name": "floppy-worm",
-  "version": "1.0.0",
+  "version": "0.2.2",
   "description": "Physics-based worm game using Phaser and Matter.js",
   "private": true,
   "sideEffects": false,
@@ -8,8 +8,11 @@
   "scripts": {
     "start": "remix vite:dev",
     "build": "remix vite:build --config vite.config.prod.ts",
+    "build:itch": "vite build --config vite.config.itch.ts && mv build/itch/itch.html build/itch/index.html && sed -i '' 's|src=\"/assets/|src=\"./assets/|g' build/itch/index.html",
+    "zip": "npm run build:itch && cd build/itch && zip -r ../floppy-worm-v$(jq -r .version ../../package.json).zip . && echo \"Created build/floppy-worm-v$(jq -r .version ../../package.json).zip\"",
     "dev": "remix vite:dev",
     "preview": "vite preview",
+    "preview:itch": "vite preview --config vite.config.itch.ts --outDir build/itch",
     "typecheck": "tsc"
   },
   "dependencies": {
