@@ -32,6 +32,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="description" content="A physics-based worm game with challenging levels" />
         <Meta />
         <Links />
+        <script defer data-domain="fw.ljs.app" src="https://plausible.ljs.app/js/script.outbound-links.pageview-props.tagged-events.js" />
         <style dangerouslySetInnerHTML={{
           __html: `
             body {
