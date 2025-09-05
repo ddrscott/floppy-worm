@@ -49,18 +49,29 @@ export default class GhostSystemManager {
                 dataLength: ghostData.data?.length
             });
             
-            const loadedSegmentCount = ghostData.segmentCount || 12;
-            this.player = new GhostPlayer(this.scene, loadedSegmentCount);
-            const loaded = await this.player.loadGhostData(ghostData);
-            
-            if (loaded && this.player.frames && this.player.frames.length > 0) {
-                console.log(`Ghost loaded successfully with ${this.player.frames.length} frames, time: ${this.formatTime(ghostData.completionTime)}`);
-                // Create ghost indicator UI
-                this.createIndicator(ghostData.completionTime);
-                return true;
-            } else {
-                console.error('Failed to load ghost data into player');
-                this.player = null;
+            try {
+                const loadedSegmentCount = ghostData.segmentCount || 12;
+                this.player = new GhostPlayer(this.scene, loadedSegmentCount);
+                const loaded = await this.player.loadGhostData(ghostData);
+                
+                if (loaded && this.player && this.player.frames && this.player.frames.length > 0) {
+                    console.log(`Ghost loaded successfully with ${this.player.frames.length} frames, time: ${this.formatTime(ghostData.completionTime)}`);
+                    // Create ghost indicator UI
+                    this.createIndicator(ghostData.completionTime);
+                    return true;
+                } else {
+                    console.error('Failed to load ghost data into player');
+                    if (this.player) {
+                        this.player.destroy();
+                        this.player = null;
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing ghost player:', error);
+                if (this.player) {
+                    this.player.destroy();
+                    this.player = null;
+                }
             }
         }
         return false;

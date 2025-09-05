@@ -163,9 +163,13 @@ export default class GhostRecorder {
         // Check if we have input data to determine version
         const hasInputData = this.frames.length > 0 && this.frames[0].input !== undefined;
         
+        // Get duration safely - check if last frame has a timestamp
+        const lastFrame = this.frames[this.frames.length - 1];
+        const duration = lastFrame && lastFrame.timestamp !== undefined ? lastFrame.timestamp : 0;
+        
         return {
             frameCount: this.frames.length,
-            duration: this.frames[this.frames.length - 1].timestamp,
+            duration: duration,
             segmentCount: this.segmentCount,
             compression: (typeof window !== 'undefined' && window.CompressionStream) ? 'gzip' : 'none',
             encoding: hasInputData ? 'binary-v2' : 'binary-v1', // v2 includes input data
