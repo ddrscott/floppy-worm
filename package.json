@@ -1,6 +1,6 @@
 {
   "name": "floppy-worm",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Physics-based worm game using Phaser and Matter.js",
   "private": true,
   "sideEffects": false,
