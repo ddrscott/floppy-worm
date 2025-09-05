@@ -6,6 +6,7 @@ import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
 import { getMenuAudio } from '../audio/MenuAudio';
 import ScrollingBackground from '../utils/ScrollingBackground';
+import { trackMapSelect } from '../utils/analytics';
 
 export default class MapSelectScene extends Phaser.Scene {
     constructor() {
@@ -687,6 +688,10 @@ export default class MapSelectScene extends Phaser.Scene {
             this.registry.set('lastSelectedMapIndex', this.selectedMapIndex);
             this.registry.set('lastSelectedCategory', this.currentCategory.name);
         }
+        
+        // Track map selection
+        const categoryName = this.currentCategory ? this.currentCategory.name : 'unknown';
+        trackMapSelect(map.key, categoryName);
         
         // Fade out and load map
         this.cameras.main.fadeOut(250, 0, 0, 0);

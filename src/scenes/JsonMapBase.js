@@ -12,6 +12,7 @@ import { getCachedBuildMode } from '../utils/buildMode';
 import GoalCollectionManager from '../utils/GoalCollectionManager';
 import GameStateManager from '../services/GameStateManager';
 import Random from '../utils/Random';
+import { trackGameStart, trackGameFinish } from '../utils/analytics';
 
 export default class JsonMapBase extends Phaser.Scene {
     constructor(config = {}) {
@@ -489,6 +490,9 @@ export default class JsonMapBase extends Phaser.Scene {
             if (this.stopwatch) {
                 this.stopwatch.start();
                 this.ghostSystem.startPlayback();
+                
+                // Track game start event
+                trackGameStart(this.mapKey);
             }
         });
     }
@@ -1616,6 +1620,9 @@ export default class JsonMapBase extends Phaser.Scene {
 
             const elapsedTime = this.stopwatch.elapsedTime;
             
+            // Track victory event
+            trackGameFinish(this.mapKey, 'victory', elapsedTime);
+            
             // Get recording data from ghost system
             const recordingData = this.ghostSystem ? await this.ghostSystem.stopRecording() : null;
             
@@ -1912,6 +1919,9 @@ export default class JsonMapBase extends Phaser.Scene {
         // Save the recording as a failure before restarting
         const elapsedTime = this.stopwatch ? this.stopwatch.elapsedTime : 0;
         console.log('⏱️ Elapsed time before restart:', elapsedTime);
+        
+        // Track restart event
+        trackGameFinish(this.mapKey, 'restart', elapsedTime, reason);
         
         await this.saveRecordingToIndexedDB(false, elapsedTime, reason);
         
