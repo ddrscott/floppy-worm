@@ -27,7 +27,24 @@
       "id": "sticker_1",
       "x": 750,
       "y": 612,
-      "text": "Move the sticks slowly in circles and notice what happens."
+      "text": "Draw circles with the left stick."
+    },
+    {
+      "id": "sticker_2",
+      "x": 250,
+      "y": 612,
+      "text": "Collect the stars."
+    }
+  ],
+  "videos": [
+    {
+      "x": 750,
+      "y": 450,
+      "text": "demo",
+      "url": "/vids/head-cw.mp4",
+      "width": 450,
+      "height": 200,
+      "loop": true
     }
   ],
   "constraints": []

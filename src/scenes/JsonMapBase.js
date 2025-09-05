@@ -262,6 +262,17 @@ export default class JsonMapBase extends Phaser.Scene {
         // Clear platforms array
         this.platforms = [];
         
+        // Cleanup videos
+        if (this.videos) {
+            this.videos.forEach(video => {
+                if (video && video.destroy) {
+                    video.stop();
+                    video.destroy();
+                }
+            });
+            this.videos = [];
+        }
+        
         // Cleanup constraints
         if (this.constraints) {
             this.constraints.forEach(({ constraint }) => {
@@ -337,6 +348,7 @@ export default class JsonMapBase extends Phaser.Scene {
         this.worm = null;
         this.platforms = [];
         this.stickers = [];
+        this.videos = [];
         this.constraints = [];
         this.minimapIgnoreList = [];
         this.buttonMWasPressed = false;
@@ -362,6 +374,17 @@ export default class JsonMapBase extends Phaser.Scene {
     
     preload() {
         // Background music is now preloaded in MapSelectScene to prevent hitches
+        
+        // Preload videos from map data
+        if (this.mapData && this.mapData.videos) {
+            this.mapData.videos.forEach((videoData, index) => {
+                const key = `video_${this.mapKey}_${index}`;
+                const autoplay = videoData.autoplay !== undefined ? videoData.autoplay : true;
+                const loop = videoData.loop !== undefined ? videoData.loop : true;
+                console.log(`📹 Preloading video: ${key} from ${videoData.url}`);
+                this.load.video(key, videoData.url, autoplay, loop);
+            });
+        }
     }
     
     async create() {
@@ -494,7 +517,7 @@ export default class JsonMapBase extends Phaser.Scene {
 
     
     loadMapFromJSON() {
-        const { platforms, entities, stickers = [], constraints = [] } = this.mapData;
+        const { platforms, entities, stickers = [], constraints = [], videos = [] } = this.mapData;
         
         // Create platforms
         platforms.forEach(platformData => {
@@ -504,6 +527,11 @@ export default class JsonMapBase extends Phaser.Scene {
         // Create stickers
         stickers.forEach(stickerData => {
             this.createStickerFromJSON(stickerData);
+        });
+        
+        // Create videos
+        videos.forEach((videoData, index) => {
+            this.createVideoFromJSON(videoData, index);
         });
         
         // Create entities
@@ -550,6 +578,65 @@ export default class JsonMapBase extends Phaser.Scene {
             console.log(`Created sticker: "${stickerData.text}" at (${stickerData.x}, ${stickerData.y})`);
         } catch (error) {
             console.warn('Failed to create sticker from JSON:', stickerData, error);
+        }
+    }
+    
+    createVideoFromJSON(videoData, index) {
+        try {
+            const key = `video_${this.mapKey}_${index}`;
+
+            console.log(`Creating video element: ${key}`, videoData);
+            
+            // Create video object
+            const video = this.add.video(videoData.x, videoData.y, key);
+            
+            if (videoData.depth !== undefined) {
+                video.setDepth(videoData.depth);
+            } else {
+                video.setDepth(5); // Default depth above platforms but below UI
+            }
+            video.setAlpha(0.25, 0.25, 1, 1);
+            
+            // Configure video properties
+            if (videoData.alpha !== undefined) {
+                video.setAlpha(videoData.alpha);
+            }
+            
+            // Handle video playback
+            const autoplay = videoData.autoplay !== undefined ? videoData.autoplay : true;
+            const loop = videoData.loop !== undefined ? videoData.loop : true;
+            
+            if (autoplay) {
+                // Play the video
+                video.play(loop);
+            }
+            
+            // Make video interactive if specified
+            if (videoData.interactive) {
+                video.setInteractive();
+                
+                video.on('pointerdown', () => {
+                    if (video.isPlaying()) {
+                        video.pause();
+                    } else {
+                        video.play(loop);
+                    }
+                });
+            }
+            
+            // Hide video from minimap
+            if (this.minimap) {
+                this.minimap.ignore(video);
+            }
+            
+            // Store reference for cleanup if needed
+            if (!this.videos) {
+                this.videos = [];
+            }
+            this.videos.push(video);
+            
+        } catch (error) {
+            console.warn('Failed to create video from JSON:', videoData, error);
         }
     }
     
